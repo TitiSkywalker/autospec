@@ -1,0 +1,17 @@
+[project]
+name = "autospec"
+version = "0.1.0"
+description = "Generate formal specifications for Rust projects from docs and tests using an LLM agent"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "anthropic>=0.39.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+autospec = "main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

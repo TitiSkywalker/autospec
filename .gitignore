@@ -1,0 +1,5 @@
+local/
+specs/
+__pycache__/
+.claude/
+*.egg-info

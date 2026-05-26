@@ -1,0 +1,189 @@
+"""Core agent loop — Anthropic tool-use conversation with Rust specification tools."""
+
+import sys
+import time
+from pathlib import Path
+
+import anthropic
+
+import tools  # noqa: F401 — triggers tool registration
+from tool_registry import set_context, get_definitions, dispatch
+from prompt import SYSTEM_PROMPT, NEXT_STEP_PROMPT
+
+
+class SpecAgent:
+    """LLM agent that explores a Rust project and generates formal specifications.
+
+    The agent uses Anthropic's tool-use API. It navigates the codebase with
+    file/exploration tools, reads documentation and tests, then writes
+    structured specifications to the output directory.
+    """
+
+    def __init__(
+        self,
+        project_path: str,
+        output_dir: str = "specs",
+        model: str = "claude-sonnet-4-6-20250514",
+        max_iterations: int = 30,
+        max_tokens: int = 4096,
+        verbose: bool = False,
+        api_key: str = "",
+        base_url: str = "",
+    ):
+        abs_project = str(Path(project_path).resolve())
+        abs_output = str(Path(output_dir).resolve())
+        set_context(abs_project, abs_output)
+
+        self.project_path = abs_project
+        self.output_dir = abs_output
+        self.model = model
+        self.max_iterations = max_iterations
+        self.max_tokens = max_tokens
+        self.verbose = verbose
+        self.client = anthropic.Anthropic(
+            api_key=api_key,
+            base_url=base_url or None,
+        )
+        self.tool_defs = get_definitions()
+
+        self._system = [
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+
+    def run(self) -> None:
+        """Run the specification-generation conversation loop."""
+        task_prompt = (
+            f"Please analyze the Rust project at `{self.project_path}`. "
+            f"1. Call generate_doc_json(features='all'). "
+            f"2. Call read_rustdoc() to see the module summary. "
+            f"3. Drill into the 2-4 most important modules with read_rustdoc(module=...). "
+            f"4. Call write_spec IMMEDIATELY after drilling — do NOT read source "
+            f"   files unless a function has zero doc comments. "
+            f"Doc comments are the ONLY source of truth for pre/post conditions. "
+            f"Tests are only for call-pattern reference. "
+            f"Write the spec to `{self.output_dir}/spec.rs`."
+        )
+
+        messages = [{"role": "user", "content": task_prompt}]
+
+        for iteration in range(1, self.max_iterations + 1):
+            if self.verbose:
+                print(f"\n{'─'*40} Iteration {iteration}/{self.max_iterations} {'─'*40}",
+                      file=sys.stderr)
+
+            # Warn the model when approaching the budget.
+            remaining = self.max_iterations - iteration
+            if remaining == 1:
+                messages.append({
+                    "role": "user",
+                    "content": "[SYSTEM] You have ONE iteration remaining. "
+                               "Use write_spec NOW to save your specification, "
+                               "then respond with a brief summary.",
+                })
+            elif remaining <= 3 and remaining > 1:
+                messages.append({
+                    "role": "user",
+                    "content": f"[SYSTEM] {remaining} iterations remaining. "
+                               "Begin writing the specification with write_spec soon.",
+                })
+
+            response = self._call_api(messages)
+
+            # Separate text and tool-use blocks from the response.
+            assistant_blocks: list[dict] = []
+            tool_blocks: list[anthropic.types.ToolUseBlock] = []
+
+            for block in response.content:
+                if block.type == "text":
+                    assistant_blocks.append({"type": "text", "text": block.text})
+                    if self.verbose:
+                        print(f"\n[text] {block.text[:300]}{'...' if len(block.text) > 300 else ''}",
+                              file=sys.stderr)
+                elif block.type == "tool_use":
+                    assistant_blocks.append({
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    })
+                    tool_blocks.append(block)
+                elif block.type in ("thinking", "redacted_thinking"):
+                    # Pass thinking blocks back through — required by
+                    # DeepSeek and Claude extended-thinking models.
+                    assistant_blocks.append(block.model_dump())
+
+            messages.append({"role": "assistant", "content": assistant_blocks})
+
+            # No tool calls means the agent considers the task complete.
+            if not tool_blocks:
+                final_text = " ".join(
+                    b["text"] for b in assistant_blocks if b["type"] == "text"
+                )
+                print(f"\nAgent finished after {iteration} iterations.")
+                if final_text:
+                    print(f"\n{final_text}")
+                break
+
+            # Execute tools and collect results.
+            if self.verbose:
+                print(f"\n[tools] Running {len(tool_blocks)} tool(s)...", file=sys.stderr)
+
+            tool_results: list[dict] = []
+            for tb in tool_blocks:
+                if self.verbose:
+                    print(f"  [debug] {tb.name} input={tb.input}", file=sys.stderr)
+                result = dispatch(tb.name, tb.input)
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": tb.id,
+                    "content": result,
+                })
+                if self.verbose:
+                    preview = result[:120].replace("\n", " ")
+                    print(f"  {tb.name}: {preview}{'...' if len(result) > 120 else ''}",
+                          file=sys.stderr)
+
+            messages.append({"role": "user", "content": tool_results})
+        else:
+            # Exhausted all iterations.
+            print(f"\nReached iteration limit ({self.max_iterations}). "
+                  "Forcing final summary...")
+            messages.append({
+                "role": "user",
+                "content": "You have exhausted your iteration budget. "
+                           "If you have not yet written the specification, "
+                           "use write_spec NOW to save what you have, "
+                           "then respond with a brief summary.",
+            })
+            response = self._call_api(messages)
+            for block in response.content:
+                if block.type == "text":
+                    print(block.text)
+                elif block.type == "tool_use":
+                    result = dispatch(block.name, block.input)
+                    print(f"\n[tool] {block.name}: {result[:300]}")
+
+    # ————————————————————————————— internals —————————————————————————————
+
+    def _call_api(self, messages: list[dict]) -> anthropic.types.Message:
+        """Call the Anthropic Messages API with prompt-cached system prompt."""
+        t0 = time.monotonic()
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            system=self._system,
+            messages=messages,
+            tools=self.tool_defs,
+        )
+        elapsed = time.monotonic() - t0
+        if self.verbose:
+            usage = response.usage
+            print(f"[api] {elapsed:.1f}s  "
+                  f"input={usage.input_tokens} output={usage.output_tokens}  "
+                  f"stop={response.stop_reason}",
+                  file=sys.stderr)
+        return response
