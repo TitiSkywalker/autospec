@@ -16,10 +16,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv(Path.home() / ".autospec" / ".env")
-
 
 def _run_type_agent(
     project_path: str,
