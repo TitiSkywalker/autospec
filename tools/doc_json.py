@@ -6,10 +6,7 @@ from pathlib import Path
 
 from tool_registry import register, get_project_root
 
-# Import the RustDoc parser from local/
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "local"))
-from doc import RustDoc, RustItem  # noqa: E402
+from rustdoc import RustDoc, RustItem
 
 
 def _find_doc_json(root: Path, crate_name: str) -> Path | None:
@@ -228,8 +225,7 @@ def read_rustdoc(module: str = "") -> str:
             for mname, mdocs in methods:
                 mdocs_text = (mdocs or "").strip()
                 if mdocs_text:
-                    first_line = mdocs_text.split("\n")[0][:200]
-                    lines.append(f"    fn {mname}() — {first_line}")
+                    lines.append(f"    fn {mname}() — {mdocs_text}")
                 else:
                     lines.append(f"    fn {mname}()")
             lines.append("")

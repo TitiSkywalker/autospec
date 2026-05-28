@@ -8,7 +8,7 @@ import anthropic
 
 import tools  # noqa: F401 — triggers tool registration
 from tool_registry import set_context, get_definitions, dispatch
-from prompt import SYSTEM_PROMPT, NEXT_STEP_PROMPT
+from prompt import SYSTEM_PROMPT, MODULE_SYSTEM_PROMPT, NEXT_STEP_PROMPT
 
 
 class SpecAgent:
@@ -29,6 +29,8 @@ class SpecAgent:
         verbose: bool = False,
         api_key: str = "",
         base_url: str = "",
+        system_prompt: str = "",
+        tool_filter: list[str] | None = None,
     ):
         abs_project = str(Path(project_path).resolve())
         abs_output = str(Path(output_dir).resolve())
@@ -44,29 +46,40 @@ class SpecAgent:
             api_key=api_key,
             base_url=base_url or None,
         )
-        self.tool_defs = get_definitions()
+        all_tools = get_definitions()
+        if tool_filter is not None:
+            self.tool_defs = [t for t in all_tools if t["name"] in tool_filter]
+        else:
+            self.tool_defs = all_tools
 
         self._system = [
             {
                 "type": "text",
-                "text": SYSTEM_PROMPT,
+                "text": system_prompt or SYSTEM_PROMPT,
                 "cache_control": {"type": "ephemeral"},
             }
         ]
 
-    def run(self) -> None:
-        """Run the specification-generation conversation loop."""
-        task_prompt = (
-            f"Please analyze the Rust project at `{self.project_path}`. "
-            f"1. Call generate_doc_json(features='all'). "
-            f"2. Call read_rustdoc() to see the module summary. "
-            f"3. Drill into the 2-4 most important modules with read_rustdoc(module=...). "
-            f"4. Call write_spec IMMEDIATELY after drilling — do NOT read source "
-            f"   files unless a function has zero doc comments. "
-            f"Doc comments are the ONLY source of truth for pre/post conditions. "
-            f"Tests are only for call-pattern reference. "
-            f"Write the spec to `{self.output_dir}/spec.rs`."
-        )
+    def run(self, task: str = "") -> None:
+        """Run the specification-generation conversation loop.
+
+        If *task* is given, use it as the initial user prompt (for per-module
+        sub-agents). Otherwise use the default monolithic exploration prompt.
+        """
+        if task:
+            task_prompt = task
+        else:
+            task_prompt = (
+                f"Please analyze the Rust project at `{self.project_path}`. "
+                f"1. Call generate_doc_json(features='all'). "
+                f"2. Call read_rustdoc() to see the module summary. "
+                f"3. Drill into the 2-4 most important modules with read_rustdoc(module=...). "
+                f"4. Call write_spec IMMEDIATELY after drilling — do NOT read source "
+                f"   files unless a function has zero doc comments. "
+                f"Doc comments are the ONLY source of truth for pre/post conditions. "
+                f"Tests are only for call-pattern reference. "
+                f"Write the spec to `{self.output_dir}/spec.rs`."
+            )
 
         messages = [{"role": "user", "content": task_prompt}]
 
