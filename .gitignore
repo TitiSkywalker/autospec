@@ -3,3 +3,4 @@ specs/
 __pycache__/
 .claude/
 *.egg-info
+.env
