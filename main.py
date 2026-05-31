@@ -266,13 +266,12 @@ def _get_spec_targets(project_path: str, output_dir: str) -> list[tuple[str, str
 
 
 def _check_specs(project_path: str, output_dir: str) -> bool:
-    """Check generated specs by compiling them against the original crate.
+    """Check generated Kani harnesses by compiling with the original crate.
 
-    Creates a temporary Cargo project that depends on the target crate
-    and includes all spec files as modules. Runs ``cargo check`` and
-    reports errors.
+    Copies the target crate to a temp directory, injects harness files
+    as modules, and runs ``cargo kani`` for verification.
 
-    Returns True if all specs pass compilation.
+    Returns True if all harnesses pass verification.
     """
     import re
     import shutil
@@ -283,112 +282,206 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
     output = Path(output_dir)
     project = Path(project_path)
 
-    spec_files = sorted(output.glob("*.rs"))
+    spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
     if not spec_files:
         print("  No spec files found to check.")
         return True
 
-    # Read crate name from Cargo.toml
     with open(project / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", project.name)
 
-    # Create temp Cargo project
-    tmp = Path(tempfile.mkdtemp(prefix="autospec_check_"))
-    (tmp / "src").mkdir(parents=True)
+    # Copy the source crate to a temp directory
+    tmp = Path(tempfile.mkdtemp(prefix="autospec_kani_"))
+    shutil.copytree(project / "src", tmp / "src")
+    shutil.copy2(project / "Cargo.toml", tmp / "Cargo.toml")
+    # Copy Cargo.lock if it exists (important for dependency resolution)
+    lock = project / "Cargo.lock"
+    if lock.exists():
+        shutil.copy2(lock, tmp / "Cargo.lock")
 
-    (tmp / "Cargo.toml").write_text(
-        f'[package]\n'
-        f'name = "autospec-check"\n'
-        f'version = "0.0.0"\n'
-        f'edition = "2021"\n\n'
-        f'[dependencies]\n'
-        f'{crate_name} = {{ path = "{project}" }}\n'
-    )
+    # Read original lib.rs
+    lib_rs = tmp / "src" / "lib.rs"
+    lib_content = lib_rs.read_text() if lib_rs.exists() else ""
 
-    # Build main.rs that declares each spec as a module
-    main_lines = [
-        "#![allow(dead_code, non_snake_case, unused_variables)]",
-        "fn main() {}",
-        "",
-    ]
-    for sf in spec_files:
-        mod_name = sf.stem.replace("-", "_").replace(".", "_")
-        # Also declare the module
-        main_lines.append(f"#[path = \"{sf.name}\"]")
-        main_lines.append(f"mod {mod_name};")
+    # Inject harness modules into lib.rs
+    harness_mod_names: list[str] = []
+    for i, sf in enumerate(spec_files, 1):
+        mod_name = f"autospec_harness_{i}"
+        harness_mod_names.append(mod_name)
 
-    # Copy spec files and preprocess them to add imports
-    for sf in spec_files:
         content = sf.read_text()
 
-        # Determine module path: first from header, then from filename
+        # Determine module path from header, then filename
         mod_match = re.search(r"// Module: (.+)", content)
         mod_path = mod_match.group(1).strip() if mod_match else ""
-
         if not mod_path:
-            # Infer from filename: "math__functions.rs" → "math"
             stem = sf.stem
             if "__" in stem:
                 mod_path = stem.split("__")[0]
 
-        # Build use statements for the target crate's module
-        use_imports = []
+        # Inject use imports before the first harness
+        use_lines = ["#![allow(dead_code, non_snake_case, unused_variables)]"]
         if mod_path:
-            use_imports.append(f"use {crate_name}::{mod_path}::*;")
-        else:
-            use_imports.append(f"use {crate_name}::*;")
+            use_lines.append(f"use crate::{mod_path}::*;")
+        use_lines.append("")
 
-        # Inject use statements: after header block if present, else at top
-        end_of_header = 0
-        for m in re.finditer(r"^// (?:Module|Type|This file).*\n", content, re.MULTILINE):
-            end_of_header = m.end()
+        # Find end of header comments and inject use statements there
+        first_non_comment = 0
+        for m in re.finditer(
+            r"^(?://.*\n)*(?:\n)*", content, re.MULTILINE
+        ):
+            first_non_comment = m.end()
+            break
 
-        if end_of_header > 0:
+        if first_non_comment > 0:
             content = (
-                content[:end_of_header]
+                content[:first_non_comment]
+                + "\n".join(use_lines)
                 + "\n"
-                + "\n".join(use_imports)
-                + "\n"
-                + content[end_of_header:]
+                + content[first_non_comment:]
             )
         else:
-            content = "\n".join(use_imports) + "\n\n" + content
+            content = "\n".join(use_lines) + "\n\n" + content
 
-        (tmp / "src" / sf.name).write_text(content)
+        # Rename to match module name: geometry__Point.rs → autospec_harness_1.rs
+        (tmp / "src" / f"{mod_name}.rs").write_text(content)
 
-    (tmp / "src" / "main.rs").write_text("\n".join(main_lines) + "\n")
-
-    print(f"  Running cargo check in {tmp} ...")
-    result = subprocess.run(
-        ["cargo", "check"],
-        cwd=str(tmp),
-        capture_output=True,
-        text=True,
-        timeout=120,
+    # Append harness mod declarations to lib.rs
+    mod_decls = "\n// Kani harness modules (generated by autospec)\n"
+    mod_decls += "\n".join(
+        f"#[cfg(kani)] pub mod {name};" for name in harness_mod_names
     )
+    (lib_rs).write_text(lib_content + mod_decls + "\n")
 
-    # Show relevant output
+    # Phase 1: fast compilation check (--only-codegen)
+    print(f"  [1/2] Compilation check (--only-codegen) ...")
+    try:
+        result = subprocess.run(
+            ["cargo", "kani", "--only-codegen", "--no-assertion-reach-checks"],
+            cwd=str(tmp),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        print("  FAIL: compilation check timed out (2 minutes)")
+        shutil.rmtree(tmp)
+        return False
+
+    # Show compilation errors/warnings
     stderr = result.stderr.strip()
-    if stderr:
-        # Filter to error/warning lines
-        for line in stderr.split("\n"):
-            if any(kw in line for kw in ("error", "warning", "-->", "|")):
-                print(f"    {line}")
+    stdout = result.stdout.strip()
+    combined = stderr + "\n" + stdout
+    for line in combined.split("\n"):
+        if any(kw in line for kw in ("error[", "warning[", "aborting",
+                                       "could not compile", "Compiling")):
+            print(f"    {line}")
 
-    # Clean up
+    if result.returncode != 0:
+        print(f"  FAIL: compilation failed with exit code {result.returncode}")
+        shutil.rmtree(tmp)
+        return False
+
+    print(f"  OK: {len(spec_files)} harness files compile successfully.")
     shutil.rmtree(tmp)
+    return True
+
+
+def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> bool:
+    """Run full Kani model-checking verification (SLOW)."""
+    import re
+    import shutil
+    import subprocess
+    import tempfile
+    import tomllib
+
+    output = Path(output_dir)
+    project = Path(project_path)
+
+    spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
+    if not spec_files:
+        print("  No spec files found.")
+        return True
+
+    with open(project / "Cargo.toml", "rb") as fh:
+        cargo = tomllib.load(fh)
+    crate_name = cargo.get("package", {}).get("name", project.name)
+
+    tmp = Path(tempfile.mkdtemp(prefix="autospec_kani_"))
+    shutil.copytree(project / "src", tmp / "src")
+    shutil.copy2(project / "Cargo.toml", tmp / "Cargo.toml")
+    lock = project / "Cargo.lock"
+    if lock.exists():
+        shutil.copy2(lock, tmp / "Cargo.lock")
+
+    lib_rs = tmp / "src" / "lib.rs"
+    lib_content = lib_rs.read_text() if lib_rs.exists() else ""
+
+    harness_mod_names: list[str] = []
+    for i, sf in enumerate(spec_files, 1):
+        mod_name = f"autospec_harness_{i}"
+        harness_mod_names.append(mod_name)
+        content = sf.read_text()
+        mod_match = re.search(r"// Module: (.+)", content)
+        mod_path = mod_match.group(1).strip() if mod_match else ""
+        if not mod_path:
+            stem = sf.stem
+            if "__" in stem:
+                mod_path = stem.split("__")[0]
+        use_lines = ["#![allow(dead_code, non_snake_case, unused_variables)]"]
+        if mod_path:
+            use_lines.append(f"use crate::{mod_path}::*;")
+        use_lines.append("")
+        first_non_comment = 0
+        for m in re.finditer(r"^(?://.*\n)*(?:\n)*", content, re.MULTILINE):
+            first_non_comment = m.end()
+            break
+        if first_non_comment > 0:
+            content = content[:first_non_comment] + "\n".join(use_lines) + "\n" + content[first_non_comment:]
+        else:
+            content = "\n".join(use_lines) + "\n\n" + content
+        (tmp / "src" / f"{mod_name}.rs").write_text(content)
+
+    mod_decls = "\n// Kani harness modules (generated by autospec)\n"
+    mod_decls += "\n".join(
+        f"#[cfg(kani)] pub mod {name};" for name in harness_mod_names
+    )
+    lib_rs.write_text(lib_content + mod_decls + "\n")
+
+    print(f"  Running cargo kani (this may take a while) ...")
+    try:
+        result = subprocess.run(
+            ["cargo", "kani", "--default-unwind", "3"],
+            cwd=str(tmp),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"  TIMEOUT: cargo kani exceeded {timeout}s — specs are syntactically valid, verification skipped.")
+        shutil.rmtree(tmp)
+        return False
+
+    # Show verification results
+    for line in (result.stdout + "\n" + result.stderr).split("\n"):
+        if any(kw in line for kw in ("VERIFICATION", "FAILED", "SUCCESS",
+                                      "Complete", "Checking", "assertion",
+                                      "error[", "status:")):
+            print(f"    {line}")
 
     if result.returncode == 0:
-        print(f"  OK: {len(spec_files)} spec files pass compilation.")
+        print(f"  OK: {len(spec_files)} harness files passed Kani verification.")
+        shutil.rmtree(tmp)
         return True
     else:
-        print(f"  FAIL: cargo check returned exit code {result.returncode}")
+        print(f"  FAIL: cargo kani returned exit code {result.returncode}")
+        shutil.rmtree(tmp)
         return False
 
 
 def _structural_check(output_dir: str) -> list[str]:
-    """Basic structural validation of spec files without compilation.
+    """Basic structural validation of Kani harness files without compilation.
 
     Returns a list of warnings (empty = all good).
     """
@@ -407,25 +500,26 @@ def _structural_check(output_dir: str) -> list[str]:
             warnings.append(f"{sf.name}: too small ({size} bytes), likely empty")
             continue
 
-        # Count spec pairs (comment block + precondition + specification)
+        # Count harness blocks (comment + #[kani::proof] + pub fn)
         spec_blocks = len(re.findall(r"/\*\nDescription:", content))
-        prec_fns = len(re.findall(r"pub fn \w+_precondition\(", content))
-        spec_fns = len(re.findall(r"pub fn \w+_specification\(", content))
+        kani_proofs = len(re.findall(r"#\[kani::proof\]", content))
+        spec_for_entries = len(re.findall(r"Spec-for:", content))
 
         if spec_blocks == 0:
-            warnings.append(f"{sf.name}: no specification blocks found")
-        if prec_fns == 0:
-            warnings.append(f"{sf.name}: no _precondition functions")
-        if spec_fns == 0:
-            warnings.append(f"{sf.name}: no _specification functions")
-        if prec_fns > spec_blocks:
+            warnings.append(f"{sf.name}: no Description blocks found")
+        if kani_proofs == 0:
+            warnings.append(f"{sf.name}: no #[kani::proof] harnesses")
+        if spec_for_entries == 0:
+            warnings.append(f"{sf.name}: no Spec-for: mappings (function→harness links)")
+        if spec_blocks != kani_proofs:
             warnings.append(
-                f"{sf.name}: more preconditions ({prec_fns}) than spec blocks ({spec_blocks})"
+                f"{sf.name}: mismatch — {spec_blocks} Description blocks but "
+                f"{kani_proofs} #[kani::proof] harnesses"
             )
-        if spec_fns != spec_blocks:
+        if spec_for_entries < kani_proofs:
             warnings.append(
-                f"{sf.name}: mismatch — {spec_blocks} blocks but "
-                f"{spec_fns} spec functions"
+                f"{sf.name}: only {spec_for_entries} Spec-for: entries for "
+                f"{kani_proofs} harnesses"
             )
 
         # Check no unimplemented/todo placeholders
@@ -434,12 +528,11 @@ def _structural_check(output_dir: str) -> list[str]:
         if "todo!(" in content:
             warnings.append(f"{sf.name}: contains todo!() calls")
 
-        # Check comments that look like missing assertions
-        comment_only = len(re.findall(r"^\s*// .*(result|assert|should)", content, re.MULTILINE))
-        if comment_only > 3:
+        # Count assert! calls (Kani treats them as proof obligations)
+        proof_asserts = len(re.findall(r"assert!?\(", content))
+        if proof_asserts == 0:
             warnings.append(
-                f"{sf.name}: {comment_only} comment lines that look like "
-                f"missing assertions"
+                f"{sf.name}: no assert!() calls — harness may be empty"
             )
 
     return warnings
@@ -451,13 +544,12 @@ def _write_spec_json(
     targets: list[tuple[str, str]],
     results: list[tuple[str, bool]],
 ) -> None:
-    """Write a structured specs.json manifest alongside the spec files."""
+    """Write a structured specs.json manifest with function-to-spec mappings."""
     import json
     import re
 
     entries: list[dict] = []
     for (filename, doc_section), (_, ok) in zip(targets, results):
-        # Parse metadata from doc section header and spec file
         spec_path = Path(output_dir) / filename
         size = spec_path.stat().st_size if spec_path.is_file() else 0
 
@@ -467,11 +559,23 @@ def _write_spec_json(
         item_kind = type_match.group(1) if type_match else ""
         item_name = type_match.group(2) if type_match else filename
 
-        # Count spec pairs in the generated output
+        # Count harnesses and extract function→harness mappings
         spec_count = 0
+        mappings: list[dict] = []
         if spec_path.is_file():
             content = spec_path.read_text()
             spec_count = len(re.findall(r"/\*\nDescription:", content))
+
+            # Extract each Description + Spec-for pair
+            blocks = re.findall(
+                r"/\*\nDescription: (.+?)\n(?:.*\n)*?Spec-for: (\S+)",
+                content,
+            )
+            for desc, func_name in blocks:
+                mappings.append({
+                    "source_function": func_name,
+                    "description": desc.strip(),
+                })
 
         entries.append({
             "file": filename,
@@ -481,6 +585,7 @@ def _write_spec_json(
             "size_bytes": size,
             "spec_count": spec_count,
             "status": "ok" if ok else "failed",
+            "harnesses": mappings,
         })
 
     manifest = {
@@ -622,6 +727,17 @@ def main() -> None:
         action="store_true",
         help="Skip generation; only run checks on existing specs in --output.",
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Run full Kani model-checking verification.",
+    )
+    parser.add_argument(
+        "--kani-timeout",
+        type=int,
+        default=120,
+        help="Timeout in seconds for each Kani verification run (default: 120).",
+    )
 
     args = parser.parse_args()
 
@@ -642,7 +758,7 @@ def main() -> None:
 
     # --check-only: skip generation, just validate
     if args.check_only:
-        _run_checks(str(project), str(output))
+        _run_checks(str(project), str(output), verify=args.verify, kani_timeout=args.kani_timeout)
         return
 
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
@@ -682,10 +798,10 @@ def main() -> None:
     print(f"\nDone. Output written to {output}/")
 
     if args.check:
-        _run_checks(str(project), str(output))
+        _run_checks(str(project), str(output), verify=args.verify, kani_timeout=args.kani_timeout)
 
 
-def _run_checks(project_path: str, output_dir: str) -> None:
+def _run_checks(project_path: str, output_dir: str, verify: bool = False, kani_timeout: int = 120) -> None:
     """Run all spec validation checks."""
     print("=" * 60)
     print("Specification validation")
@@ -700,9 +816,12 @@ def _run_checks(project_path: str, output_dir: str) -> None:
     else:
         print("  OK: no structural issues detected.")
 
-    # 2. Compilation check
+    # 2. Compilation check (fast)
     print("\n[2] Compilation check ...")
-    _check_specs(project_path, output_dir)
+    if _check_specs(project_path, output_dir):
+        if verify:
+            print(f"\n[3] Kani verification (timeout={kani_timeout}s) ...")
+            _verify_specs(project_path, output_dir, timeout=kani_timeout)
 
 
 if __name__ == "__main__":
