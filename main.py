@@ -13,7 +13,9 @@ Examples:
 
 import argparse
 import os
+import signal
 import sys
+import time
 from pathlib import Path
 
 
@@ -355,7 +357,7 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
     (lib_rs).write_text(lib_content + mod_decls + "\n")
 
     # Phase 1: fast compilation check (--only-codegen)
-    print(f"  [1/2] Compilation check (--only-codegen) ...")
+    print(f"  Compilation check (cargo kani --only-codegen) ...")
     try:
         result = subprocess.run(
             ["cargo", "kani", "--only-codegen", "--no-assertion-reach-checks"],
@@ -449,35 +451,93 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> boo
     )
     lib_rs.write_text(lib_content + mod_decls + "\n")
 
-    print(f"  Running cargo kani (this may take a while) ...")
-    try:
-        result = subprocess.run(
-            ["cargo", "kani", "--default-unwind", "3"],
+    # Extract harness function names from spec files
+    import re as _re
+    harnesses: list[tuple[str, str, str]] = []  # (source_file, mod_name, harness_name)
+    for i, sf in enumerate(spec_files, 1):
+        mod_name = harness_mod_names[i - 1]
+        for m in _re.finditer(r"#\[kani::proof\]\s*pub fn (\w+)\(", sf.read_text()):
+            harnesses.append((sf.stem, mod_name, m.group(1)))
+
+    if not harnesses:
+        print("  No harness functions found.")
+        shutil.rmtree(tmp)
+        return False
+
+    # Run harnesses one at a time so fast ones pass and only slow ones timeout.
+    # Use process groups to cleanly kill CBMC subprocesses on timeout.
+    total = len(harnesses)
+    passed = 0
+    failed = 0
+    timed_out = 0
+
+    for i, (source, mod_name, fn_name) in enumerate(harnesses, 1):
+        fq_name = f"{mod_name}::{fn_name}"
+        print(f"    [{i}/{total}] {source}::{fn_name} ... ", end="", flush=True)
+        proc = subprocess.Popen(
+            ["cargo", "kani", "--harness", fq_name, "--default-unwind", "3"],
             cwd=str(tmp),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=timeout,
+            start_new_session=True,  # process group for clean kill
         )
-    except subprocess.TimeoutExpired:
-        print(f"  TIMEOUT: cargo kani exceeded {timeout}s — specs are syntactically valid, verification skipped.")
-        shutil.rmtree(tmp)
-        return False
 
-    # Show verification results
-    for line in (result.stdout + "\n" + result.stderr).split("\n"):
-        if any(kw in line for kw in ("VERIFICATION", "FAILED", "SUCCESS",
-                                      "Complete", "Checking", "assertion",
-                                      "error[", "status:")):
-            print(f"    {line}")
+        import select
+        deadline = time.time() + timeout
+        killed = False
 
-    if result.returncode == 0:
-        print(f"  OK: {len(spec_files)} harness files passed Kani verification.")
-        shutil.rmtree(tmp)
-        return True
-    else:
-        print(f"  FAIL: cargo kani returned exit code {result.returncode}")
-        shutil.rmtree(tmp)
-        return False
+        try:
+            while proc.poll() is None:
+                if time.time() > deadline:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    killed = True
+                    timed_out += 1
+                    print(f"TIMEOUT ({timeout}s)")
+                    break
+
+                ready, _, _ = select.select([proc.stdout], [], [], 1.0)
+                if ready:
+                    # Drain stdout silently
+                    proc.stdout.readline()
+        except Exception:
+            if not killed:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                failed += 1
+        finally:
+            # Drain any remaining output before waiting
+            try:
+                while True:
+                    if not proc.stdout.readline():
+                        break
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                proc.wait()
+
+        if not killed:
+            if proc.returncode == 0:
+                passed += 1
+                print("PASS")
+            else:
+                failed += 1
+                print(f"FAIL (exit={proc.returncode})")
+
+        # Failsafe: kill any CBMC processes leaked from this run
+        try:
+            import subprocess as _sp
+            _sp.run(["pkill", "-f", f"cbmc.*{tmp.name}"], timeout=5,
+                    stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+        except Exception:
+            pass
+
+    shutil.rmtree(tmp)
+
+    print(f"\n  Results: {passed} passed, {failed} failed, {timed_out} timed out")
+    return failed == 0 and timed_out == 0
 
 
 def _structural_check(output_dir: str) -> list[str]:
