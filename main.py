@@ -3,7 +3,7 @@
 
 Usage:
     autospec PROJECT_PATH [--output DIR] [--model MODEL] [--max-iterations N] [--verbose]
-    autospec PROJECT_PATH --split   # one file per documented type, per-type agents
+    autospec PROJECT_PATH --split   # one agent per documented function
 
 Examples:
     autospec ~/my-rust-lib
@@ -17,52 +17,6 @@ import signal
 import sys
 import time
 from pathlib import Path
-
-
-def _run_type_agent(
-    project_path: str,
-    output_dir: str,
-    filename: str,
-    doc_section: str,
-    api_key: str,
-    base_url: str,
-    model: str,
-    max_iterations: int,
-    max_tokens: int,
-    verbose: bool,
-) -> bool:
-    """Run a slim agent for a single type using pre-parsed docs.
-
-    Returns True on success, False on failure (caller should continue).
-    """
-    from agent import SpecAgent
-    from prompt import TYPE_SYSTEM_PROMPT
-
-    task = (
-        f"Below are the documented items to translate into Hoare triples.\n\n"
-        f"{doc_section}\n\n"
-        f"Write the complete specification to `{filename}` using write_spec. "
-        f"Call write_spec ONCE then respond with a brief summary."
-    )
-
-    try:
-        agent = SpecAgent(
-            project_path=project_path,
-            output_dir=output_dir,
-            model=model,
-            max_iterations=max_iterations,
-            max_tokens=max_tokens,
-            verbose=verbose,
-            api_key=api_key,
-            base_url=base_url,
-            system_prompt=TYPE_SYSTEM_PROMPT,
-            tool_filter=["write_spec"],
-        )
-        agent.run(task=task)
-        return True
-    except Exception as exc:
-        print(f"  [FAIL] {filename}: {type(exc).__name__}: {exc}", file=sys.stderr)
-        return False
 
 
 def _split_detail(detail: str) -> list[dict]:
@@ -116,6 +70,260 @@ def _section_has_docs(text: str) -> bool:
     return False
 
 
+def _parse_functions_from_section(doc_section: str) -> list[dict]:
+    """Parse individual documented functions from a doc section.
+
+    Handles two formats:
+    1. Type sections (struct/enum/trait): extracts ``fn name(...) -> T — doc``
+       lines from ``[impl ...]`` blocks.
+    2. Standalone function sections: ``## function: name`` headers followed by
+       ``fn sig`` and doc text.
+
+    Returns a list of dicts with keys: name, sig, doc, impl, module,
+    type_kind, type_name, is_standalone.
+    """
+    import re
+
+    mod_match = re.search(r"// Module: (.+)", doc_section)
+    type_match = re.search(r"// Type: (\w+) (.+)", doc_section)
+    is_standalone = "// Standalone functions" in doc_section
+
+    module = mod_match.group(1).strip() if mod_match else ""
+    type_kind = type_match.group(1) if type_match else ""
+    type_name = type_match.group(2) if type_match else ""
+
+    # Extract struct fields / enum variants so agents don't need read_file
+    fields_text = ""
+    fm = re.search(r"\nFields:\n((?:  .+\n)+)", doc_section)
+    if fm:
+        fields_text = fm.group(1).strip()
+
+    functions: list[dict] = []
+
+    if is_standalone:
+        # Standalone functions: each has "## function: name" header,
+        # followed by "fn sig" line and doc text.
+        parts = re.split(r"\n## function: ", doc_section)
+        for part in parts[1:]:  # skip header portion before first function
+            lines = part.strip().split("\n")
+            name = lines[0].strip()
+            sig = ""
+            doc_lines: list[str] = []
+            for line in lines[1:]:
+                if line.startswith("fn ") and not sig:
+                    sig = line.strip()
+                elif sig and line.strip() and not line.startswith("["):
+                    doc_lines.append(line.strip())
+                elif line.startswith("["):
+                    break
+            doc = " ".join(doc_lines).strip()
+            if doc and sig and name:
+                functions.append({
+                    "name": name,
+                    "sig": sig,
+                    "doc": doc,
+                    "impl": "standalone",
+                    "module": module,
+                    "type_kind": "",
+                    "type_name": "",
+                    "is_standalone": True,
+                    "fields": "",
+                })
+    else:
+        # Struct/enum/trait methods from impl blocks
+        current_impl = "inherent"
+        for line in doc_section.split("\n"):
+            impl_m = re.match(r"^  \[impl (.+)\]$", line)
+            if impl_m:
+                current_impl = impl_m.group(1)
+                continue
+
+            # Return type may contain spaces: Result<T, E>, & Type, (A, B)
+            fn_m = re.match(r"^    fn (\w+)\(([^)]*)\) -> (.+?) — (.+)$", line)
+            if fn_m:
+                name = fn_m.group(1)
+                params = fn_m.group(2)
+                ret = fn_m.group(3)
+                doc = fn_m.group(4).strip()
+                if not doc:
+                    continue
+                functions.append({
+                    "name": name,
+                    "sig": f"fn {name}({params}) -> {ret}",
+                    "doc": doc,
+                    "impl": current_impl,
+                    "module": module,
+                    "type_kind": type_kind,
+                    "type_name": type_name,
+                    "is_standalone": False,
+                    "fields": fields_text,
+                })
+
+    return functions
+
+
+def _merge_specs(output_dir: str) -> list[str]:
+    """Merge individual per-function spec files into per-type combined files.
+
+    Reads ``output_dir/individual/*.rs``, groups by ``{module}__{type}``
+    prefix (everything before the last ``__`` in the stem), and writes
+    combined files to ``output_dir/`` for compilation.
+
+    Idempotent — safe to call on already-merged output.
+    """
+    import re
+
+    output = Path(output_dir)
+    indiv_dir = output / "individual"
+
+    if not indiv_dir.is_dir():
+        return []
+
+    indiv_files = sorted(indiv_dir.glob("*.rs"))
+    if not indiv_files:
+        return []
+
+    # Group by merge key: stem before the last "__"
+    groups: dict[str, list[Path]] = {}
+    for fp in indiv_files:
+        stem = fp.stem
+        if "__" not in stem:
+            continue
+        last_dd = stem.rfind("__")
+        merge_key = stem[:last_dd]
+        groups.setdefault(merge_key, []).append(fp)
+
+    merged_files: list[str] = []
+
+    for merge_key, files in sorted(groups.items()):
+        contents: list[str] = []
+        module = ""
+        type_kind = ""
+        type_name = ""
+        is_standalone = False
+        func_names: list[str] = []
+
+        for i, fp in enumerate(files):
+            text = fp.read_text(encoding="utf-8")
+            contents.append(text.strip())
+
+            # Extract metadata from first file
+            if i == 0:
+                mod_match = re.search(r"// Module: (.+)", text)
+                if mod_match:
+                    module = mod_match.group(1).strip()
+                type_match = re.search(r"// Type: (\w+) (.+)", text)
+                if type_match:
+                    type_kind = type_match.group(1)
+                    type_name = type_match.group(2)
+                if "// Standalone functions" in text:
+                    is_standalone = True
+
+            spec_match = re.search(r"// Spec-for: (.+)", text)
+            if spec_match:
+                func_names.append(spec_match.group(1).strip())
+
+        # Reconstruct header
+        header_lines = []
+        if module:
+            header_lines.append(f"// Module: {module}")
+        if is_standalone:
+            header_lines.append(f"// Standalone functions")
+        elif type_kind and type_name:
+            header_lines.append(f"// Type: {type_kind} {type_name}")
+        header_lines.append(
+            f"// Expected-fns: {', '.join(func_names) if func_names else '(none)'}"
+        )
+        header_lines.append("// Kani proof harnesses generated from doc comments.")
+        header_lines.append("")
+
+        combined = "\n".join(header_lines) + "\n" + "\n\n".join(contents) + "\n"
+
+        out_path = output / f"{merge_key}.rs"
+        out_path.write_text(combined, encoding="utf-8")
+        merged_files.append(merge_key)
+
+    print(f"  Merged {len(indiv_files)} individual files → {len(merged_files)} type files")
+    return sorted(merged_files)
+
+
+def _run_func_agent(
+    project_path: str,
+    output_dir: str,
+    filename: str,
+    func_info: dict,
+    api_key: str,
+    base_url: str,
+    model: str,
+    max_iterations: int,
+    max_tokens: int,
+    verbose: bool,
+) -> bool:
+    """Run a slim agent to write ONE Kani harness for a single function.
+
+    Returns True on success, False on failure.
+    """
+    from agent import SpecAgent
+    from prompt import FUNC_SYSTEM_PROMPT
+
+    f = func_info
+
+    context_parts = ["Write ONE Kani proof harness for:"]
+    context_parts.append(f"  Function: {f['name']}")
+    context_parts.append(f"  Signature: {f['sig']}")
+    context_parts.append(f"  Documentation: {f['doc']}")
+
+    if f["type_name"]:
+        context_parts.append(f"  Defined in: impl {f['impl']}")
+        context_parts.append(f"  Type: {f['type_kind']} {f['type_name']}")
+        if f.get("fields"):
+            context_parts.append(f"  Struct fields:\n{f['fields']}")
+    context_parts.append(f"  Module: {f['module']}")
+
+    context_parts.append("")
+    if not f.get("fields"):
+        context_parts.append(
+            "Use read_file to inspect source files if you need to check "
+            "field types or function bodies."
+        )
+    else:
+        context_parts.append(
+            "Struct fields are listed above — you should NOT need read_file. "
+            "Only use read_file if the function body has hidden preconditions "
+            "(unwrap, array indexing) not mentioned in the docs."
+        )
+    context_parts.append(
+        f"Then call write_spec(filename=\"{filename}\", content=...) "
+        "with exactly ONE harness."
+    )
+    context_parts.append(
+        "Include file header comments at the top of your content: "
+        f"// Module: {f['module']}, // Type: {f['type_kind']} {f['type_name']}, "
+        f"// Spec-for: {f['name']}"
+    )
+
+    task = "\n".join(context_parts)
+
+    try:
+        agent = SpecAgent(
+            project_path=project_path,
+            output_dir=output_dir,
+            model=model,
+            max_iterations=max(3, max_iterations),
+            max_tokens=max_tokens,
+            verbose=verbose,
+            api_key=api_key,
+            base_url=base_url,
+            system_prompt=FUNC_SYSTEM_PROMPT,
+            tool_filter=["write_spec", "read_file", "search_code"],
+        )
+        agent.run(task=task, quiet=True)
+        return True
+    except Exception as exc:
+        print(f"  [FAIL] {f['name']}: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return False
+
+
 # ——— Standard trait names whose properties are well-known ———
 _STANDARD_TRAITS: set[str] = {
     "Clone", "Copy", "Debug", "Display", "Default",
@@ -131,6 +339,8 @@ _STANDARD_TRAITS: set[str] = {
     "Sum", "Product", "FusedIterator",
     "Send", "Sync", "Unpin", "Sized",
     "ConditionallySelectable", "CtOption",
+    "Any", "Freeze", "RefUnwindSafe", "UnwindSafe", "UnsafeUnpin",
+    "CloneToUninit",
 }
 
 
@@ -243,22 +453,32 @@ def _get_spec_targets(project_path: str, output_dir: str) -> list[tuple[str, str
         type_sections = [s for s in sections if s["kind"] in ("struct", "enum", "trait")]
         func_sections = [s for s in sections if s["kind"] == "function"]
 
+        def _doc_functions(text: str) -> list[str]:
+            """Extract names of documented functions from doc-section text."""
+            # Format: "fn name(...) -> Type — doc" or "fn name(...) -> Type\n"
+            return sorted(set(re.findall(r"fn (\w+)\([^)]*\) -> \S+", text)))
+
         for s in type_sections:
             name = s["name"]
             safe_filename = f"{safe_mod}__{name}.rs"
+            expected = _doc_functions(s["text"])
             header = (
                 f"// Module: {mod_path}\n"
                 f"// Type: {s['kind']} {name}\n"
-                f"// This file contains specifications generated from doc comments.\n\n"
+                f"// Expected-fns: {', '.join(expected) if expected else '(none)'}\n"
+                f"// Kani proof harnesses generated from doc comments.\n\n"
             )
             targets.append((safe_filename, header + s["text"]))
             print(f"  (target) {safe_filename}")
 
         if func_sections:
             safe_filename = f"{safe_mod}__functions.rs"
+            expected = _doc_functions("\n".join(s["text"] for s in func_sections))
             header = (
                 f"// Module: {mod_path}\n"
-                f"// Standalone functions\n\n"
+                f"// Standalone functions\n"
+                f"// Expected-fns: {', '.join(expected) if expected else '(none)'}\n"
+                f"// Kani proof harnesses generated from doc comments.\n\n"
             )
             merged = header + "\n\n".join(s["text"] for s in func_sections)
             targets.append((safe_filename, merged))
@@ -267,13 +487,14 @@ def _get_spec_targets(project_path: str, output_dir: str) -> list[tuple[str, str
     return targets
 
 
-def _check_specs(project_path: str, output_dir: str) -> bool:
+def _check_specs(
+    project_path: str, output_dir: str, return_errors: bool = False
+) -> bool | tuple[bool, str, list[str]]:
     """Check generated Kani harnesses by compiling with the original crate.
 
-    Copies the target crate to a temp directory, injects harness files
-    as modules, and runs ``cargo kani`` for verification.
-
-    Returns True if all harnesses pass verification.
+    If *return_errors* is False, returns a bool (True = all ok).
+    If *return_errors* is True, returns (ok, stderr_text, merged_file_stems)
+    where *merged_file_stems* is used to map harness_N back to spec files.
     """
     import re
     import shutil
@@ -284,10 +505,16 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
     output = Path(output_dir)
     project = Path(project_path)
 
-    spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
+    # Prefer individual/ files when available (per-function harnesses)
+    indiv_dir = output / "individual"
+    if indiv_dir.is_dir():
+        spec_files = sorted(indiv_dir.glob("*.rs"))
+    else:
+        spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
+    spec_file_stems = [sf.stem for sf in spec_files]
     if not spec_files:
         print("  No spec files found to check.")
-        return True
+        return (True, "", []) if return_errors else True
 
     with open(project / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
@@ -325,7 +552,8 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
         # Inject use imports before the first harness
         use_lines = ["#![allow(dead_code, non_snake_case, unused_variables)]"]
         if mod_path:
-            use_lines.append(f"use crate::{mod_path}::*;")
+            # {self, *} lets agents use both bare fn() and module::fn() forms
+            use_lines.append(f"use crate::{mod_path}::{{self, *}};")
         use_lines.append("")
 
         # Find end of header comments and inject use statements there
@@ -369,13 +597,11 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
     except subprocess.TimeoutExpired:
         print("  FAIL: compilation check timed out (2 minutes)")
         shutil.rmtree(tmp)
-        return False
+        return (False, "TIMEOUT after 2 minutes", spec_file_stems) if return_errors else False
 
     # Show compilation errors/warnings
-    stderr = result.stderr.strip()
-    stdout = result.stdout.strip()
-    combined = stderr + "\n" + stdout
-    for line in combined.split("\n"):
+    stderr_text = result.stderr + "\n" + result.stdout
+    for line in stderr_text.split("\n"):
         if any(kw in line for kw in ("error[", "warning[", "aborting",
                                        "could not compile", "Compiling")):
             print(f"    {line}")
@@ -383,14 +609,269 @@ def _check_specs(project_path: str, output_dir: str) -> bool:
     if result.returncode != 0:
         print(f"  FAIL: compilation failed with exit code {result.returncode}")
         shutil.rmtree(tmp)
-        return False
+        return (False, stderr_text, spec_file_stems) if return_errors else False
 
     print(f"  OK: {len(spec_files)} harness files compile successfully.")
     shutil.rmtree(tmp)
-    return True
+    return (True, "", spec_file_stems) if return_errors else True
 
 
-def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> bool:
+def _parse_compilation_errors(
+    stderr: str, file_stems: list[str]
+) -> dict[str, list[dict]]:
+    """Parse cargo kani output into errors grouped by spec file stem.
+
+    Recognises ``error[EXXXX]: message`` blocks with
+    ``--> src/autospec_harness_N.rs`` location lines.
+    Returns ``{file_stem: [{code, message, harness_file, line, body}]}``
+    where *file_stem* is the stem of the individual or merged spec file.
+    """
+    import re
+
+    # Split into error blocks (each starts with "error[E" at beginning of line)
+    error_blocks = re.split(r"\n(?=error\[E\d+\])", stderr)
+
+    errors_by_file: dict[str, list[dict]] = {}
+
+    for block in error_blocks:
+        if not block.strip():
+            continue
+
+        header_m = re.match(
+            r"error\[(E\d+)\]: (.+?)\n\s+-->\s+\S*(autospec_harness_(\d+))\.rs"
+            r"(?::(\d+))?(?::(\d+))?",
+            block,
+        )
+        if not header_m:
+            continue
+
+        code = header_m.group(1)
+        message = header_m.group(2).strip()
+        harness_file = header_m.group(3) + ".rs"
+        harness_num = int(header_m.group(4))
+        line = int(header_m.group(5)) if header_m.group(5) else 0
+        col = int(header_m.group(6)) if header_m.group(6) else 0
+
+        # Map harness_N → spec file stem (1:1 for individual files)
+        if 1 <= harness_num <= len(file_stems):
+            file_stem = file_stems[harness_num - 1]
+        else:
+            continue
+
+        # Body is everything after the header line
+        header_end = block.index("\n") + 1
+        body = block[header_end:].strip()
+
+        errors_by_file.setdefault(file_stem, []).append({
+            "code": code,
+            "message": message,
+            "harness_file": harness_file,
+            "line": line,
+            "col": col,
+            "body": body,
+        })
+
+    return errors_by_file
+
+
+def _run_fix_agent(
+    project_path: str,
+    output_dir: str,
+    indiv_filename: str,
+    file_content: str,
+    errors: list[dict],
+    api_key: str,
+    base_url: str,
+    model: str,
+    max_tokens: int,
+    verbose: bool,
+) -> bool:
+    """Run a slim fix agent to repair one individual spec file.
+
+    The agent receives the current file content and compilation errors.
+    Returns True if the agent ran without exception.
+    """
+    import re
+
+    from agent import SpecAgent
+    from prompt import FIX_SYSTEM_PROMPT
+
+    # Extract metadata from file headers
+    func_name = ""
+    mod_path = ""
+    type_kind = ""
+    type_name = ""
+    for line in file_content.split("\n"):
+        m = re.search(r"// Spec-for: (\S+)", line)
+        if m:
+            func_name = m.group(1)
+        m = re.search(r"// Module: (.+)", line)
+        if m:
+            mod_path = m.group(1).strip()
+        m = re.search(r"// Type: (\w+) (.+)", line)
+        if m:
+            type_kind = m.group(1)
+            type_name = m.group(2)
+
+    # Format errors
+    error_text_parts = []
+    for err in errors:
+        error_text_parts.append(
+            f"error[{err['code']}]: {err['message']}\n"
+            f"  location: {err.get('harness_file', '?')}:{err.get('line', '?')}\n"
+            f"  details:\n{err.get('body', '').strip()}"
+        )
+    error_block = "\n\n---\n\n".join(error_text_parts)
+
+    task_parts = [
+        "FIX compilation errors in this Kani harness:",
+        "",
+        f"  Function: {func_name or '(unknown)'}",
+        f"  Module: {mod_path or '(unknown)'}",
+    ]
+    if type_kind:
+        task_parts.append(f"  Type: {type_kind} {type_name}")
+    task_parts += [
+        f"  File: {indiv_filename}",
+        "",
+        "=== COMPILATION ERRORS ===",
+        error_block,
+        "",
+        "=== CURRENT HARNESS ===",
+        "```rust",
+        file_content,
+        "```",
+        "",
+        "Fix ONLY the compilation errors above. Preserve all correct parts.",
+        "Use read_file to check source code for types/signatures if needed.",
+        f"Then call write_spec(filename=\"{indiv_filename}\", content=...) "
+        "with the FIXED harness (include all header comments).",
+    ]
+    task = "\n".join(task_parts)
+
+    try:
+        indiv_output = str(Path(output_dir) / "individual")
+        agent = SpecAgent(
+            project_path=project_path,
+            output_dir=indiv_output,
+            model=model,
+            max_iterations=5,
+            max_tokens=max_tokens,
+            verbose=verbose,
+            api_key=api_key,
+            base_url=base_url,
+            system_prompt=FIX_SYSTEM_PROMPT,
+            tool_filter=["write_spec", "read_file", "search_code"],
+        )
+        agent.run(task=task, quiet=True)
+        return True
+    except Exception as exc:
+        print(f"  [FIX-FAIL] {indiv_filename}: {type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        return False
+
+
+def _auto_fix_checks(
+    project_path: str,
+    output_dir: str,
+    max_rounds: int,
+    api_key: str,
+    base_url: str,
+    model: str,
+    max_tokens: int,
+    verbose: bool,
+) -> bool:
+    """Run compilation check with auto-fix retry loop.
+
+    Each individual harness file is compiled as a separate module, so
+    ``harness_N`` maps 1:1 to the Nth individual file.  Fix agents write
+    directly to ``individual/`` — no merge needed in the hot path.
+
+    Returns True if compilation passes (on first try or after fixing).
+    """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    for round_num in range(1, max_rounds + 1):
+        if round_num == 1:
+            print(f"\n[2] Compilation check (round {round_num}/{max_rounds}) ...")
+        else:
+            print(f"\n[2] Compilation check (retry round {round_num}/{max_rounds}) ...")
+
+        ok, stderr, file_stems = _check_specs(
+            project_path, output_dir, return_errors=True
+        )
+
+        if ok:
+            print(f"  OK: compilation passed.")
+            return True
+
+        # Parse errors — harness_N maps 1:1 to individual file stem
+        errors_by_file = _parse_compilation_errors(stderr, file_stems)
+        if not errors_by_file:
+            print("  Could not parse compilation errors from stderr.")
+            return False
+
+        total_errors = sum(len(v) for v in errors_by_file.values())
+        print(f"  Found {total_errors} error(s) in {len(errors_by_file)} file(s):")
+        for stem, errs in errors_by_file.items():
+            codes = sorted(set(e["code"] for e in errs))
+            print(f"    {stem}.rs: {len(errs)} error(s) {codes}")
+
+        if round_num == max_rounds:
+            print(f"  FAIL: compilation still broken after {max_rounds} round(s).")
+            return False
+
+        # Build fix tasks directly — no reverse-mapping needed
+        fix_tasks: list[tuple[str, list[dict]]] = [
+            (f"{stem}.rs", errs) for stem, errs in errors_by_file.items()
+        ]
+
+        print(f"\n  Running fix agents for {len(fix_tasks)} file(s)...")
+
+        print_lock = threading.Lock()
+        fixed = 0
+        fix_failed = 0
+
+        def run_fix(indiv_fn, errs):
+            indiv_path = Path(output_dir) / "individual" / indiv_fn
+            if not indiv_path.is_file():
+                return indiv_fn, False
+            content = indiv_path.read_text()
+            ok_fix = _run_fix_agent(
+                project_path=project_path,
+                output_dir=output_dir,
+                indiv_filename=indiv_fn,
+                file_content=content,
+                errors=errs,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
+                max_tokens=max_tokens,
+                verbose=verbose,
+            )
+            return indiv_fn, ok_fix
+
+        workers = min(len(fix_tasks), 5)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(run_fix, ifn, errs): ifn
+                for ifn, errs in fix_tasks
+            }
+            for future in as_completed(futures):
+                ifn, ok_fix = future.result()
+                with print_lock:
+                    if ok_fix:
+                        fixed += 1
+                        print(f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FIXED")
+                    else:
+                        fix_failed += 1
+                        print(f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FAILED")
+
+    return False
+
+
+def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tuple[bool, int, int, int]:
     """Run full Kani model-checking verification (SLOW)."""
     import re
     import shutil
@@ -401,7 +882,11 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> boo
     output = Path(output_dir)
     project = Path(project_path)
 
-    spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
+    indiv_dir = output / "individual"
+    if indiv_dir.is_dir():
+        spec_files = sorted(indiv_dir.glob("*.rs"))
+    else:
+        spec_files = sorted(f for f in output.glob("*.rs") if f.name != "INDEX")
     if not spec_files:
         print("  No spec files found.")
         return True
@@ -433,7 +918,8 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> boo
                 mod_path = stem.split("__")[0]
         use_lines = ["#![allow(dead_code, non_snake_case, unused_variables)]"]
         if mod_path:
-            use_lines.append(f"use crate::{mod_path}::*;")
+            # {self, *} lets agents use both bare fn() and module::fn() forms
+            use_lines.append(f"use crate::{mod_path}::{{self, *}};")
         use_lines.append("")
         first_non_comment = 0
         for m in re.finditer(r"^(?://.*\n)*(?:\n)*", content, re.MULTILINE):
@@ -537,7 +1023,177 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> boo
     shutil.rmtree(tmp)
 
     print(f"\n  Results: {passed} passed, {failed} failed, {timed_out} timed out")
-    return failed == 0 and timed_out == 0
+    return failed == 0 and timed_out == 0, passed, failed, timed_out
+
+
+def _generate_report(
+    project_path: str,
+    output_dir: str,
+    run_verify: bool = False,
+    kani_timeout: int = 120,
+    verify_counts: tuple[int, int, int] | None = None,
+) -> None:
+    """Generate a structured report: doc coverage → specs → Kani results.
+
+    If *verify_counts* is provided as (passed, failed, timed_out), those
+    values are used instead of re-running verification.
+    """
+    import json
+    import tomllib
+
+    from rustdoc import RustDoc, RustItem
+
+    project = Path(project_path)
+    output = Path(output_dir)
+
+    with open(project / "Cargo.toml", "rb") as fh:
+        cargo = tomllib.load(fh)
+    crate_name = cargo.get("package", {}).get("name", project.name)
+
+    # ── 1. Doc coverage from rustdoc JSON ──────────────────────────────
+    from tools.doc_json import _find_doc_json
+
+    json_path = _find_doc_json(project, crate_name)
+    if not json_path:
+        print("Error: No rustdoc JSON found. Run with --check or --check-only first.")
+        return
+
+    doc = RustDoc(str(json_path))
+
+    # Walk modules and count documented public items
+    total_documented = 0
+    total_public = 0
+    documented_by_kind: dict[str, int] = {}
+    public_by_kind: dict[str, int] = {}
+    documented_modules = 0
+    total_modules = 0
+    documented_methods = 0
+    total_methods = 0
+
+    def walk_module(item_id: int) -> None:
+        nonlocal total_documented, total_public, documented_modules, total_modules
+        nonlocal documented_methods, total_methods
+        for child in doc.children(item_id):
+            if child.visibility != "public":
+                continue
+            if child.kind == "module":
+                total_modules += 1
+                if child.docs:
+                    documented_modules += 1
+                walk_module(child.id)
+            elif child.kind in ("struct", "enum", "trait", "function", "const",
+                                 "type", "static", "union"):
+                total_public += 1
+                kind = child.kind
+                public_by_kind[kind] = public_by_kind.get(kind, 0) + 1
+                if child.docs:
+                    total_documented += 1
+                    documented_by_kind[kind] = documented_by_kind.get(kind, 0) + 1
+                # Count documented methods from impl blocks (skip external traits)
+                for trait_name, methods, is_external in doc.get_impls(child.id):
+                    if is_external:
+                        continue
+                    for mname, mdocs, _m_item in methods:
+                        if mname is not None:
+                            total_methods += 1
+                            if mdocs:
+                                documented_methods += 1
+
+    walk_module(doc.root_id)
+
+    # Source line counts
+    src_dir = project / "src"
+    source_lines = 0
+    source_files = 0
+    if src_dir.is_dir():
+        for rs in sorted(src_dir.rglob("*.rs")):
+            # Skip harness files injected by earlier runs
+            if "autospec_harness" in rs.name:
+                continue
+            source_files += 1
+            source_lines += len(rs.read_text().splitlines())
+
+    # ── 2. Spec generation from specs.json ─────────────────────────────
+    specs_json = output / "specs.json"
+    spec_files_count = 0
+    total_harnesses = 0
+    spec_funcs: set[str] = set()
+    spec_entries = []
+    spec_status_ok = 0
+    spec_status_failed = 0
+
+    if specs_json.is_file():
+        manifest = json.loads(specs_json.read_text())
+        spec_entries = manifest.get("entries", [])
+        spec_files_count = len(spec_entries)
+        spec_status_ok = manifest.get("succeeded", 0)
+        spec_status_failed = manifest.get("failed", 0)
+        for entry in spec_entries:
+            total_harnesses += 1
+            func = entry.get("source_function", "")
+            mod = entry.get("module", "")
+            if func and mod:
+                spec_funcs.add(f"{mod}::{func}")
+            elif func:
+                spec_funcs.add(func)
+
+    # ── 3. Kani verification ──────────────────────────────────────────
+    verify_passed = verify_failed = verify_timeout = -1  # -1 = not run
+    if verify_counts is not None:
+        verify_passed, verify_failed, verify_timeout = verify_counts
+    elif run_verify and spec_files_count > 0:
+        print("\n  Running Kani verification ...\n")
+        _, verify_passed, verify_failed, verify_timeout = _verify_specs(
+            project_path, output_dir, timeout=kani_timeout
+        )
+
+    # ── 4. Print report ────────────────────────────────────────────────
+    type_docs = documented_by_kind.get('struct', 0) + documented_by_kind.get('enum', 0) + documented_by_kind.get('trait', 0)
+    type_pub = public_by_kind.get('struct', 0) + public_by_kind.get('enum', 0) + public_by_kind.get('trait', 0)
+    func_docs = documented_by_kind.get('function', 0)
+    func_pub = public_by_kind.get('function', 0)
+
+    total_documentable = total_documented + documented_methods
+    total_pub = total_public + total_methods
+    doc_pct = (total_documentable / total_pub * 100) if total_pub > 0 else 0.0
+
+    # Coverage: only functions and methods produce harnesses, not types
+    spec_targets = func_docs + documented_methods
+    spec_cov_pct = (len(spec_funcs) / spec_targets * 100) if spec_targets > 0 else 0.0
+
+    print()
+    print("=" * 60)
+    print(f"  Autospec Report — {crate_name}")
+    print("=" * 60)
+
+    print(f"\n── Documentation")
+    print(f"  Modules with docs:  {documented_modules}/{total_modules}")
+    print(f"  Documented items:   {total_documentable}/{total_pub}  ({doc_pct:.0f}%)")
+    print(f"    Types:            {type_docs}/{type_pub}")
+    print(f"    Functions:        {func_docs}/{func_pub}")
+    print(f"    Methods:          {documented_methods}/{total_methods}")
+    print(f"  Source files:       {source_files}  ({source_lines} lines)")
+
+    print(f"\n── Specifications")
+    print(f"  Spec files:         {spec_files_count}")
+    print(f"  Total harnesses:    {total_harnesses}")
+    print(f"  Coverage:           {len(spec_funcs)}/{spec_targets} functions & methods  ({spec_cov_pct:.0f}%)")
+    print(f"  Generation status:  {spec_status_ok} ok, {spec_status_failed} failed")
+
+    if verify_passed >= 0:
+        total_verified = verify_passed + verify_failed + verify_timeout
+        verify_pct = (verify_passed / total_verified * 100) if total_verified > 0 else 0.0
+        print(f"\n── Kani Verification")
+        print(f"  Total harnesses:    {total_verified}")
+        print(f"  Passed:             {verify_passed}")
+        print(f"  Failed:             {verify_failed}")
+        print(f"  Timed out:          {verify_timeout}")
+        print(f"  Pass rate:          {verify_pct:.0f}%")
+    else:
+        print(f"\n── Kani Verification  (not run — use --verify to include)")
+
+    print()
+    print("=" * 60)
 
 
 def _structural_check(output_dir: str) -> list[str]:
@@ -550,9 +1206,16 @@ def _structural_check(output_dir: str) -> list[str]:
     output = Path(output_dir)
     warnings: list[str] = []
 
-    for sf in sorted(output.glob("*.rs")):
-        if sf.name == "INDEX":
-            continue
+    # Scan individual/ when it exists, otherwise scan merged files
+    indiv_dir = output / "individual"
+    if indiv_dir.is_dir():
+        spec_files = sorted(indiv_dir.glob("*.rs"))
+    else:
+        spec_files = sorted(
+            f for f in output.glob("*.rs") if f.name != "INDEX"
+        )
+
+    for sf in spec_files:
         content = sf.read_text()
         size = sf.stat().st_size
 
@@ -588,6 +1251,33 @@ def _structural_check(output_dir: str) -> list[str]:
         if "todo!(" in content:
             warnings.append(f"{sf.name}: contains todo!() calls")
 
+        # Check Expected-fns coverage vs Spec-for entries
+        expected_match = re.search(r"// Expected-fns: (.+)", content)
+        if expected_match:
+            expected_str = expected_match.group(1).strip()
+            if expected_str != "(none)":
+                expected_fns = set(n.strip() for n in expected_str.split(","))
+                covered = set(re.findall(r"Spec-for: (\S+)", content))
+                missing = expected_fns - covered
+                extra = covered - expected_fns
+                if missing:
+                    warnings.append(
+                        f"{sf.name}: missing harnesses for: {', '.join(sorted(missing))}"
+                    )
+                if extra:
+                    warnings.append(
+                        f"{sf.name}: unexpected Spec-for entries (not in Expected-fns): "
+                        f"{', '.join(sorted(extra))}"
+                    )
+
+        # Check for duplicate harness function names
+        fn_names = re.findall(r"#\[kani::proof\]\s*pub fn (\w+)\(", content)
+        seen: set[str] = set()
+        for name in fn_names:
+            if name in seen:
+                warnings.append(f"{sf.name}: duplicate harness — pub fn {name}() defined more than once")
+            seen.add(name)
+
         # Count assert! calls (Kani treats them as proof obligations)
         proof_asserts = len(re.findall(r"assert!?\(", content))
         if proof_asserts == 0:
@@ -601,58 +1291,43 @@ def _structural_check(output_dir: str) -> list[str]:
 def _write_spec_json(
     output_dir: str,
     crate_name: str,
-    targets: list[tuple[str, str]],
-    results: list[tuple[str, bool]],
+    func_results: list[tuple[str, str, str, bool]],
 ) -> None:
-    """Write a structured specs.json manifest with function-to-spec mappings."""
+    """Write a structured specs.json manifest with per-function entries."""
     import json
     import re
 
     entries: list[dict] = []
-    for (filename, doc_section), (_, ok) in zip(targets, results):
-        spec_path = Path(output_dir) / filename
-        size = spec_path.stat().st_size if spec_path.is_file() else 0
+    for indiv_filename, merged_filename, func_name, ok in func_results:
+        indiv_path = Path(output_dir) / indiv_filename
+        size = indiv_path.stat().st_size if indiv_path.is_file() else 0
 
-        mod_match = re.search(r"// Module: (.+)", doc_section)
-        mod_path = mod_match.group(1).strip() if mod_match else ""
-        type_match = re.search(r"// Type: (\w+) (.+)", doc_section)
-        item_kind = type_match.group(1) if type_match else ""
-        item_name = type_match.group(2) if type_match else filename
-
-        # Count harnesses and extract function→harness mappings
-        spec_count = 0
-        mappings: list[dict] = []
-        if spec_path.is_file():
-            content = spec_path.read_text()
-            spec_count = len(re.findall(r"/\*\nDescription:", content))
-
-            # Extract each Description + Spec-for pair
-            blocks = re.findall(
-                r"/\*\nDescription: (.+?)\n(?:.*\n)*?Spec-for: (\S+)",
-                content,
-            )
-            for desc, func_name in blocks:
-                mappings.append({
-                    "source_function": func_name,
-                    "description": desc.strip(),
-                })
+        desc = ""
+        mod_path = ""
+        if indiv_path.is_file():
+            content = indiv_path.read_text()
+            desc_match = re.search(r"Description: (.+)", content)
+            if desc_match:
+                desc = desc_match.group(1).strip()
+            mod_match = re.search(r"// Module: (.+)", content)
+            if mod_match:
+                mod_path = mod_match.group(1).strip()
 
         entries.append({
-            "file": filename,
+            "file": indiv_filename,
+            "merged_file": merged_filename,
+            "source_function": func_name,
             "module": mod_path,
-            "kind": item_kind,
-            "name": item_name,
+            "description": desc,
             "size_bytes": size,
-            "spec_count": spec_count,
             "status": "ok" if ok else "failed",
-            "harnesses": mappings,
         })
 
     manifest = {
         "crate": crate_name,
-        "total_targets": len(targets),
-        "succeeded": sum(1 for _, ok in results if ok),
-        "failed": sum(1 for _, ok in results if not ok),
+        "total_harnesses": len(func_results),
+        "succeeded": sum(1 for _, _, _, ok in func_results if ok),
+        "failed": sum(1 for _, _, _, ok in func_results if not ok),
         "entries": entries,
     }
 
@@ -670,68 +1345,129 @@ def _run_split(
     max_iterations: int,
     max_tokens: int,
     verbose: bool,
+    jobs: int = 5,
 ) -> None:
-    """Divide and conquer: one slim agent per documented type."""
+    """Divide and conquer: one slim agent per documented function.
+
+    Agents run in parallel (*jobs* concurrent workers) since each function
+    is independent.
+    """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     project_path = str(project)
     output_dir = str(output)
 
     print("\nPhase 1: Generating rustdoc JSON and scanning for documented types...")
     targets = _get_spec_targets(project_path, output_dir)
-    print(f"\nSelected {len(targets)} type-level targets for specification generation.")
 
-    if not targets:
-        print("No documented types found. Nothing to do.")
+    # Parse individual functions from all targets
+    all_funcs: list[tuple[str, str, list[dict]]] = []  # (filename, header, [funcs])
+    for filename, doc_section in targets:
+        functions = _parse_functions_from_section(doc_section)
+        if not functions:
+            continue
+        # Extract the header (everything before the first ## section)
+        header_end = doc_section.find("\n## ")
+        header = doc_section[:header_end].strip() + "\n\n" if header_end > 0 else ""
+        all_funcs.append((filename, header, functions))
+
+    total_funcs = sum(len(funcs) for _, _, funcs in all_funcs)
+    print(f"\nParsed {total_funcs} documented functions across {len(all_funcs)} files.")
+
+    if not all_funcs:
+        print("No documented functions found. Nothing to do.")
         return
 
-    # Use fewer iterations per type (they only need to call write_spec once)
-    type_iterations = min(max_iterations, 5)
+    # Spawn agents in parallel
+    func_iterations = max(3, max_iterations)
+    print(f"\nPhase 3: Generating harnesses — {jobs} parallel agents "
+          f"({func_iterations} iterations max each, {total_funcs} functions)...")
 
-    print(f"\nPhase 2: Generating specs ({type_iterations} iterations each)...")
-    results: list[tuple[str, bool]] = []
+    # Flatten into (indiv_filename, merged_filename, func_info) tasks
+    tasks: list[tuple[str, str, dict]] = []
+    for merged_filename, _header, functions in all_funcs:
+        for func_info in functions:
+            module = func_info.get("module", "").replace("::", "_") or "crate_root"
+            type_part = func_info.get("type_name") or "functions"
+            indiv_filename = f"individual/{module}__{type_part}__{func_info['name']}.rs"
+            tasks.append((indiv_filename, merged_filename, func_info))
 
-    for i, (filename, doc_section) in enumerate(targets, 1):
-        print(f"\n[{i}/{len(targets)}] {filename}")
+    func_results: list[tuple[str, str, str, bool]] = []  # (indiv, merged, name, ok)
+    print_lock = threading.Lock()
+    completed = 0
 
-        ok = _run_type_agent(
+    def run_one(indiv_fn: str, merged_fn: str, func_info: dict) -> tuple[str, str, str, bool]:
+        """Run a single function agent. Returns (indiv_fn, merged_fn, name, ok)."""
+        ok = _run_func_agent(
             project_path=project_path,
             output_dir=output_dir,
-            filename=filename,
-            doc_section=doc_section,
+            filename=indiv_fn,
+            func_info=func_info,
             api_key=api_key,
             base_url=base_url,
             model=model,
-            max_iterations=type_iterations,
+            max_iterations=func_iterations,
             max_tokens=max_tokens,
             verbose=verbose,
         )
-        results.append((filename, ok))
+        return indiv_fn, merged_fn, func_info["name"], ok
 
-    succeeded = sum(1 for _, ok in results if ok)
-    failed = sum(1 for _, ok in results if not ok)
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        futures = {pool.submit(run_one, ifn, mfn, fi): (ifn, mfn, fi)
+                   for ifn, mfn, fi in tasks}
+
+        for future in as_completed(futures):
+            indiv_fn, merged_fn, fn_name, ok = future.result()
+            func_results.append((indiv_fn, merged_fn, fn_name, ok))
+            with print_lock:
+                completed += 1
+                status = "OK" if ok else "FAIL"
+                print(f"  [{completed}/{total_funcs}] {indiv_fn} :: {fn_name}  {status}")
+
+    succeeded = sum(1 for _, _, _, ok in func_results if ok)
+    failed = sum(1 for _, _, _, ok in func_results if not ok)
+
+    # Phase 4: Merge individual files by type
+    print(f"\nPhase 4: Merging individual files by type...")
+    _merge_specs(output_dir)
 
     # Write INDEX
     index_lines = [
         "# Specification index",
         f"# Generated from {project_path}",
         f"# {succeeded} succeeded, {failed} failed",
+        f"# {total_funcs} harnesses across {len(all_funcs)} target types",
         "",
     ]
-    for filename, _doc_section in targets:
-        spec_path = output / filename
-        size = spec_path.stat().st_size if spec_path.is_file() else 0
-        if size > 200:
-            index_lines.append(f"- [{filename}](./{filename}) ({size:,} bytes)")
+    # Group by merged file
+    merged_groups: dict[str, list[tuple[str, str, str, bool]]] = {}
+    for indiv_fn, merged_fn, name, ok in func_results:
+        merged_groups.setdefault(merged_fn, []).append((indiv_fn, merged_fn, name, ok))
+
+    for merged_fn in sorted(merged_groups):
+        merged_path = output / merged_fn
+        merged_size = merged_path.stat().st_size if merged_path.is_file() else 0
+        index_lines.append(f"\n## {merged_fn} ({merged_size:,} bytes)")
+        for indiv_fn, _, name, ok in merged_groups[merged_fn]:
+            indiv_path = output / indiv_fn
+            indiv_size = indiv_path.stat().st_size if indiv_path.is_file() else 0
+            status = "OK" if ok else "FAIL"
+            index_lines.append(
+                f"  - [{indiv_fn}](./{indiv_fn}) :: {name}  {status}  ({indiv_size:,} bytes)"
+            )
     index_path = output / "INDEX"
     index_path.write_text("\n".join(index_lines) + "\n")
     print(f"\nWrote INDEX → {index_path}")
-    print(f"Done: {succeeded} succeeded, {failed} failed")
+    print(f"Done: {succeeded} succeeded, {failed} failed "
+          f"({total_funcs} harnesses total)")
 
     # Write structured JSON manifest
     import tomllib
     with open(project / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", project.name)
-    _write_spec_json(output_dir, crate_name, targets, results)
+    _write_spec_json(output_dir, crate_name, func_results)
 
 
 def main() -> None:
@@ -773,8 +1509,14 @@ def main() -> None:
     parser.add_argument(
         "--split", "-s",
         action="store_true",
-        help="Divide and conquer: run one slim agent per documented type, "
-             "producing one spec file per struct/enum/trait.",
+        help="Divide and conquer: run one slim agent per documented function, "
+             "each writing one harness via write_spec(append=True).",
+    )
+    parser.add_argument(
+        "--jobs", "-j",
+        type=int,
+        default=5,
+        help="Number of parallel agents in --split mode (default: 5).",
     )
     parser.add_argument(
         "--check", "-c",
@@ -788,6 +1530,17 @@ def main() -> None:
         help="Skip generation; only run checks on existing specs in --output.",
     )
     parser.add_argument(
+        "--auto-fix",
+        type=int,
+        const=2,
+        nargs="?",
+        default=None,
+        metavar="N",
+        help="Auto-fix compilation errors with LLM fix agents, up to N rounds "
+             "(default: 2 if --auto-fix is given without a value). "
+             "Requires ANTHROPIC_API_KEY.",
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
         help="Run full Kani model-checking verification.",
@@ -797,6 +1550,16 @@ def main() -> None:
         type=int,
         default=120,
         help="Timeout in seconds for each Kani verification run (default: 120).",
+    )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Generate a structured report: doc coverage → specs → Kani results.",
+    )
+    parser.add_argument(
+        "--merge",
+        action="store_true",
+        help="Merge individual/ per-function files into per-type bundled files and exit.",
     )
 
     args = parser.parse_args()
@@ -816,9 +1579,36 @@ def main() -> None:
     print(f"Mode:     {'split (per-type agents)' if args.split else 'monolithic'}")
     print()
 
+    # --merge: just merge individual files into bundled output
+    if args.merge:
+        _merge_specs(str(output))
+        return
+
     # --check-only: skip generation, just validate
     if args.check_only:
-        _run_checks(str(project), str(output), verify=args.verify, kani_timeout=args.kani_timeout)
+        api_key = ""
+        base_url = ""
+        auto_fix = args.auto_fix or 0
+        if auto_fix > 0:
+            api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+            if not api_key:
+                print("Error: --auto-fix requires ANTHROPIC_API_KEY", file=sys.stderr)
+                sys.exit(1)
+            base_url = os.environ.get("ANTHROPIC_BASE_URL", "")
+        vcounts = _run_checks(
+            str(project), str(output),
+            verify=args.verify,
+            kani_timeout=args.kani_timeout,
+            auto_fix_rounds=auto_fix,
+            api_key=api_key,
+            base_url=base_url,
+            model=args.model,
+            max_tokens=args.max_tokens,
+            verbose=args.verbose,
+        )
+        if args.report:
+            _generate_report(str(project), str(output),
+                             verify_counts=vcounts, kani_timeout=args.kani_timeout)
         return
 
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
@@ -839,6 +1629,7 @@ def main() -> None:
             max_iterations=args.max_iterations,
             max_tokens=args.max_tokens,
             verbose=args.verbose,
+            jobs=args.jobs,
         )
     else:
         from agent import SpecAgent
@@ -857,12 +1648,47 @@ def main() -> None:
 
     print(f"\nDone. Output written to {output}/")
 
-    if args.check:
-        _run_checks(str(project), str(output), verify=args.verify, kani_timeout=args.kani_timeout)
+    if args.check or args.auto_fix:
+        vcounts = _run_checks(
+            str(project), str(output),
+            verify=args.verify,
+            kani_timeout=args.kani_timeout,
+            auto_fix_rounds=args.auto_fix or 0,
+            api_key=api_key,
+            base_url=base_url,
+            model=args.model,
+            max_tokens=args.max_tokens,
+            verbose=args.verbose,
+        )
+    else:
+        vcounts = None
+
+    if args.report:
+        if args.check:
+            _generate_report(str(project), str(output),
+                             verify_counts=vcounts, kani_timeout=args.kani_timeout)
+        else:
+            _generate_report(str(project), str(output),
+                             run_verify=args.verify, kani_timeout=args.kani_timeout)
 
 
-def _run_checks(project_path: str, output_dir: str, verify: bool = False, kani_timeout: int = 120) -> None:
-    """Run all spec validation checks."""
+def _run_checks(
+    project_path: str,
+    output_dir: str,
+    verify: bool = False,
+    kani_timeout: int = 120,
+    auto_fix_rounds: int = 0,
+    api_key: str = "",
+    base_url: str = "",
+    model: str = "",
+    max_tokens: int = 4096,
+    verbose: bool = False,
+) -> tuple[int, int, int] | None:
+    """Run all spec validation checks.  Returns (passed, failed, timed_out) or None.
+
+    If *auto_fix_rounds* > 0, compilation failures trigger fix agents and
+    retry up to that many rounds.
+    """
     print("=" * 60)
     print("Specification validation")
     print("=" * 60)
@@ -876,12 +1702,28 @@ def _run_checks(project_path: str, output_dir: str, verify: bool = False, kani_t
     else:
         print("  OK: no structural issues detected.")
 
-    # 2. Compilation check (fast)
-    print("\n[2] Compilation check ...")
-    if _check_specs(project_path, output_dir):
+    # 2. Compilation check (with optional auto-fix)
+    if auto_fix_rounds > 0:
+        compilation_ok = _auto_fix_checks(
+            project_path=project_path,
+            output_dir=output_dir,
+            max_rounds=auto_fix_rounds,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            max_tokens=max_tokens,
+            verbose=verbose,
+        )
+    else:
+        print("\n[2] Compilation check ...")
+        compilation_ok, _, _ = _check_specs(project_path, output_dir, return_errors=True)
+
+    if compilation_ok:
         if verify:
             print(f"\n[3] Kani verification (timeout={kani_timeout}s) ...")
-            _verify_specs(project_path, output_dir, timeout=kani_timeout)
+            _, passed, failed, timed_out = _verify_specs(project_path, output_dir, timeout=kani_timeout)
+            return (passed, failed, timed_out)
+    return None
 
 
 if __name__ == "__main__":

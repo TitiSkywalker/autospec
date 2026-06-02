@@ -217,17 +217,60 @@ def read_rustdoc(module: str = "") -> str:
         "",
     ]
 
+    def _append_fields(item: RustItem, lines: list[str], doc_obj) -> None:
+        """Show struct fields or enum variants with types."""
+        fields = doc_obj.fields_of(item.id)
+        if not fields:
+            return
+        # Struct fields
+        if item.kind == "struct":
+            pub_fields = []
+            priv_fields = []
+            for f in fields:
+                fname = f.get("name", "?")
+                ftype = doc_obj.format_type(f["type"]) if "type" in f else "?"
+                fvis = "(pub)"  # fields_of only returns pub fields in public API
+                pub_fields.append(f"  {fname}: {ftype}")
+            if pub_fields:
+                lines.append("Fields:")
+                lines.extend(pub_fields)
+                lines.append("")
+        # Enum variants
+        elif item.kind == "enum":
+            for v in fields:
+                vname = v.get("name", "?")
+                vkind = list(v.get("inner", {}).keys())[0] if v.get("inner") else "unit"
+                if vkind == "tuple":
+                    vtypes = ", ".join(
+                        doc_obj.format_type(t["type"]) for t in v["inner"]["tuple"]
+                    )
+                    lines.append(f"  {vname}({vtypes})")
+                elif vkind == "struct":
+                    vfields = ", ".join(
+                        f"{f['name']}: {doc_obj.format_type(f['type'])}"
+                        for f in v["inner"]["struct"]
+                    )
+                    lines.append(f"  {vname} {{ {vfields} }}")
+                else:
+                    lines.append(f"  {vname}")
+            if fields:
+                lines.append("")
+
     def _append_impls(item_id: int, name: str, lines: list[str]) -> None:
         impls = doc.get_impls(item_id)
-        for trait_name, methods in impls:
+        for trait_name, methods, _is_external in impls:
             label = f"impl {trait_name} for {name}" if trait_name else f"impl {name}"
             lines.append(f"  [{label}]")
-            for mname, mdocs in methods:
+            for mname, mdocs, m_item in methods:
+                # Skip associated types/constants (not callable)
+                if m_item and m_item.kind not in ("function", "method"):
+                    continue
+                sig = doc.format_sig(m_item) if m_item else f"fn {mname}() -> ?"
                 mdocs_text = (mdocs or "").strip()
                 if mdocs_text:
-                    lines.append(f"    fn {mname}() — {mdocs_text}")
+                    lines.append(f"    {sig} — {mdocs_text}")
                 else:
-                    lines.append(f"    fn {mname}()")
+                    lines.append(f"    {sig}")
             lines.append("")
 
     for child in doc.children(target_id):
@@ -278,10 +321,15 @@ def read_rustdoc(module: str = "") -> str:
             docs = docs[:2000] + "\n... (truncated)"
 
         output.append(f"\n## {kind}: {name}")
+        if kind == "function":
+            sig = doc.format_sig(child)
+            output.append(f"\n{sig}\n")
         if docs:
             output.append(f"\n{docs}\n")
 
+        # Show struct fields / enum variants so agents don't need read_file
         if kind in ("struct", "enum", "trait"):
+            _append_fields(child, output, doc)
             _append_impls(child.id, name, output)
 
     output.append(f"\n---\n{len(output)} lines")

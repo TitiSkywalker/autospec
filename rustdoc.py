@@ -119,9 +119,15 @@ class RustDoc:
 
     def get_impls(
         self, for_item_id: int
-    ) -> list[tuple[str | None, list[tuple[str | None, str | None]]]]:
-        """Return all impl blocks (trait name, [(method_name, doc)]) for a given item id."""
-        results: list[tuple[str | None, list[tuple[str | None, str | None]]]] = []
+    ) -> list[tuple[str | None, list[tuple[str | None, str | None, Any]], bool]]:
+        """Return all impl blocks (trait name, [(method_name, doc, item)], is_external).
+
+        *is_external* is True when the trait belongs to a crate other than
+        the root crate (e.g. Clone, Debug, From from std/core).  Inherent
+        impls (trait_name is None) always have is_external=False.
+        """
+        root_crate = self.items[self.root_id].crate_id
+        results: list[tuple[str | None, list[tuple[str | None, str | None, Any]], bool]] = []
 
         for id_str, raw in self._index.items():
             inner = raw.get("inner", {})
@@ -135,17 +141,24 @@ class RustDoc:
 
             trait = impl.get("trait")
             trait_name = None
+            is_external = False
             if trait:
                 tid = trait.get("resolved_path", {}).get("id") or trait.get("id")
                 t_item = self.items.get(int(tid)) if tid is not None else None
-                trait_name = t_item.name if t_item else None
+                if t_item is not None:
+                    trait_name = t_item.name
+                    is_external = t_item.crate_id != root_crate
+                else:
+                    # Trait item not in index → definitely external
+                    trait_name = trait.get("path")
+                    is_external = True
 
-            methods: list[tuple[str | None, str | None]] = []
+            methods = []
             for mid in impl.get("items", []):
                 m_item = self.items.get(int(mid))
                 if m_item:
-                    methods.append((m_item.name, m_item.docs))
-            results.append((trait_name, methods))
+                    methods.append((m_item.name, m_item.docs, m_item))
+            results.append((trait_name, methods, is_external))
 
         # Sort: inherent impls first, then trait impls
         results.sort(key=lambda x: (x[0] is not None, x[0] or ""))
@@ -186,18 +199,69 @@ class RustDoc:
     # ------------------------------------------------------------------
 
     def fields_of(self, item_id: int) -> list[dict[str, Any]]:
-        """Return the fields of a struct or enum variant."""
+        """Return the fields of a struct or enum variant.
+
+        Struct fields are stored as separate items in the index, referenced
+        by ID from the struct's ``inner.kind.plain.fields`` (or tuple/newtype
+        variants). This method resolves those references into dicts with
+        ``name`` and ``type`` keys suitable for ``format_type``.
+        """
         item = self.items.get(item_id)
         if not item:
             return []
-        kind_data = item.inner
-        # Struct fields
-        if "fields" in kind_data:
-            return kind_data["fields"]
-        # Enum variants — return all variants with their fields
-        if "variants" in kind_data:
-            return kind_data["variants"]
+        inner = item.inner
+
+        # Struct with named fields: inner.kind.plain.fields = [id, id, ...]
+        if item.kind == "struct":
+            kind_data = inner.get("kind", {})
+            plain = kind_data.get("plain", {})
+            field_ids = plain.get("fields", [])
+            if field_ids:
+                return self._resolve_fields(field_ids)
+            # Tuple struct: inner.kind.tuple = [id, id, ...]
+            tuple_ids = kind_data.get("tuple", [])
+            if tuple_ids:
+                return self._resolve_fields(tuple_ids)
+            return []
+
+        # Enum: inner.kind.variants = [{variant, fields: [id, ...]}, ...]
+        if item.kind == "enum":
+            kind_data = inner.get("kind", {})
+            variants = kind_data.get("variants", [])
+            result = []
+            for v in variants:
+                vresult = {"name": v.get("name", "?"), "inner": {}}
+                vkind = list(v.get("inner", {}).keys())[0] if v.get("inner") else None
+                if vkind == "tuple":
+                    vresult["inner"] = {"tuple": self._resolve_fields(
+                        [t.get("id", t) for t in v["inner"]["tuple"]]
+                    )}
+                elif vkind == "plain":
+                    vresult["inner"] = {"struct": self._resolve_fields(
+                        v["inner"]["plain"].get("fields", [])
+                    )}
+                result.append(vresult)
+            return result
+
         return []
+
+    def _resolve_fields(self, field_ids: list[int]) -> list[dict[str, Any]]:
+        """Resolve struct_field item IDs to {name, type} dicts."""
+        result = []
+        for fid in field_ids:
+            fitem = self.items.get(int(fid))
+            if not fitem:
+                continue
+            entry: dict[str, Any] = {"name": fitem.name}
+            # The type is the single key in fitem.inner (e.g. "primitive", "resolved_path", ...)
+            for type_kind, type_data in fitem.inner.items():
+                if type_kind in ("primitive", "resolved_path", "borrowed_ref",
+                                 "generic", "tuple", "array", "slice",
+                                 "raw_ptr", "qualified_path", "fn_ptr"):
+                    entry["type"] = {type_kind: type_data}
+                    break
+            result.append(entry)
+        return result
 
     # ------------------------------------------------------------------
     # External crates
@@ -215,6 +279,127 @@ class RustDoc:
         for item in self.items.values():
             counts[item.kind] = counts.get(item.kind, 0) + 1
         return dict(sorted(counts.items()))
+
+    # ------------------------------------------------------------------
+    # Type formatting
+    # ------------------------------------------------------------------
+
+    def format_type(self, t: Any) -> str:
+        """Render a rustdoc JSON type node as a Rust type string."""
+        if isinstance(t, str):
+            return t
+        if "primitive" in t:
+            return t["primitive"]
+        if "generic" in t:
+            return t["generic"]
+        if "never" in t:
+            return "!"
+        if "unit" in t:
+            return "()"
+        if "borrowed_ref" in t:
+            br = t["borrowed_ref"]
+            inner = self.format_type(br["type"])
+            lt = br.get("lifetime") or ""
+            if br.get("is_mutable"):
+                return f"&{lt}mut {inner}".replace("  ", " ") if lt else f"&mut {inner}"
+            return f"&{lt} {inner}" if lt else f"&{inner}"
+        if "resolved_path" in t:
+            rp = t["resolved_path"]
+            name = rp.get("path", "?")
+            # Strip $crate:: prefix (internal rustdoc representation)
+            if name.startswith("$crate::"):
+                name = name[8:]
+            args = rp.get("args")
+            if args and "angle_bracketed" in args:
+                gen_args = args["angle_bracketed"]["args"]
+                parts = []
+                for a in gen_args:
+                    if "type" in a:
+                        parts.append(self.format_type(a["type"]))
+                    elif "lifetime" in a:
+                        parts.append(a["lifetime"])
+                    elif "const" in a:
+                        parts.append(str(a["const"]))
+                    elif "binding" in a:
+                        b = a["binding"]
+                        parts.append(f"{b['name']} = {self.format_type(b['type'])}")
+                    else:
+                        parts.append("?")
+                return f"{name}<{', '.join(parts)}>"
+            return name
+        if "tuple" in t:
+            elems = ", ".join(self.format_type(e) for e in t["tuple"])
+            return f"({elems})"
+        if "array" in t:
+            return f"[{self.format_type(t['array']['type'])}; {t['array']['len']}]"
+        if "slice" in t:
+            return f"[{self.format_type(t['slice']['type'])}]"
+        if "qualified_path" in t:
+            qp = t["qualified_path"]
+            ty = self.format_type(qp["self_type"])
+            return f"<{ty} as {qp.get('trait_', {}).get('path', '?')}>::{qp['name']}"
+        if "impl_trait" in t:
+            bounds = ", ".join(
+                b.get("path", b.get("name", "?"))
+                for b in t["impl_trait"]
+            )
+            return f"impl {bounds}"
+        if "dyn_trait" in t:
+            bounds = ", ".join(
+                b.get("path", b.get("name", "?"))
+                for b in t["dyn_trait"]
+            )
+            return f"dyn {bounds}"
+        if "raw_ptr" in t:
+            inner = self.format_type(t["raw_ptr"]["type"])
+            if t["raw_ptr"].get("is_mutable"):
+                return f"*mut {inner}"
+            return f"*const {inner}"
+        if "fn_ptr" in t:
+            inp = ", ".join(
+                self.format_type(i["type"]) for i in t["fn_ptr"].get("inputs", [])
+            )
+            out = self.format_type(t["fn_ptr"]["output"])
+            return f"fn({inp}) -> {out}"
+        return "?"
+
+    def format_sig(self, item: RustItem) -> str:
+        """Format a function/method item's signature as a Rust string."""
+        inner = item.inner
+        # Method items have sig directly; standalone functions too
+        sig = inner.get("sig", {})
+        if not sig:
+            return "fn ?()"
+
+        inputs = sig.get("inputs", [])
+        output = sig.get("output")
+
+        params: list[str] = []
+        for name, ty in inputs:
+            # Skip self params — they're implicit
+            if name == "self" and isinstance(ty, str) and ty == "&self":
+                continue
+            if name == "self" and isinstance(ty, dict):
+                if "borrowed_ref" in ty:
+                    if ty["borrowed_ref"].get("is_mutable"):
+                        params.append("&mut self")
+                    else:
+                        params.append("&self")
+                elif "raw_ptr" in ty:
+                    if ty["raw_ptr"].get("is_mutable"):
+                        params.append("self: *mut Self")
+                    else:
+                        params.append("self: *const Self")
+                elif "generic" in ty:
+                    params.append("self")
+                else:
+                    params.append(f"{name}: {self.format_type(ty)}")
+            else:
+                params.append(f"{name}: {self.format_type(ty)}")
+
+        out_str = self.format_type(output) if output else "()"
+        fn_name = item.name or ""
+        return f"fn {fn_name}({', '.join(params)}) -> {out_str}"
 
 
 # ---------------------------------------------------------------------------

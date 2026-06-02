@@ -1,9 +1,21 @@
 """Specification output tools."""
 
 import json
+import threading
 from pathlib import Path
 
 from tool_registry import register, get_output_dir
+
+# Per-file locks for thread-safe concurrent writes
+_file_locks: dict[str, threading.Lock] = {}
+_file_locks_lock = threading.Lock()
+
+
+def _get_file_lock(filename: str) -> threading.Lock:
+    with _file_locks_lock:
+        if filename not in _file_locks:
+            _file_locks[filename] = threading.Lock()
+        return _file_locks[filename]
 
 
 def _write_one(out_dir: Path, filename: str, content: str) -> str:
@@ -11,6 +23,7 @@ def _write_one(out_dir: Path, filename: str, content: str) -> str:
     # Prevent writes outside output dir
     if not str(out_path.resolve()).startswith(str(out_dir.resolve())):
         return f"Error: filename {filename!r} escapes output directory"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         out_path.write_text(content, encoding="utf-8")
     except Exception as exc:
@@ -18,11 +31,23 @@ def _write_one(out_dir: Path, filename: str, content: str) -> str:
     return f"Wrote {out_path.stat().st_size} bytes to {out_path}"
 
 
-def write_spec(filename: str, content: str) -> str:
-    """Write a single specification file to the output directory."""
+def write_spec(filename: str, content: str, append: bool = False) -> str:
+    """Write or append to a specification file in the output directory.
+
+    Set append=True to add content to an existing file; default overwrites.
+    Thread-safe: per-file locking prevents interleaved appends.
+    """
     out_dir = Path(get_output_dir())
     out_dir.mkdir(parents=True, exist_ok=True)
-    return _write_one(out_dir, filename, content)
+
+    lock = _get_file_lock(filename)
+    with lock:
+        if append and (out_dir / filename).is_file():
+            existing = (out_dir / filename).read_text(encoding="utf-8")
+            # Remove trailing blank lines before appending
+            existing = existing.rstrip("\n") + "\n\n"
+            content = existing + content
+        return _write_one(out_dir, filename, content)
 
 
 def write_specs(files: str) -> str:
@@ -56,20 +81,24 @@ def write_specs(files: str) -> str:
 register(
     name="write_spec",
     description=(
-        "Write a single specification file to the output directory. "
-        "Use for small projects. For multi-module projects, prefer write_specs "
-        "to write one file per module in a single call."
+        "Write a specification file. "
+        "Use append=True to add content to an existing file. "
+        "Default (append=False) overwrites with new content."
     ),
     input_schema={
         "type": "object",
         "properties": {
             "filename": {
                 "type": "string",
-                "description": "Output filename, e.g. 'spec.rs' or 'field_element.rs'",
+                "description": "Output filename, e.g. 'geometry__Point.rs'",
             },
             "content": {
                 "type": "string",
-                "description": "The complete specification content",
+                "description": "The harness block (or full file content on first write)",
+            },
+            "append": {
+                "type": "boolean",
+                "description": "If true, append to existing file; if false, overwrite (default: false)",
             },
         },
         "required": ["filename", "content"],
