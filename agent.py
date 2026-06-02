@@ -45,6 +45,7 @@ class SpecAgent:
         self.client = anthropic.Anthropic(
             api_key=api_key,
             base_url=base_url or None,
+            timeout=120.0,  # per-request timeout in seconds
         )
         all_tools = get_definitions()
         if tool_filter is not None:
