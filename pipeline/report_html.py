@@ -10,6 +10,60 @@ from pathlib import Path
 from pipeline.checks import _load_verify_results
 
 
+def _build_sig_lookup(project_path: str, crate_name: str) -> dict[str, str]:
+    """Build a lookup ``{module::function_name → signature}`` from rustdoc JSON.
+
+    Returns an empty dict if the JSON is not found or can't be parsed.
+    """
+    from tools.doc_json import _find_doc_json
+    from rustdoc import RustDoc
+
+    json_path = _find_doc_json(Path(project_path), crate_name)
+    if not json_path:
+        print("  Note: rustdoc JSON not found — signatures omitted. "
+              "Run generate_doc_json first.")
+        return {}
+
+    try:
+        doc = RustDoc(str(json_path))
+    except Exception as exc:
+        print(f"  Note: cannot parse rustdoc JSON ({exc}) — signatures omitted.")
+        return {}
+
+    lookup: dict[str, str] = {}
+
+    def walk(module_id: int, mod_path: str) -> None:
+        for child in doc.children(module_id):
+            if child.visibility != "public":
+                continue
+
+            # Standalone function
+            if child.kind == "function":
+                key = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
+                if key:
+                    lookup[key] = doc.format_sig(child)
+
+            # Type with methods
+            elif child.kind in ("struct", "enum", "trait"):
+                type_name = child.name or ""
+                for trait_name, methods, is_external in doc.get_impls(child.id):
+                    if is_external:
+                        continue
+                    for mname, _mdocs, mitem in methods:
+                        if not mname or not mitem:
+                            continue
+                        # Key includes type to disambiguate same-named methods
+                        lookup[f"{mod_path}::{type_name}::{mname}"] = doc.format_sig(mitem)
+
+            # Recurse into submodules
+            elif child.kind == "module":
+                next_path = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
+                walk(child.id, next_path)
+
+    walk(doc.root_id, "")
+    return lookup
+
+
 def _find_rustdoc_css() -> str | None:
     """Locate rustdoc CSS from the active Rust toolchain, or None."""
     try:
@@ -135,6 +189,9 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
         for r in verify_data.get("results", []):
             verify_lookup[r["source_file"]] = r
 
+    # 2.5. Build function signature lookup from rustdoc JSON
+    sig_lookup = _build_sig_lookup(project_path, crate_name)
+
     # 3. Group entries by module → merged_file
     grouped = _group_entries(entries)
 
@@ -188,11 +245,24 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
                 vr = verify_lookup.get(vkey, {})
                 badge_html = _badge(vr.get("status", ""))
 
+                # Look up signature from rustdoc JSON
+                # For methods: key = module::TypeName::method
+                # For standalone fns: key = module::function
+                clean_mf = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
+                type_part = clean_mf.split("__")[-1] if "__" in clean_mf else ""
+                if type_part and type_part != "functions":
+                    sig_key = f"{mod_name}::{type_part}::{fn_name}"
+                else:
+                    sig_key = f"{mod_name}::{fn_name}"
+                sig = sig_lookup.get(sig_key, "")
+
                 cards.append(f'<section id="{anchor}" class="spec-card">')
                 cards.append('<div class="spec-heading">')
                 cards.append(f'<a class="fn">fn {html.escape(fn_name)}</a>')
                 cards.append(badge_html)
                 cards.append('</div>')
+                if sig:
+                    cards.append(f'<div class="sig"><code>{html.escape(sig)}</code></div>')
 
                 if desc:
                     cards.append(f'<div class="docblock"><p>{html.escape(desc)}</p></div>')
@@ -202,6 +272,15 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
                     cards.append(f'<summary>Harness source ({html.escape(fn)})</summary>')
                     cards.append(f'<pre><code class="language-rust">'
                                  f'{html.escape(harness_code)}</code></pre>')
+                    cards.append('</details>')
+
+                # Show Kani error output for failed harnesses
+                error_text = vr.get("error", "")
+                if error_text:
+                    cards.append('<details class="error-details">')
+                    cards.append('<summary>Kani verification output</summary>')
+                    cards.append(f'<pre class="error-output">'
+                                 f'{html.escape(error_text)}</pre>')
                     cards.append('</details>')
 
                 cards.append('</section>')
@@ -348,6 +427,14 @@ a.fn {{
   color: #555;
   font-style: italic;
 }}
+.sig {{
+  margin: 4px 0 4px 24px;
+  font-size: 13px;
+  color: #666;
+}}
+.sig code {{
+  font-family: "Fira Mono", monospace;
+}}
 .source-details {{
   margin-top: 8px;
 }}
@@ -364,6 +451,29 @@ a.fn {{
   overflow-x: auto;
   font-size: 13px;
   line-height: 1.5;
+}}
+.error-details {{
+  margin-top: 10px;
+}}
+.error-details summary {{
+  cursor: pointer;
+  color: #c62828;
+  font-size: 13px;
+  font-weight: 600;
+}}
+.error-output {{
+  background: #fff5f5;
+  border: 1px solid #ffcdd2;
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }}
 </style>
 </head>

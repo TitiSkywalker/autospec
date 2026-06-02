@@ -277,6 +277,7 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
         import select
         deadline = time.time() + timeout
         killed = False
+        output_lines: list[str] = []
 
         try:
             while proc.poll() is None:
@@ -289,8 +290,9 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
 
                 ready, _, _ = select.select([proc.stdout], [], [], 1.0)
                 if ready:
-                    # Drain stdout silently
-                    proc.stdout.readline()
+                    line = proc.stdout.readline()
+                    if line:
+                        output_lines.append(line)
         except Exception:
             if not killed:
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
@@ -299,8 +301,10 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
             # Drain any remaining output before waiting
             try:
                 while True:
-                    if not proc.stdout.readline():
+                    line = proc.stdout.readline()
+                    if not line:
                         break
+                    output_lines.append(line)
             except Exception:
                 pass
             try:
@@ -318,11 +322,73 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
                 print(f"FAIL (exit={proc.returncode})")
 
         status = "TIMEOUT" if killed else ("PASS" if proc.returncode == 0 else "FAIL")
+        # Capture error output for failed harnesses — keep only
+        # FAILURE/UNDETERMINED checks and the final summary.
+        error_output = ""
+        if status == "FAIL":
+            full = "".join(output_lines)
+            # Strip compilation noise: keep only from RESULTS: onwards
+            results_pos = full.find("\nRESULTS:")
+            if results_pos >= 0:
+                full = full[results_pos + 1:]
+            else:
+                cbmc_pos = full.find("\nCBMC ")
+                if cbmc_pos >= 0:
+                    full = full[cbmc_pos + 1:]
+            # Strip SUCCESS blocks: each block is "Check N: ..." through
+            # "Location: ...". Keep blocks whose Status is not SUCCESS.
+            filtered: list[str] = []
+            i = 0
+            while i < len(full):
+                # Find next "Check " or "SUMMARY:" or end
+                next_check = full.find("\nCheck ", i)
+                next_summary = full.find("\nSUMMARY:", i)
+                if next_check == -1 and next_summary == -1:
+                    # No more blocks — keep remaining text (final VERIFICATION line etc.)
+                    remaining = full[i:].strip()
+                    if remaining:
+                        filtered.append(remaining)
+                    break
+                # Determine which comes first
+                candidates = []
+                if next_check >= 0:
+                    candidates.append(next_check)
+                if next_summary >= 0:
+                    candidates.append(next_summary)
+                next_block = min(candidates)
+                # Text between i and next_block is interstitial — keep if non-empty
+                between = full[i:next_block].strip()
+                if between:
+                    filtered.append(between)
+                # Now handle the block starting at next_block
+                if next_summary >= 0 and next_block == next_summary:
+                    # SUMMARY section — keep everything from here
+                    filtered.append(full[next_summary:].strip())
+                    break
+                # "Check N:" block — find its end (next "\nCheck " or "\nSUMMARY:" or end)
+                block_start = next_check
+                after = full.find("\nCheck ", block_start + 1)
+                after2 = full.find("\nSUMMARY:", block_start + 1)
+                block_end = after if after >= 0 else float("inf")
+                if after2 >= 0 and after2 < block_end:
+                    block_end = after2
+                if block_end == float("inf"):
+                    block_end = len(full)
+                block = full[block_start:block_end]
+                # Keep if it contains non-SUCCESS status
+                if re.search(r"Status:\s*(FAILURE|UNDETERMINED)", block):
+                    filtered.append(block.strip())
+                i = block_end
+            error_output = "\n".join(filtered)
+            # Truncate if still too long
+            if len(error_output) > 4000:
+                error_output = error_output[-4000:]
         per_harness_results.append({
             "source_file": source,
             "harness_fn": fn_name,
             "status": status,
             "returncode": proc.returncode if not killed else None,
+            "error": error_output,
         })
 
         # Failsafe: kill any CBMC processes leaked from this run
