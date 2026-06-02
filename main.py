@@ -24,6 +24,7 @@ from pipeline.agents import _run_split
 from pipeline.files import _merge_specs
 from pipeline.generation import _get_spec_targets
 from pipeline.report import _generate_report
+from pipeline.report_html import _generate_html_report
 
 
 def _api_key() -> str:
@@ -176,6 +177,12 @@ def main() -> None:
         help="Generate a structured report: doc coverage → specs → Kani results.",
     )
     parser.add_argument(
+        "--report-html",
+        action="store_true",
+        help="Generate a static HTML report with per-function spec content "
+             "and verification status, styled like cargo doc.",
+    )
+    parser.add_argument(
         "--merge",
         action="store_true",
         help="Merge per-function files into per-type bundled files under merged/ and exit.",
@@ -209,10 +216,11 @@ def main() -> None:
     print(f"Output:   {output}")
     print(f"Model:    {args.model}")
     print(f"API:      {api_endpoint}")
+    wants_generation = args.split or (not args.check_only and auto_fix == 0 and not args.report_html)
     mode = []
     if args.split:
         mode.append("generate (split)")
-    elif not args.check_only and not (auto_fix > 0 and not args.split):
+    elif wants_generation and not args.check_only:
         mode.append("generate (monolithic)")
     if args.check:
         mode.append("check")
@@ -222,6 +230,8 @@ def main() -> None:
         mode.append(f"auto-fix (x{auto_fix})")
     if args.verify:
         mode.append("verify")
+    if args.report_html:
+        mode.append("report-html")
     if not mode:
         mode.append("check")
     print(f"Mode:     {', '.join(mode)}")
@@ -241,6 +251,8 @@ def main() -> None:
         if args.report:
             _generate_report(str(project), str(output),
                              verify_counts=vcounts, kani_timeout=args.kani_timeout)
+        if args.report_html:
+            _generate_html_report(str(project), str(output))
         return
 
     # --auto-fix without --split: fix existing specs (implies check-only)
@@ -260,6 +272,17 @@ def main() -> None:
         if args.report:
             _generate_report(str(project), str(output),
                              kani_timeout=args.kani_timeout)
+        if args.report_html:
+            _generate_html_report(str(project), str(output))
+        return
+
+    # --report-html standalone (no generation, checks, or verify): read-only report
+    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+    if args.report_html and not wants_work:
+        _generate_html_report(str(project), str(output))
+        if args.report:
+            _generate_report(str(project), str(output),
+                             verify_counts=None, kani_timeout=args.kani_timeout)
         return
 
     # ── Below this point: generation mode ──
@@ -314,6 +337,9 @@ def main() -> None:
     if args.report:
         _generate_report(str(project), str(output),
                          verify_counts=vcounts, kani_timeout=args.kani_timeout)
+
+    if args.report_html:
+        _generate_html_report(str(project), str(output))
 
 
 if __name__ == "__main__":

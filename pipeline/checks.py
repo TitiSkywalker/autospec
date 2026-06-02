@@ -1,5 +1,6 @@
 """Compilation, verification, and structural checks for Kani harnesses."""
 
+import json
 import os
 import re
 import shutil
@@ -259,6 +260,7 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
     passed = 0
     failed = 0
     timed_out = 0
+    per_harness_results: list[dict] = []
 
     for i, (source, mod_name, fn_name) in enumerate(harnesses, 1):
         fq_name = f"{mod_name}::{fn_name}"
@@ -315,6 +317,14 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
                 failed += 1
                 print(f"FAIL (exit={proc.returncode})")
 
+        status = "TIMEOUT" if killed else ("PASS" if proc.returncode == 0 else "FAIL")
+        per_harness_results.append({
+            "source_file": source,
+            "harness_fn": fn_name,
+            "status": status,
+            "returncode": proc.returncode if not killed else None,
+        })
+
         # Failsafe: kill any CBMC processes leaked from this run
         try:
             import subprocess as _sp
@@ -323,10 +333,32 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
         except Exception:
             pass
 
+    # Write per-harness verification results
+    results_path = output / "verify_results.json"
+    results_path.write_text(json.dumps({
+        "crate": crate_name,
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "timed_out": timed_out,
+        "kani_timeout": timeout,
+        "results": per_harness_results,
+    }, indent=2) + "\n")
+
     shutil.rmtree(tmp)
 
     print(f"\n  Results: {passed} passed, {failed} failed, {timed_out} timed out")
+    print(f"  Wrote per-harness results → {results_path}")
     return failed == 0 and timed_out == 0, passed, failed, timed_out
+
+
+def _load_verify_results(output_dir: str) -> dict | None:
+    """Load per-harness verification results, or None if not run."""
+    path = Path(output_dir) / "verify_results.json"
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text())
+
 
 def _structural_check(output_dir: str) -> list[str]:
     """Basic structural validation of Kani harness files without compilation.
