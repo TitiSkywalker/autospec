@@ -23,6 +23,8 @@ class RustItem:
     kind: str  # "struct", "enum", "trait", "function", "module", "assoc_type", etc.
     docs: str | None
     file: str | None
+    begin: tuple[int, int] | None  # (line, col) 1-based
+    end: tuple[int, int] | None
     visibility: str
     inner: dict[str, Any] = field(repr=False)
 
@@ -59,6 +61,8 @@ class RustDoc:
                 kind=kind,
                 docs=item.get("docs"),
                 file=item.get("span", {}).get("filename") if item.get("span") else None,
+                begin=tuple(item["span"]["begin"]) if "begin" in (item.get("span") or {}) else None,
+                end=tuple(item["span"]["end"]) if "end" in (item.get("span") or {}) else None,
                 visibility=item.get("visibility", "default"),
                 inner=inner[kind] if kind in inner else {},
             )
