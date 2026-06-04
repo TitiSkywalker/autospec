@@ -34,7 +34,7 @@ def _find_doc_json(root: Path, crate_name: str) -> Path | None:
 
 def generate_doc_json(
     nightly: str = "nightly",
-    features: str = "",
+    features: str = "auto",
     regenerate: bool = False,
 ) -> str:
     """Run `cargo rustdoc` to generate the rustdoc JSON file.
@@ -44,8 +44,9 @@ def generate_doc_json(
 
     Args:
         nightly: Nightly toolchain specifier (default: 'nightly').
-        features: Comma-separated feature flags, or 'all' for --all-features.
-                  Default '' uses the crate's default features.
+        features: 'auto' (default) detects [package.metadata.docs.rs] from
+                  Cargo.toml; 'all' for --all-features; '' for default features;
+                  or a comma-separated list of feature flags.
         regenerate: If true, delete existing JSON and rebuild.
     """
     root = Path(get_project_root())
@@ -54,6 +55,20 @@ def generate_doc_json(
     with open(root / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", root.name)
+
+    # Auto-detect docs.rs build settings
+    docs_rs = cargo.get("package", {}).get("metadata", {}).get("docs", {}).get("rs", {})
+    if features == "auto":
+        if docs_rs.get("all-features"):
+            features = "all"
+            print(f"  Auto-detected docs.rs: --all-features")
+        else:
+            features = ""
+
+    # Collect extra rustdoc args from docs.rs metadata
+    extra_rustdoc_args = list(docs_rs.get("rustdoc-args", []))
+    if extra_rustdoc_args:
+        print(f"  Auto-detected docs.rs: extra args {' '.join(extra_rustdoc_args)}")
 
     expected_json = _find_doc_json(root, crate_name)
     if expected_json and not regenerate:
@@ -72,7 +87,7 @@ def generate_doc_json(
     elif features:
         cmd.extend(["--features", features])
 
-    cmd.extend(["--", "-Zunstable-options", "--output-format", "json"])
+    cmd.extend(["--", "-Zunstable-options", "--output-format", "json"] + extra_rustdoc_args)
 
     try:
         proc = subprocess.run(

@@ -265,10 +265,67 @@ def _build_sig_and_source_lookups(project_path: str, crate_name: str) -> tuple[d
         return {}, {}
 
     sig_lookup: dict[str, str] = {}
-    # Collect (key, item) pairs during walk, extract source later
     item_refs: list[tuple[str, RustItem]] = []
+    seen_modules: set[int] = set()
+
+    def _record_type_methods(item: RustItem, mod_path: str) -> None:
+        type_name = item.name or ""
+        for _trait_name, methods, is_external in doc_obj.get_impls(item.id):
+            if is_external:
+                continue
+            for mname, _mdocs, mitem in methods:
+                if not mname or not mitem:
+                    continue
+                key = f"{mod_path}::{type_name}::{mname}"
+                sig_lookup[key] = doc_obj.format_sig(mitem)
+                item_refs.append((key, mitem))
+
+    def _process_use(child: RustItem, mod_path: str) -> None:
+        """Follow re-exports to capture sigs and sources."""
+        resolved_id = child.inner.get("id")
+        if resolved_id is None or resolved_id not in doc_obj.items:
+            return
+        resolved = doc_obj.items[resolved_id]
+
+        if child.inner.get("is_glob"):
+            if resolved.kind != "module" or resolved.id in seen_modules:
+                return
+            seen_modules.add(resolved.id)
+            # Use the resolved module's path so keys match _collect_api_entries
+            glob_mod_path = (f"{mod_path}::{resolved.name}" if mod_path
+                            else (resolved.name or ""))
+            for rc in doc_obj.children(resolved.id):
+                if rc.visibility != "public":
+                    continue
+                if rc.kind == "function":
+                    key = f"{glob_mod_path}::{rc.name}" if glob_mod_path else (rc.name or "")
+                    if key:
+                        sig_lookup[key] = doc_obj.format_sig(rc)
+                        item_refs.append((key, rc))
+                elif rc.kind in ("struct", "enum", "trait"):
+                    _record_type_methods(rc, glob_mod_path)
+                elif rc.kind == "use":
+                    _process_use(rc, glob_mod_path)
+        else:
+            if resolved.kind == "function":
+                key = f"{mod_path}::{child.inner.get('name', resolved.name)}" if mod_path else (child.inner.get("name") or resolved.name or "")
+                if key:
+                    sig_lookup[key] = doc_obj.format_sig(resolved)
+                    item_refs.append((key, resolved))
+            elif resolved.kind in ("struct", "enum", "trait"):
+                tname = child.inner.get("name") or resolved.name
+                for _trait_name, methods, is_external in doc_obj.get_impls(resolved.id):
+                    if is_external:
+                        continue
+                    for mname, _mdocs, mitem in methods:
+                        if not mname or not mitem:
+                            continue
+                        key = f"{mod_path}::{tname}::{mname}" if mod_path else f"{tname}::{mname}"
+                        sig_lookup[key] = doc_obj.format_sig(mitem)
+                        item_refs.append((key, mitem))
 
     def walk(module_id: int, mod_path: str) -> None:
+        seen_modules.add(module_id)
         for child in doc_obj.children(module_id):
             if child.visibility != "public":
                 continue
@@ -278,19 +335,12 @@ def _build_sig_and_source_lookups(project_path: str, crate_name: str) -> tuple[d
                     sig_lookup[key] = doc_obj.format_sig(child)
                     item_refs.append((key, child))
             elif child.kind in ("struct", "enum", "trait"):
-                type_name = child.name or ""
-                for _trait_name, methods, is_external in doc_obj.get_impls(child.id):
-                    if is_external:
-                        continue
-                    for mname, _mdocs, mitem in methods:
-                        if not mname or not mitem:
-                            continue
-                        key = f"{mod_path}::{type_name}::{mname}"
-                        sig_lookup[key] = doc_obj.format_sig(mitem)
-                        item_refs.append((key, mitem))
+                _record_type_methods(child, mod_path)
             elif child.kind == "module":
                 next_path = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
                 walk(child.id, next_path)
+            elif child.kind == "use":
+                _process_use(child, mod_path)
 
     walk(doc_obj.root_id, "")
 
@@ -355,6 +405,32 @@ def _group_entries(entries: list[dict]) -> dict[str, dict[str, list[dict]]]:
     return grouped
 
 
+def _build_module_tree(grouped: dict[str, dict[str, list[dict]]]) -> dict:
+    """Convert flat module→types dict into a nested tree.
+
+    Returns a dict with ``_types`` (direct children) and ``_children``
+    (submodule name → subtree) so that ``linalg::svd`` nests under ``linalg``.
+    """
+    tree: dict = {"_types": {}, "_children": {}}
+
+    for module_path, types in sorted(grouped.items()):
+        if module_path == "(root)":
+            # Root-level items go directly into tree
+            tree["_types"].update(types)
+            continue
+
+        parts = module_path.split("::")
+        # Walk down the tree for each segment except the last
+        node = tree
+        for segment in parts[:-1]:
+            node = node["_children"].setdefault(segment, {"_types": {}, "_children": {}})
+        # Last segment: merge types into it
+        last = parts[-1]
+        node["_children"].setdefault(last, {"_types": {}, "_children": {}})
+        node["_children"][last]["_types"].update(types)
+    return tree
+
+
 def _extract_harness_code(source: str) -> str:
     """Extract the Rust code portion (after the header comment block)."""
     m = re.search(r"(#\[kani::proof\].*)", source, re.DOTALL)
@@ -389,33 +465,47 @@ def _make_page(crate_name: str, sidebar_html: str, body: str,
 
 def _build_sidebar(
     crate_name: str,
-    grouped: dict[str, dict[str, list[dict]]],
+    module_tree: dict,
     verify_lookup: dict[str, dict],
-    current_page: str,  # filename stem (e.g. "geometry__Point") or "index"
+    current_page: str,
+    is_api_only: bool = False,
 ) -> str:
     """Build sidebar <nav> with collapsible module tree, linking across pages."""
     parts: list[str] = []
     parts.append(f'<h2 class="sidebar-crate">'
                  f'<a href="index.html">{html.escape(crate_name)}</a></h2>')
 
-    for mod_name in sorted(grouped):
-        types = grouped[mod_name]
-        is_current_mod = any(
-            f"{mf[:-3] if mf.endswith('.rs') else mf}" == current_page
-            for mf in types
-        )
-        parts.append('<details open>')
-        parts.append(f'<summary class="sidebar-mod">{html.escape(mod_name)}</summary>')
-        parts.append('<ul>')
+    def render_node(name: str, node: dict, depth: int, full_path: str) -> None:
+        types: dict = node.get("_types", {})
+        children: dict = node.get("_children", {})
+        if not types and not children:
+            return
 
+        has_children = bool(children)
+        if has_children or depth > 0:
+            parts.append('<details open>')
+            # Heading: module name links to index anchor
+            mod_anchor = html.escape(full_path) if full_path else "root"
+            parts.append(
+                f'<summary class="sidebar-mod">'
+                f'<a href="index.html#mod-{mod_anchor}">'
+                f'{html.escape(name)}</a>'
+                f'</summary>'
+            )
+            parts.append('<ul>')
+        elif depth == 0:
+            # Root-level types/functions
+            parts.append('<ul>')
+
+        # Types in this module
         for merged_file in sorted(types):
             funcs = types[merged_file]
             clean = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
             type_label = clean.split("__")[-1] if "__" in clean else clean
-            page_file = f"{clean}.html"
+            page_file = f"pages/{clean}.html"
 
             is_current = (clean == current_page)
-            parts.append(f'<li>')
+            parts.append('<li>')
             if is_current:
                 parts.append(f'<span class="sidebar-type">{html.escape(type_label)}</span>')
             else:
@@ -426,11 +516,13 @@ def _build_sidebar(
             for entry in funcs:
                 fn_name = entry["source_function"]
                 anchor = f"fn-{clean}__{fn_name}"
-                vkey = entry.get("file", "")
-                if vkey.endswith(".rs"):
-                    vkey = vkey[:-3]
-                vr = verify_lookup.get(vkey, {})
-                badge = _badge(vr.get("status", ""))
+                badge = ""
+                if not is_api_only:
+                    vkey = entry.get("file", "")
+                    if vkey.endswith(".rs"):
+                        vkey = vkey[:-3]
+                    vr = verify_lookup.get(vkey, {})
+                    badge = _badge(vr.get("status", ""))
                 parts.append(
                     f'<li><a href="{page_file}#{anchor}">'
                     f'fn {html.escape(fn_name)}</a> {badge}</li>'
@@ -439,9 +531,18 @@ def _build_sidebar(
             parts.append('</ul>')
             parts.append('</li>')
 
-        parts.append('</ul>')
-        parts.append('</details>')
+        # Sub-modules (recurse)
+        for child_name in sorted(children):
+            child_full = f"{full_path}::{child_name}" if full_path else child_name
+            render_node(child_name, children[child_name], depth + 1, child_full)
 
+        if has_children or depth > 0:
+            parts.append('</ul>')
+            parts.append('</details>')
+        elif depth == 0:
+            parts.append('</ul>')
+
+    render_node(crate_name, module_tree, 0, "")
     return "\n".join(parts)
 
 
@@ -455,17 +556,23 @@ def _build_fn_card(
     source_lookup: dict[str, str],
     spec_sources: dict[str, str],
     verify_lookup: dict[str, dict],
+    is_api_only: bool = False,
 ) -> str:
     """Build a single function card <section>."""
     fn_name = entry["source_function"]
     anchor = f"fn-{merged_file}__{fn_name}"
     desc = entry.get("description", "")
     fn = entry.get("file", "")
-    source = spec_sources.get(fn, "")
-    harness_code = _extract_harness_code(source)
-    vkey = fn[:-3] if fn.endswith(".rs") else fn
-    vr = verify_lookup.get(vkey, {})
-    badge_html = _badge(vr.get("status", ""))
+    harness_code = ""
+    badge_html = ""
+    error_text = ""
+    if not is_api_only:
+        source = spec_sources.get(fn, "")
+        harness_code = _extract_harness_code(source)
+        vkey = fn[:-3] if fn.endswith(".rs") else fn
+        vr = verify_lookup.get(vkey, {})
+        badge_html = _badge(vr.get("status", ""))
+        error_text = vr.get("error", "")
 
     # Signature + source lookup
     clean_mf = merged_file
@@ -476,6 +583,24 @@ def _build_fn_card(
         sig_key = f"{mod_name}::{fn_name}"
     sig = sig_lookup.get(sig_key, "")
     orig_source = source_lookup.get(sig_key, "")
+
+    # Fallback: for re-exported types, the merged_file's first segment
+    # (e.g. "base" from "base__Matrix") may be the original module path.
+    if not sig and not orig_source:
+        mf_parts = merged_file.split("__")
+        if len(mf_parts) >= 2:
+            alt_mod = mf_parts[0]
+            if type_part and type_part != "functions":
+                alt_key = f"{alt_mod}::{type_part}::{fn_name}"
+            else:
+                alt_key = f"{alt_mod}::{fn_name}"
+            sig = sig_lookup.get(alt_key, "")
+            orig_source = source_lookup.get(alt_key, "")
+    # Fallback 2: bare function name (root-level re-exports)
+    if not sig:
+        sig = sig_lookup.get(fn_name, "")
+    if not orig_source:
+        orig_source = source_lookup.get(fn_name, "")
 
     parts: list[str] = []
     parts.append(f'<section id="{anchor}" class="spec-card">')
@@ -499,7 +624,6 @@ def _build_fn_card(
         parts.append(f'<pre><code class="language-rust">'
                      f'{html.escape(harness_code)}</code></pre>')
         parts.append('</details>')
-    error_text = vr.get("error", "")
     if error_text:
         parts.append('<details class="error-details">')
         parts.append('<summary>Kani verification output</summary>')
@@ -516,12 +640,13 @@ def _build_type_page(
     mod_name: str,
     merged_file: str,
     funcs: list[dict],
-    grouped: dict[str, dict[str, list[dict]]],
+    module_tree: dict,
     sig_lookup: dict[str, str],
     source_lookup: dict[str, str],
     spec_sources: dict[str, str],
     verify_lookup: dict[str, dict],
     css_link: str,
+    is_api_only: bool = False,
 ) -> tuple[str, str]:
     """Generate a page for one type / free-function group.
 
@@ -531,13 +656,14 @@ def _build_type_page(
     type_label = clean.split("__")[-1] if "__" in clean else clean
     page_stem = clean
 
-    sidebar = _build_sidebar(crate_name, grouped, verify_lookup, current_page=clean)
+    sidebar = _build_sidebar(crate_name, module_tree, verify_lookup,
+                             current_page=clean, is_api_only=is_api_only)
 
     # Breadcrumb: crate > module > type
     breadcrumb = (
         f'<div class="breadcrumbs">'
-        f'<a href="index.html">{html.escape(crate_name)}</a>'
-        f' :: <a href="index.html#mod-{html.escape(mod_name)}">{html.escape(mod_name)}</a>'
+        f'<a href="../index.html">{html.escape(crate_name)}</a>'
+        f' :: <a href="../index.html#mod-{html.escape(mod_name)}">{html.escape(mod_name)}</a>'
         f' :: {html.escape(type_label)}'
         f'</div>'
     )
@@ -545,7 +671,8 @@ def _build_type_page(
     cards = []
     for entry in funcs:
         cards.append(_build_fn_card(entry, clean, mod_name, sig_lookup,
-                                    source_lookup, spec_sources, verify_lookup))
+                                    source_lookup, spec_sources, verify_lookup,
+                                    is_api_only=is_api_only))
 
     body = (f'<h1>{html.escape(type_label)}</h1>\n'
             f'{breadcrumb}\n'
@@ -557,67 +684,204 @@ def _build_type_page(
 
 def _build_index_page(
     crate_name: str,
-    grouped: dict[str, dict[str, list[dict]]],
+    module_tree: dict,
     verify_lookup: dict[str, dict],
     css_link: str,
     passed: int, failed: int, timed_out: int, not_run: int,
+    is_api_only: bool = False,
 ) -> str:
     """Generate the landing page (index.html) with summary and module overview."""
 
-    sidebar = _build_sidebar(crate_name, grouped, verify_lookup, current_page="index")
+    sidebar = _build_sidebar(crate_name, module_tree, verify_lookup,
+                             current_page="index", is_api_only=is_api_only)
 
-    # Module/type overview list
+    # Module/type overview list (render tree)
     overview: list[str] = []
     overview.append('<div class="index-module-list">')
-    for mod_name in sorted(grouped):
-        types = grouped[mod_name]
-        overview.append(f'<details open id="mod-{html.escape(mod_name)}">')
-        overview.append(f'<summary>{html.escape(mod_name)}</summary>')
+
+    def _render_overview_node(name: str, node: dict, depth: int, full_path: str) -> None:
+        types: dict = node.get("_types", {})
+        children: dict = node.get("_children", {})
+        if not types and not children:
+            return
+
+        if depth > 0:
+            mod_id = html.escape(full_path)
+            overview.append(f'<details open id="mod-{mod_id}">')
+            overview.append(f'<summary class="sidebar-mod">{html.escape(name)}</summary>')
         overview.append('<ul>')
+
         for merged_file in sorted(types):
             funcs = types[merged_file]
             clean = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
             type_label = clean.split("__")[-1] if "__" in clean else clean
-            page_file = f"{clean}.html"
-            # Count verification statuses
-            p = sum(1 for e in funcs
-                    if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "PASS")
-            f = sum(1 for e in funcs
-                    if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "FAIL")
-            t = sum(1 for e in funcs
-                    if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "TIMEOUT")
-            badges = []
-            if p: badges.append(f'{p} passed')
-            if f: badges.append(f'{f} failed')
-            if t: badges.append(f'{t} timed out')
-            status_str = f'<span class="fn-count">({", ".join(badges) if badges else "not run"})</span>'
+            page_file = f"pages/{clean}.html"
+            if not is_api_only:
+                p = sum(1 for e in funcs
+                        if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "PASS")
+                f = sum(1 for e in funcs
+                        if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "FAIL")
+                t = sum(1 for e in funcs
+                        if verify_lookup.get(e.get("file", "")[:-3], {}).get("status") == "TIMEOUT")
+                badges = []
+                if p: badges.append(f'{p} passed')
+                if f: badges.append(f'{f} failed')
+                if t: badges.append(f'{t} timed out')
+                status_str = f'<span class="fn-count">({", ".join(badges) if badges else "not run"})</span>'
+            else:
+                status_str = f'<span class="fn-count">({len(funcs)} fn{"s" if len(funcs) != 1 else ""})</span>'
             overview.append(
                 f'<li>'
                 f'<a href="{page_file}">{html.escape(type_label)}</a>'
                 f'{status_str}'
                 f'</li>'
             )
+
+        # Sub-modules
+        for child_name in sorted(children):
+            child_full = f"{full_path}::{child_name}" if full_path else child_name
+            _render_overview_node(child_name, children[child_name], depth + 1, child_full)
+
         overview.append('</ul>')
-        overview.append('</details>')
+        if depth > 0:
+            overview.append('</details>')
+
+    _render_overview_node(crate_name, module_tree, 0, "")
     overview.append('</div>')
 
-    body = (f'<h1>Autospec Report — {html.escape(crate_name)}</h1>\n'
-            f'<div class="summary-row">\n'
-            f'  <div class="summary-card pass"><span class="count">{passed}</span>Passed</div>\n'
-            f'  <div class="summary-card fail"><span class="count">{failed}</span>Failed</div>\n'
-            f'  <div class="summary-card timeout"><span class="count">{timed_out}</span>Timed Out</div>\n'
-            f'  <div class="summary-card notrun"><span class="count">{not_run}</span>Not Run</div>\n'
-            f'</div>\n'
-            f'{"".join(overview)}')
+    if not is_api_only:
+        summary = (f'<div class="summary-row">\n'
+                   f'  <div class="summary-card pass"><span class="count">{passed}</span>Passed</div>\n'
+                   f'  <div class="summary-card fail"><span class="count">{failed}</span>Failed</div>\n'
+                   f'  <div class="summary-card timeout"><span class="count">{timed_out}</span>Timed Out</div>\n'
+                   f'  <div class="summary-card notrun"><span class="count">{not_run}</span>Not Run</div>\n'
+                   f'</div>\n')
+        heading = f'<h1>Autospec Report — {html.escape(crate_name)}</h1>\n'
+        title = f"Autospec Report — {crate_name}"
+    else:
+        summary = ""
+        heading = f'<h1>API Overview — {html.escape(crate_name)}</h1>\n'
+        title = f"API Overview — {crate_name}"
 
-    title = f"Autospec Report — {crate_name}"
+    body = heading + summary + "".join(overview)
     return _make_page(crate_name, sidebar, body, css_link, title)
 
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
+def _collect_api_entries(project_path: str) -> tuple[str, list[dict]]:
+    """Build spec-style entries from rustdoc JSON alone (no harnesses).
+
+    Follows glob and named re-exports so the report matches docs.rs coverage.
+
+    Returns (crate_name, entries) where each entry has:
+    module, source_function, merged_file, description, file (empty string).
+    """
+    from tools.doc_json import _find_doc_json
+    from rustdoc import RustDoc, RustItem
+
+    root = Path(project_path)
+    import tomllib
+    with open(root / "Cargo.toml", "rb") as fh:
+        cargo = tomllib.load(fh)
+    crate_name = cargo.get("package", {}).get("name", root.name)
+
+    json_path = _find_doc_json(root, crate_name)
+    if not json_path:
+        return crate_name, []
+
+    doc_obj = RustDoc(str(json_path))
+    entries: list[dict] = []
+    seen_modules: set[int] = set()  # prevent infinite recursion via glob re-exports
+
+    def _add_fn_entry(child: RustItem, mod_path: str) -> None:
+        mf = f"{mod_path}__functions" if mod_path else "functions"
+        entries.append({
+            "module": mod_path or "(root)",
+            "source_function": child.name,
+            "merged_file": mf,
+            "file": "",
+            "description": (child.docs or "").split("\n")[0].strip(),
+        })
+
+    def _add_type_entries(child: RustItem, mod_path: str, type_name: str | None = None) -> None:
+        """Collect methods for a type (struct/enum/trait) and add entries."""
+        tname = type_name or child.name or ""
+        mf = f"{mod_path}__{tname}" if mod_path else tname
+        for _trait_name, methods, is_external in doc_obj.get_impls(child.id):
+            if is_external:
+                continue
+            for mname, mdocs, mitem in methods:
+                if not mname or not mitem:
+                    continue
+                entries.append({
+                    "module": mod_path or "(root)",
+                    "source_function": mname,
+                    "merged_file": mf,
+                    "file": "",
+                    "description": (mdocs or "").split("\n")[0].strip(),
+                })
+
+    def _process_use(child: RustItem, mod_path: str) -> None:
+        """Handle a `use` (re-export) item — glob or named."""
+        resolved_id = child.inner.get("id")
+        if resolved_id is None or resolved_id not in doc_obj.items:
+            return
+        resolved = doc_obj.items[resolved_id]
+
+        if child.inner.get("is_glob"):
+            # Glob re-export: follow the resolved module's items.
+            # Use the resolved module's path so keys match the sig lookup.
+            if resolved.kind != "module":
+                return
+            if resolved.id in seen_modules:
+                return
+            seen_modules.add(resolved.id)
+            glob_path = (f"{mod_path}::{resolved.name}" if mod_path
+                         else (resolved.name or ""))
+            for rc in doc_obj.children(resolved.id):
+                if rc.visibility != "public":
+                    continue
+                if rc.kind == "function":
+                    _add_fn_entry(rc, glob_path)
+                elif rc.kind in ("struct", "enum", "trait"):
+                    _add_type_entries(rc, glob_path)
+                elif rc.kind == "use":
+                    _process_use(rc, glob_path)
+        else:
+            # Named re-export: resolve and process the single item
+            if resolved.kind == "function":
+                _add_fn_entry(resolved, mod_path)
+            elif resolved.kind in ("struct", "enum", "trait"):
+                _add_type_entries(resolved, mod_path, type_name=child.inner.get("name") or resolved.name)
+            elif resolved.kind == "module":
+                # Skip named module re-exports — they're aliases
+                pass
+
+    def walk(module_id: int, mod_path: str) -> None:
+        seen_modules.add(module_id)
+        for child in doc_obj.children(module_id):
+            if child.visibility != "public":
+                continue
+            if child.kind == "function":
+                _add_fn_entry(child, mod_path)
+            elif child.kind in ("struct", "enum", "trait"):
+                _add_type_entries(child, mod_path)
+            elif child.kind == "module":
+                next_path = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
+                walk(child.id, next_path)
+            elif child.kind == "use":
+                _process_use(child, mod_path)
+
+    walk(doc_obj.root_id, "")
+    return crate_name, entries
+
+
 def _generate_html_report(project_path: str, output_dir: str) -> None:
     """Generate a multi-page static HTML report like cargo doc.
+
+    If ``specs.json`` exists, shows per-function spec content and verification
+    status.  Otherwise falls back to an API-only report from rustdoc JSON.
 
     Writes to ``output/report/``:
     - ``index.html`` — landing page with summary and module tree
@@ -626,27 +890,36 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
     """
 
     output = Path(output_dir)
+    report_dir = output / "report"
+    report_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Read specs.json
+    # 1. Read specs.json (optional)
     specs_path = output / "specs.json"
-    if not specs_path.is_file():
-        print("Error: specs.json not found. Run generation or --check first.")
-        return
+    api_only = not specs_path.is_file()
 
-    manifest = json.loads(specs_path.read_text())
-    crate_name = manifest.get("crate", "unknown")
-    entries: list[dict] = manifest.get("entries", [])
+    if api_only:
+        crate_name, entries = _collect_api_entries(project_path)
+        if not entries:
+            print("Error: no public API found (and no specs.json). "
+                  "Generate rustdoc JSON first: cargo +nightly rustdoc -- -Zunstable-options --output-format json")
+            return
+        print(f"  No specs.json — API-only report ({len(entries)} public functions)")
+    else:
+        manifest = json.loads(specs_path.read_text())
+        crate_name = manifest.get("crate", "unknown")
+        entries: list[dict] = manifest.get("entries", [])
 
     if not entries:
-        print("No entries in specs.json.")
+        print("No entries found.")
         return
 
-    # 2. Read verify_results.json (optional)
-    verify_data = _load_verify_results(str(output))
+    # 2. Read verify_results.json (optional; only meaningful with specs)
     verify_lookup: dict[str, dict] = {}
-    if verify_data:
-        for r in verify_data.get("results", []):
-            verify_lookup[r["source_file"]] = r
+    if not api_only:
+        verify_data = _load_verify_results(str(output))
+        if verify_data:
+            for r in verify_data.get("results", []):
+                verify_lookup[r["source_file"]] = r
 
     # 3. Build function signature + source lookups from rustdoc JSON
     sig_lookup, source_lookup = _build_sig_and_source_lookups(project_path, crate_name)
@@ -656,44 +929,55 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
 
     # 5. Read harness source code for each entry
     spec_sources: dict[str, str] = {}
-    for entry in entries:
-        fn = entry.get("file", "")
-        path = output / fn
-        if path.is_file():
-            spec_sources[fn] = path.read_text()
+    if not api_only:
+        for entry in entries:
+            fn = entry.get("file", "")
+            path = output / fn
+            if path.is_file():
+                spec_sources[fn] = path.read_text()
 
     # 6. Copy rustdoc CSS to report directory
-    report_dir = output / "report"
-    report_dir.mkdir(parents=True, exist_ok=True)
+    pages_dir = report_dir / "pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
 
     css_path = _find_rustdoc_css()
     if css_path:
         shutil.copy2(css_path, report_dir / "rustdoc.css")
-        css_link = "rustdoc.css"
+        index_css = "rustdoc.css"
+        page_css = "../rustdoc.css"
     else:
         print("  Note: rustdoc CSS not found, using inline styles.")
-        css_link = ""
+        index_css = page_css = ""
 
-    # 7. Compute summary stats
-    passed = sum(1 for v in verify_lookup.values() if v.get("status") == "PASS")
-    failed = sum(1 for v in verify_lookup.values() if v.get("status") == "FAIL")
-    timed_out = sum(1 for v in verify_lookup.values() if v.get("status") == "TIMEOUT")
-    not_run = len(entries) - passed - failed - timed_out
+    # 7. Compute summary stats (verification run only)
+    if not api_only:
+        passed = sum(1 for v in verify_lookup.values() if v.get("status") == "PASS")
+        failed = sum(1 for v in verify_lookup.values() if v.get("status") == "FAIL")
+        timed_out = sum(1 for v in verify_lookup.values() if v.get("status") == "TIMEOUT")
+        not_run = len(entries) - passed - failed - timed_out
+    else:
+        passed = failed = timed_out = 0
+        not_run = 0
+
+    # 7.5 Build module tree for sidebar + index navigation
+    module_tree = _build_module_tree(grouped)
 
     # 8. Generate index page
-    index_html = _build_index_page(crate_name, grouped, verify_lookup,
-                                   css_link, passed, failed, timed_out, not_run)
+    index_html = _build_index_page(crate_name, module_tree, verify_lookup,
+                                   index_css, passed, failed, timed_out, not_run,
+                                   is_api_only=api_only)
     (report_dir / "index.html").write_text(index_html)
     print(f"Wrote {report_dir / 'index.html'}")
 
-    # 9. Generate per-type pages
+    # 9. Generate per-type pages under pages/
     for mod_name in sorted(grouped):
         types = grouped[mod_name]
         for merged_file in sorted(types):
             funcs = types[merged_file]
             page_stem, page_html = _build_type_page(
                 crate_name, mod_name, merged_file, funcs,
-                grouped, sig_lookup, source_lookup, spec_sources, verify_lookup, css_link,
+                module_tree, sig_lookup, source_lookup, spec_sources, verify_lookup, page_css,
+                is_api_only=api_only,
             )
-            (report_dir / f"{page_stem}.html").write_text(page_html)
-            print(f"Wrote {report_dir / f'{page_stem}.html'}")
+            (pages_dir / f"{page_stem}.html").write_text(page_html)
+            print(f"Wrote {pages_dir / f'{page_stem}.html'}")

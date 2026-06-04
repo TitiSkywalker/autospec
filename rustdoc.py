@@ -337,7 +337,10 @@ class RustDoc:
         if "array" in t:
             return f"[{self.format_type(t['array']['type'])}; {t['array']['len']}]"
         if "slice" in t:
-            return f"[{self.format_type(t['slice']['type'])}]"
+            inner = t["slice"]
+            if isinstance(inner, dict) and "type" in inner:
+                return f"[{self.format_type(inner['type'])}]"
+            return f"[{self.format_type(inner)}]"
         if "qualified_path" in t:
             qp = t["qualified_path"]
             ty = self.format_type(qp["self_type"])
