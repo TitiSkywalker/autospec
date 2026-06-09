@@ -22,9 +22,10 @@ from pipeline.checks import _check_specs, _structural_check, _verify_specs
 from pipeline.auto_fix import _auto_fix_checks
 from pipeline.agents import _run_split
 from pipeline.files import _merge_specs
-from pipeline.generation import _get_spec_targets
+from pipeline.generation import _get_spec_targets, _load_specs_toml
 from pipeline.report import _generate_report
 from pipeline.report_html import _generate_html_report
+from pipeline.server import serve_report
 
 
 def _api_key() -> str:
@@ -183,6 +184,26 @@ def main() -> None:
              "and verification status, styled like cargo doc.",
     )
     parser.add_argument(
+        "--only",
+        type=str,
+        default="",
+        help="Comma-separated list of functions to generate specs for, "
+             "e.g. 'geometry::Point::new,linalg::svd::SVD::decompose'. "
+             "Also reads specs.toml from the output directory if present.",
+    )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start a local HTTP server for the HTML report with live "
+             "specs.toml save API. Implies --report-html.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="Port for --serve (default: 8765).",
+    )
+    parser.add_argument(
         "--merge",
         action="store_true",
         help="Merge per-function files into per-type bundled files under merged/ and exit.",
@@ -232,10 +253,22 @@ def main() -> None:
         mode.append("verify")
     if args.report_html:
         mode.append("report-html")
+    if args.serve:
+        mode.append("serve")
     if not mode:
         mode.append("check")
     print(f"Mode:     {', '.join(mode)}")
     print()
+
+    # --serve alone (no generation, checks, or verify): generate report and serve
+    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+    if args.serve and not wants_work:
+        _generate_html_report(str(project), str(output))
+        if args.report:
+            _generate_report(str(project), str(output),
+                             verify_counts=None, kani_timeout=args.kani_timeout)
+        serve_report(str(output), port=args.port)
+        return
 
     # --check-only: validate existing specs, no auto-fix
     if args.check_only:
@@ -251,8 +284,10 @@ def main() -> None:
         if args.report:
             _generate_report(str(project), str(output),
                              verify_counts=vcounts, kani_timeout=args.kani_timeout)
-        if args.report_html:
+        if args.report_html or args.serve:
             _generate_html_report(str(project), str(output))
+        if args.serve:
+            serve_report(str(output), port=args.port)
         return
 
     # --auto-fix without --split: fix existing specs (implies check-only)
@@ -272,22 +307,40 @@ def main() -> None:
         if args.report:
             _generate_report(str(project), str(output),
                              kani_timeout=args.kani_timeout)
-        if args.report_html:
+        if args.report_html or args.serve:
             _generate_html_report(str(project), str(output))
+        if args.serve:
+            serve_report(str(output), port=args.port)
         return
 
     # --report-html standalone (no generation, checks, or verify): read-only report
     wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
-    if args.report_html and not wants_work:
+    if (args.report_html or args.serve) and not wants_work:
         _generate_html_report(str(project), str(output))
         if args.report:
             _generate_report(str(project), str(output),
                              verify_counts=None, kani_timeout=args.kani_timeout)
+        if args.serve:
+            serve_report(str(output), port=args.port)
         return
 
     # ── Below this point: generation mode ──
     api_key = _api_key()
     base_url = os.environ.get("ANTHROPIC_BASE_URL", "")
+
+    # Build the set of functions to target (--only flag + specs.toml)
+    only_functions: list[str] | None = None
+    if args.only:
+        only_functions = [f.strip() for f in args.only.split(",") if f.strip()]
+        print(f"  --only: targeting {len(only_functions)} function(s)")
+    # specs.toml overrides/adds to --only
+    toml_funcs = _load_specs_toml(str(output))
+    if toml_funcs is not None:
+        if only_functions:
+            only_functions = list(set(only_functions) | set(toml_funcs))
+        else:
+            only_functions = toml_funcs
+        print(f"  specs.toml: targeting {len(only_functions)} function(s) total")
 
     if args.split:
         _run_split(
@@ -300,6 +353,7 @@ def main() -> None:
             max_tokens=args.max_tokens,
             verbose=args.verbose,
             jobs=args.jobs,
+            only_functions=only_functions,
         )
     else:
         from agent import SpecAgent
@@ -338,8 +392,10 @@ def main() -> None:
         _generate_report(str(project), str(output),
                          verify_counts=vcounts, kani_timeout=args.kani_timeout)
 
-    if args.report_html:
+    if args.report_html or args.serve:
         _generate_html_report(str(project), str(output))
+    if args.serve:
+        serve_report(str(output), port=args.port)
 
 
 if __name__ == "__main__":

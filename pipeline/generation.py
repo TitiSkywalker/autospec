@@ -208,7 +208,33 @@ def _strip_standard_trait_impls(detail: str) -> str:
 
     return "\n".join(result)
 
-def _get_spec_targets(project_path: str, output_dir: str) -> list[tuple[str, str]]:
+def _load_specs_toml(output_dir: str) -> list[str] | None:
+    """Load the specs.toml selection file. Returns list of function paths or None."""
+    toml_path = Path(output_dir) / "specs.toml"
+    if not toml_path.is_file():
+        return None
+    try:
+        import tomllib
+        with open(toml_path, "rb") as f:
+            data = tomllib.load(f)
+        return data.get("verify", {}).get("functions", [])
+    except Exception as e:
+        print(f"  Warning: failed to parse specs.toml: {e}")
+        return None
+
+
+def _make_filter_key(func_info: dict) -> str:
+    """Build a selection key from function info: ``module::Type::name`` or ``module::name``."""
+    mod = func_info.get("module", "")
+    type_name = func_info.get("type_name", "")
+    name = func_info.get("name", "")
+    if type_name:
+        return f"{mod}::{type_name}::{name}" if mod else f"{type_name}::{name}"
+    return f"{mod}::{name}" if mod else name
+
+
+def _get_spec_targets(project_path: str, output_dir: str,
+                      only_functions: list[str] | None = None) -> list[tuple[str, str]]:
     """Generate per-type spec targets from documented modules.
 
     Returns list of (safe_filename, doc_section) where doc_section is

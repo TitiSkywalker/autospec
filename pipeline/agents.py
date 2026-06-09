@@ -9,7 +9,7 @@ from pathlib import Path
 from agent import SpecAgent
 from prompt import FUNC_SYSTEM_PROMPT, FIX_SYSTEM_PROMPT
 from pipeline.files import _merge_specs, _write_spec_json
-from pipeline.generation import _get_spec_targets, _parse_functions_from_section
+from pipeline.generation import _get_spec_targets, _parse_functions_from_section, _make_filter_key
 import tomllib
 
 def _run_func_agent(
@@ -185,6 +185,7 @@ def _run_split(
     max_tokens: int,
     verbose: bool,
     jobs: int = 5,
+    only_functions: list[str] | None = None,
 ) -> None:
     """Divide and conquer: one slim agent per documented function.
 
@@ -199,9 +200,13 @@ def _run_split(
     targets = _get_spec_targets(project_path, output_dir)
 
     # Parse individual functions from all targets
+    only_set: set[str] | None = set(only_functions) if only_functions else None
     all_funcs: list[tuple[str, str, list[dict]]] = []  # (filename, header, [funcs])
+    total_skipped = 0
     for filename, doc_section in targets:
         functions = _parse_functions_from_section(doc_section)
+        if only_set is not None:
+            functions = [f for f in functions if _make_filter_key(f) in only_set]
         if not functions:
             continue
         # Extract the header (everything before the first ## section)
@@ -210,7 +215,11 @@ def _run_split(
         all_funcs.append((filename, header, functions))
 
     total_funcs = sum(len(funcs) for _, _, funcs in all_funcs)
-    print(f"\nParsed {total_funcs} documented functions across {len(all_funcs)} files.")
+    if only_set:
+        print(f"\nParsed {total_funcs} matching functions (from {len(only_set)} in specs.toml)"
+              f" across {len(all_funcs)} files.")
+    else:
+        print(f"\nParsed {total_funcs} documented functions across {len(all_funcs)} files.")
 
     if not all_funcs:
         print("No documented functions found. Nothing to do.")

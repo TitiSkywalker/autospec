@@ -242,6 +242,143 @@ a.fn {
   white-space: pre-wrap;
   word-break: break-all;
 }
+.selection-toolbar {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-bottom: 2px solid #c25c00;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  z-index: 100;
+}
+.selection-toolbar button {
+  padding: 6px 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fafafa;
+  cursor: pointer;
+  font-size: 13px;
+}
+.selection-toolbar button:hover { background: #eee; }
+.selection-toolbar button.primary {
+  background: #c25c00;
+  color: white;
+  border-color: #c25c00;
+}
+.selection-toolbar button.primary:hover { background: #a04e00; }
+.selection-count {
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+  min-width: 90px;
+}
+.fn-checkbox {
+  margin-right: 6px;
+  accent-color: #c25c00;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-header h3 { margin: 0; font-size: 16px; }
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #888;
+}
+.modal-close:hover { color: #333; }
+.modal-body { padding: 16px 20px; overflow-y: auto; }
+.modal-body p.path-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 8px 0;
+  font-family: monospace;
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+.modal-body textarea {
+  width: 100%;
+  height: 300px;
+  font-family: "Fira Mono", monospace;
+  font-size: 13px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.modal-footer button {
+  padding: 8px 18px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.modal-footer button.primary {
+  background: #2e7d32;
+  color: white;
+  border-color: #2e7d32;
+}
+.modal-footer button.primary:hover { background: #1b5e20; }
+.modal-footer button:hover { background: #eee; }
+.copy-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.copy-toast.show { opacity: 1; }
 """
 
 
@@ -366,8 +503,8 @@ def _build_sig_and_source_lookups(project_path: str, crate_name: str) -> tuple[d
     return sig_lookup, source_lookup
 
 
-def _find_rustdoc_css() -> str | None:
-    """Locate rustdoc CSS from the active Rust toolchain, or None."""
+def _find_rustdoc_assets_dir() -> Path | None:
+    """Locate the rustdoc static.files directory from the active toolchain, or None."""
     try:
         result = subprocess.run(
             ["rustup", "which", "rustdoc"],
@@ -376,13 +513,22 @@ def _find_rustdoc_css() -> str | None:
         if result.returncode != 0:
             return None
         toolchain_dir = Path(result.stdout.strip()).parent.parent
-        css_dir = toolchain_dir / "share" / "doc" / "rust" / "html" / "static.files"
-        if not css_dir.is_dir():
-            return None
-        matches = sorted(css_dir.glob("rustdoc-*.css"))
-        return str(matches[0]) if matches else None
+        assets_dir = toolchain_dir / "share" / "doc" / "rust" / "html" / "static.files"
+        return assets_dir if assets_dir.is_dir() else None
     except Exception:
         return None
+
+
+def _copy_rustdoc_assets(report_dir: Path) -> str | None:
+    """Copy rustdoc CSS and font files to *report_dir*. Returns the CSS filename."""
+    assets_dir = _find_rustdoc_assets_dir()
+    if not assets_dir:
+        return None
+    for f in assets_dir.iterdir():
+        if f.is_file():
+            shutil.copy2(f, report_dir / f.name)
+    matches = sorted(assets_dir.glob("rustdoc-*.css"))
+    return matches[0].name if matches else None
 
 
 def _badge(status: str) -> str:
@@ -393,6 +539,195 @@ def _badge(status: str) -> str:
     }.get(status, "badge-not-run")
     label = status if status in ("PASS", "FAIL", "TIMEOUT") else "not run"
     return f'<span class="verification-badge {cls}">{label}</span>'
+
+
+def _make_fn_key(mod_name: str, merged_file: str, fn_name: str) -> str:
+    """Build selection key: ``module::Type::function`` or ``module::function``."""
+    clean = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
+    if clean.endswith("__functions") or clean == "functions":
+        if mod_name and mod_name != "(root)":
+            return f"{mod_name}::{fn_name}"
+        return fn_name
+    type_name = clean.split("__")[-1]
+    if mod_name and mod_name != "(root)":
+        return f"{mod_name}::{type_name}::{fn_name}"
+    return f"{type_name}::{fn_name}"
+
+
+_SELECTION_TOOLBAR = """\
+<div class="selection-toolbar" id="selection-toolbar">
+  <button onclick="selectAllVisible()" title="Select all functions on this page">Select all</button>
+  <button onclick="deselectAllVisible()" title="Deselect all functions on this page">Deselect all</button>
+  <span class="selection-count" id="selection-count">0 selected</span>
+  <button class="primary" onclick="saveSpecsToml()">Save specs.toml</button>
+  <button onclick="clearAllSelection()" title="Clear selection across all pages">Clear all</button>
+</div>"""
+
+
+_SELECTION_SCRIPT = """\
+<script>
+(function() {
+var STORAGE_KEY = 'autospec_selected_functions';
+var SERVER_MODE = (window.location.protocol === 'http:' ||
+                   window.location.protocol === 'https:');
+
+function getSelected() {
+  try {
+    var raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch(e) { return new Set(); }
+}
+
+function saveSelected(s) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(s)));
+}
+
+function buildToml() {
+  var selected = Array.from(getSelected()).sort();
+  var toml = '# Functions selected for verification\\n';
+  toml += '# Generated from the autospec HTML report.\\n\\n';
+  toml += '[verify]\\n';
+  toml += 'functions = [\\n';
+  for (var i = 0; i < selected.length; i++) {
+    toml += '    \"' + selected[i] + '\",\\n';
+  }
+  toml += ']\\n';
+  return toml;
+}
+
+function showToast(msg, duration) {
+  var toast = document.getElementById('copy-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, duration || 2000);
+}
+
+window.toggleFn = function(key, checked) {
+  var s = getSelected();
+  if (checked) s.add(key); else s.delete(key);
+  saveSelected(s);
+  updateAll();
+};
+
+window.selectAllVisible = function() {
+  var s = getSelected();
+  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
+    s.add(cb.getAttribute('data-key'));
+  });
+  saveSelected(s);
+  updateAll();
+};
+
+window.deselectAllVisible = function() {
+  var s = getSelected();
+  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
+    s.delete(cb.getAttribute('data-key'));
+  });
+  saveSelected(s);
+  updateAll();
+};
+
+window.clearAllSelection = function() {
+  localStorage.removeItem(STORAGE_KEY);
+  updateAll();
+};
+
+window.saveSpecsToml = function() {
+  var selected = Array.from(getSelected()).sort();
+  if (selected.length === 0) {
+    alert('No functions selected. Check some checkboxes first.');
+    return;
+  }
+  var toml = buildToml();
+
+  if (SERVER_MODE) {
+    // Direct save via API — writes straight to specs/<crate>/specs.toml
+    fetch('/api/save-specs', {method: 'POST', body: toml})
+      .then(function(r) {
+        if (!r.ok) throw new Error('Server error: ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        showToast('Saved: ' + data.path + ' (' + data.size + ' bytes)', 3000);
+      })
+      .catch(function(err) {
+        showToast('Save failed: ' + err.message, 3000);
+      });
+  } else {
+    // File:// mode — show modal with copy/download
+    document.getElementById('modal-textarea').value = toml;
+    var crate = document.title.split(' — ')[1] || 'crate';
+    document.getElementById('modal-path-hint').textContent =
+      'Save as: specs/' + crate + '/specs.toml  (or use --serve for direct save)';
+    document.getElementById('modal-overlay').classList.add('active');
+  }
+};
+
+window.closeModal = function() {
+  document.getElementById('modal-overlay').classList.remove('active');
+};
+
+window.copyToml = function() {
+  var textarea = document.getElementById('modal-textarea');
+  textarea.select();
+  textarea.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(textarea.value).then(function() {
+    showToast('Copied to clipboard');
+  });
+};
+
+window.downloadToml = function() {
+  var toml = document.getElementById('modal-textarea').value;
+  var blob = new Blob([toml], {type: 'text/plain'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'specs.toml';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// Restore selections from server — server is source of truth in serve mode
+function loadFromServer() {
+  fetch('/api/specs-toml')
+    .then(function(r) { if (r.ok) return r.text(); else return null; })
+    .then(function(toml) {
+      var s = new Set();
+      if (toml) {
+        var re = /"([^"]+)"/g;
+        var m;
+        while ((m = re.exec(toml)) !== null) {
+          s.add(m[1]);
+        }
+      }
+      saveSelected(s);
+      updateAll();
+    })
+    .catch(function() { updateAll(); });
+}
+
+function updateAll() {
+  var count = getSelected().size;
+  var el = document.getElementById('selection-count');
+  if (el) el.textContent = count + ' selected';
+  var selected = getSelected();
+  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
+    cb.checked = selected.has(cb.getAttribute('data-key'));
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (SERVER_MODE) {
+    // Load server-side specs.toml first, then overlay localStorage on top
+    loadFromServer();
+  } else {
+    updateAll();
+  }
+});
+})();
+</script>"""
 
 
 def _group_entries(entries: list[dict]) -> dict[str, dict[str, list[dict]]]:
@@ -457,6 +792,23 @@ def _make_page(crate_name: str, sidebar_html: str, body: str,
 <main class="main-content">
 {body}
 </main>
+<div id="modal-overlay" class="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3>specs.toml</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="path-hint" id="modal-path-hint"></p>
+      <textarea id="modal-textarea" readonly></textarea>
+    </div>
+    <div class="modal-footer">
+      <button onclick="downloadToml()">Download file</button>
+      <button class="primary" onclick="copyToml()">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+<div id="copy-toast" class="copy-toast">Copied to clipboard</div>
 </body>
 </html>"""
 
@@ -472,8 +824,11 @@ def _build_sidebar(
 ) -> str:
     """Build sidebar <nav> with collapsible module tree, linking across pages."""
     parts: list[str] = []
+    is_sub = current_page != "index"
+    rel = "../" if is_sub else ""           # prefix for index.html links
+    page_dir = "" if is_sub else "pages/"   # prefix for type-page links
     parts.append(f'<h2 class="sidebar-crate">'
-                 f'<a href="index.html">{html.escape(crate_name)}</a></h2>')
+                 f'<a href="{rel}index.html">{html.escape(crate_name)}</a></h2>')
 
     def render_node(name: str, node: dict, depth: int, full_path: str) -> None:
         types: dict = node.get("_types", {})
@@ -484,17 +839,15 @@ def _build_sidebar(
         has_children = bool(children)
         if has_children or depth > 0:
             parts.append('<details open>')
-            # Heading: module name links to index anchor
             mod_anchor = html.escape(full_path) if full_path else "root"
             parts.append(
                 f'<summary class="sidebar-mod">'
-                f'<a href="index.html#mod-{mod_anchor}">'
+                f'<a href="{rel}index.html#mod-{mod_anchor}">'
                 f'{html.escape(name)}</a>'
                 f'</summary>'
             )
             parts.append('<ul>')
         elif depth == 0:
-            # Root-level types/functions
             parts.append('<ul>')
 
         # Types in this module
@@ -502,7 +855,7 @@ def _build_sidebar(
             funcs = types[merged_file]
             clean = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
             type_label = clean.split("__")[-1] if "__" in clean else clean
-            page_file = f"pages/{clean}.html"
+            page_file = f"{page_dir}{clean}.html"
 
             is_current = (clean == current_page)
             parts.append('<li>')
@@ -605,6 +958,10 @@ def _build_fn_card(
     parts: list[str] = []
     parts.append(f'<section id="{anchor}" class="spec-card">')
     parts.append('<div class="spec-heading">')
+    if is_api_only:
+        fn_key = _make_fn_key(mod_name, clean_mf, fn_name)
+        parts.append(f'<input type="checkbox" class="fn-checkbox" data-key="{html.escape(fn_key)}"'
+                     f' onchange="toggleFn(this.getAttribute(\'data-key\'), this.checked)">')
     parts.append(f'<a class="fn" href="#{anchor}">fn {html.escape(fn_name)}</a>')
     parts.append(badge_html)
     parts.append('</div>')
@@ -674,9 +1031,13 @@ def _build_type_page(
                                     source_lookup, spec_sources, verify_lookup,
                                     is_api_only=is_api_only))
 
+    selection_ui = (_SELECTION_TOOLBAR + "\n") if is_api_only else ""
+    selection_js = _SELECTION_SCRIPT if is_api_only else ""
     body = (f'<h1>{html.escape(type_label)}</h1>\n'
             f'{breadcrumb}\n'
-            f'{"".join(cards)}')
+            f'{selection_ui}'
+            f'{"".join(cards)}\n'
+            f'{selection_js}')
 
     title = f"{type_label} — {crate_name}"
     return page_stem, _make_page(crate_name, sidebar, body, css_link, title)
@@ -763,7 +1124,9 @@ def _build_index_page(
         heading = f'<h1>API Overview — {html.escape(crate_name)}</h1>\n'
         title = f"API Overview — {crate_name}"
 
-    body = heading + summary + "".join(overview)
+    selection_ui = _SELECTION_TOOLBAR if is_api_only else ""
+    selection_js = _SELECTION_SCRIPT if is_api_only else ""
+    body = heading + summary + selection_ui + "".join(overview) + selection_js
     return _make_page(crate_name, sidebar, body, css_link, title)
 
 
@@ -940,13 +1303,12 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
     pages_dir = report_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
 
-    css_path = _find_rustdoc_css()
-    if css_path:
-        shutil.copy2(css_path, report_dir / "rustdoc.css")
-        index_css = "rustdoc.css"
-        page_css = "../rustdoc.css"
+    css_name = _copy_rustdoc_assets(report_dir)
+    if css_name:
+        index_css = css_name
+        page_css = f"../{css_name}"
     else:
-        print("  Note: rustdoc CSS not found, using inline styles.")
+        print("  Note: rustdoc assets not found, using inline styles.")
         index_css = page_css = ""
 
     # 7. Compute summary stats (verification run only)
