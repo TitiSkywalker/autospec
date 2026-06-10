@@ -27,7 +27,9 @@ def get_output_dir() -> str:
     return _output_dir
 
 
-def register(name: str, description: str, input_schema: dict, handler: Callable) -> None:
+def register(
+    name: str, description: str, input_schema: dict, handler: Callable
+) -> None:
     """Register a tool with its Anthropic-format schema and handler function."""
     _registry[name] = {
         "name": name,
@@ -40,7 +42,11 @@ def register(name: str, description: str, input_schema: dict, handler: Callable)
 def get_definitions() -> list[dict]:
     """Return Anthropic-compatible tool definitions."""
     return [
-        {"name": t["name"], "description": t["description"], "input_schema": t["input_schema"]}
+        {
+            "name": t["name"],
+            "description": t["description"],
+            "input_schema": t["input_schema"],
+        }
         for t in sorted(_registry.values(), key=lambda t: t["name"])
     ]
 

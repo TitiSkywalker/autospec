@@ -7,8 +7,13 @@ from pathlib import Path
 import anthropic
 
 import tools  # noqa: F401 — triggers tool registration
-from tool_registry import set_context, get_definitions, dispatch
-from prompt import SYSTEM_PROMPT, MODULE_SYSTEM_PROMPT, FUNC_SYSTEM_PROMPT, NEXT_STEP_PROMPT
+from prompt import (
+    FUNC_SYSTEM_PROMPT,
+    MODULE_SYSTEM_PROMPT,
+    NEXT_STEP_PROMPT,
+    SYSTEM_PROMPT,
+)
+from tool_registry import dispatch, get_definitions, set_context
 
 
 class SpecAgent:
@@ -90,25 +95,31 @@ class SpecAgent:
 
         for iteration in range(1, self.max_iterations + 1):
             if self.verbose and not quiet:
-                print(f"\n{'─'*40} Iteration {iteration}/{self.max_iterations} {'─'*40}",
-                      file=sys.stderr)
+                print(
+                    f"\n{'─'*40} Iteration {iteration}/{self.max_iterations} {'─'*40}",
+                    file=sys.stderr,
+                )
 
             # Warn the model when approaching the budget (skip for quiet/single-harness agents).
             if not quiet:
                 remaining = self.max_iterations - iteration
                 if remaining == 1:
-                    messages.append({
-                        "role": "user",
-                        "content": "[SYSTEM] You have ONE iteration remaining. "
-                                   "Use write_spec NOW to save your specification, "
-                                   "then respond with a brief summary.",
-                    })
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": "[SYSTEM] You have ONE iteration remaining. "
+                            "Use write_spec NOW to save your specification, "
+                            "then respond with a brief summary.",
+                        }
+                    )
                 elif remaining <= 3 and remaining > 1:
-                    messages.append({
-                        "role": "user",
-                        "content": f"[SYSTEM] {remaining} iterations remaining. "
-                                   "Begin writing the specification with write_spec soon.",
-                    })
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"[SYSTEM] {remaining} iterations remaining. "
+                            "Begin writing the specification with write_spec soon.",
+                        }
+                    )
 
             response = self._call_api(messages)
 
@@ -120,15 +131,19 @@ class SpecAgent:
                 if block.type == "text":
                     assistant_blocks.append({"type": "text", "text": block.text})
                     if self.verbose and not quiet:
-                        print(f"\n[text] {block.text[:300]}{'...' if len(block.text) > 300 else ''}",
-                              file=sys.stderr)
+                        print(
+                            f"\n[text] {block.text[:300]}{'...' if len(block.text) > 300 else ''}",
+                            file=sys.stderr,
+                        )
                 elif block.type == "tool_use":
-                    assistant_blocks.append({
-                        "type": "tool_use",
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input,
-                    })
+                    assistant_blocks.append(
+                        {
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                    )
                     tool_blocks.append(block)
                 elif block.type in ("thinking", "redacted_thinking"):
                     # Pass thinking blocks back through — required by
@@ -150,36 +165,46 @@ class SpecAgent:
 
             # Execute tools and collect results.
             if self.verbose and not quiet:
-                print(f"\n[tools] Running {len(tool_blocks)} tool(s)...", file=sys.stderr)
+                print(
+                    f"\n[tools] Running {len(tool_blocks)} tool(s)...", file=sys.stderr
+                )
 
             tool_results: list[dict] = []
             for tb in tool_blocks:
                 if self.verbose and not quiet:
                     print(f"  [debug] {tb.name} input={tb.input}", file=sys.stderr)
                 result = dispatch(tb.name, tb.input)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": tb.id,
-                    "content": result,
-                })
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tb.id,
+                        "content": result,
+                    }
+                )
                 if self.verbose and not quiet:
                     preview = result[:120].replace("\n", " ")
-                    print(f"  {tb.name}: {preview}{'...' if len(result) > 120 else ''}",
-                          file=sys.stderr)
+                    print(
+                        f"  {tb.name}: {preview}{'...' if len(result) > 120 else ''}",
+                        file=sys.stderr,
+                    )
 
             messages.append({"role": "user", "content": tool_results})
         else:
             # Exhausted all iterations.
             if not quiet:
-                print(f"\nReached iteration limit ({self.max_iterations}). "
-                      "Forcing final summary...")
-            messages.append({
-                "role": "user",
-                "content": "You have exhausted your iteration budget. "
-                           "If you have not yet written the specification, "
-                           "use write_spec NOW to save what you have, "
-                           "then respond with a brief summary.",
-            })
+                print(
+                    f"\nReached iteration limit ({self.max_iterations}). "
+                    "Forcing final summary..."
+                )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "You have exhausted your iteration budget. "
+                    "If you have not yet written the specification, "
+                    "use write_spec NOW to save what you have, "
+                    "then respond with a brief summary.",
+                }
+            )
             response = self._call_api(messages)
             for block in response.content:
                 if block.type == "text":
@@ -203,7 +228,7 @@ class SpecAgent:
             tools=self.tool_defs,
         )
         elapsed = time.monotonic() - t0
-        if self.verbose and not getattr(self, '_quiet', False):
+        if self.verbose and not getattr(self, "_quiet", False):
             usage = response.usage
             tools = [b.name for b in response.content if b.type == "tool_use"]
             if tools:
@@ -212,8 +237,10 @@ class SpecAgent:
                 detail = "→ (done)"
             else:
                 detail = f"stop={response.stop_reason}"
-            print(f"[api] {elapsed:.1f}s  "
-                  f"input={usage.input_tokens} output={usage.output_tokens}  "
-                  f"{detail}",
-                  file=sys.stderr)
+            print(
+                f"[api] {elapsed:.1f}s  "
+                f"input={usage.input_tokens} output={usage.output_tokens}  "
+                f"{detail}",
+                file=sys.stderr,
+            )
         return response

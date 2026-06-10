@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from tool_registry import register, get_project_root
+from tool_registry import get_project_root, register
 
 
 def _resolve(path: str = "") -> Path:
@@ -75,7 +75,9 @@ def search_code(pattern: str, file_glob: str = "*.rs", path: str = "") -> str:
     try:
         proc = subprocess.run(
             ["grep", "-n", "--include", file_glob, "-r", pattern, str(full)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
     except subprocess.TimeoutExpired:
         return "Error: search timed out"
@@ -88,7 +90,10 @@ def search_code(pattern: str, file_glob: str = "*.rs", path: str = "") -> str:
     # Truncate very long results
     lines_found = output.splitlines()
     if len(lines_found) > 100:
-        return "\n".join(lines_found[:100]) + f"\n... (truncated, {len(lines_found)} total matches)"
+        return (
+            "\n".join(lines_found[:100])
+            + f"\n... (truncated, {len(lines_found)} total matches)"
+        )
     return output
 
 
@@ -100,7 +105,10 @@ register(
     input_schema={
         "type": "object",
         "properties": {
-            "path": {"type": "string", "description": "Project-relative directory path, empty string for root"},
+            "path": {
+                "type": "string",
+                "description": "Project-relative directory path, empty string for root",
+            },
         },
         "required": [],
     },
@@ -114,8 +122,14 @@ register(
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Project-relative file path"},
-            "offset": {"type": "integer", "description": "Line number to start from (1-indexed, default 1)"},
-            "limit": {"type": "integer", "description": "Maximum lines to return (default 200)"},
+            "offset": {
+                "type": "integer",
+                "description": "Line number to start from (1-indexed, default 1)",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum lines to return (default 200)",
+            },
         },
         "required": ["path"],
     },
@@ -128,9 +142,18 @@ register(
     input_schema={
         "type": "object",
         "properties": {
-            "pattern": {"type": "string", "description": "Regex pattern to search for (e.g. 'pub fn ', '#\\[test\\]')"},
-            "file_glob": {"type": "string", "description": "Filename pattern (default: *.rs)"},
-            "path": {"type": "string", "description": "Subdirectory to search in (default: project root)"},
+            "pattern": {
+                "type": "string",
+                "description": "Regex pattern to search for (e.g. 'pub fn ', '#\\[test\\]')",
+            },
+            "file_glob": {
+                "type": "string",
+                "description": "Filename pattern (default: *.rs)",
+            },
+            "path": {
+                "type": "string",
+                "description": "Subdirectory to search in (default: project root)",
+            },
         },
         "required": ["pattern"],
     },

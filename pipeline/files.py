@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+
 def _merge_specs(output_dir: str) -> list[str]:
     """Merge per-function harness files into per-type bundled files.
 
@@ -84,8 +85,11 @@ def _merge_specs(output_dir: str) -> list[str]:
         out_path.write_text(combined, encoding="utf-8")
         merged_files.append(merge_key)
 
-    print(f"  Merged {len(harness_files)} harness files → {len(merged_files)} type files")
+    print(
+        f"  Merged {len(harness_files)} harness files → {len(merged_files)} type files"
+    )
     return sorted(merged_files)
+
 
 def _write_spec_json(
     output_dir: str,
@@ -110,15 +114,17 @@ def _write_spec_json(
             if mod_match:
                 mod_path = mod_match.group(1).strip()
 
-        entries.append({
-            "file": indiv_filename,
-            "merged_file": merged_filename,
-            "source_function": func_name,
-            "module": mod_path,
-            "description": desc,
-            "size_bytes": size,
-            "status": "ok" if ok else "failed",
-        })
+        entries.append(
+            {
+                "file": indiv_filename,
+                "merged_file": merged_filename,
+                "source_function": func_name,
+                "module": mod_path,
+                "description": desc,
+                "size_bytes": size,
+                "status": "ok" if ok else "failed",
+            }
+        )
 
     manifest = {
         "crate": crate_name,

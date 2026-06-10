@@ -3,14 +3,19 @@
 import re
 import sys
 import threading
+import tomllib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from agent import SpecAgent
-from prompt import FUNC_SYSTEM_PROMPT, FIX_SYSTEM_PROMPT
 from pipeline.files import _merge_specs, _write_spec_json
-from pipeline.generation import _get_spec_targets, _parse_functions_from_section, _make_filter_key
-import tomllib
+from pipeline.generation import (
+    _get_spec_targets,
+    _make_filter_key,
+    _parse_functions_from_section,
+)
+from prompt import FIX_SYSTEM_PROMPT, FUNC_SYSTEM_PROMPT
+
 
 def _run_func_agent(
     project_path: str,
@@ -55,7 +60,7 @@ def _run_func_agent(
             "(unwrap, array indexing) not mentioned in the docs."
         )
     context_parts.append(
-        f"Then call write_spec(filename=\"{filename}\", content=...) "
+        f'Then call write_spec(filename="{filename}", content=...) '
         "with exactly ONE harness."
     )
     context_parts.append(
@@ -84,6 +89,7 @@ def _run_func_agent(
     except Exception as exc:
         print(f"  [FAIL] {f['name']}: {type(exc).__name__}: {exc}", file=sys.stderr)
         return False
+
 
 def _run_fix_agent(
     project_path: str,
@@ -150,7 +156,7 @@ def _run_fix_agent(
         "",
         "Fix ONLY the compilation errors above. Preserve all correct parts.",
         "Use read_file to check source code for types/signatures if needed.",
-        f"Then call write_spec(filename=\"{indiv_filename}\", content=...) "
+        f'Then call write_spec(filename="{indiv_filename}", content=...) '
         "with the FIXED harness (include all header comments).",
     ]
     task = "\n".join(task_parts)
@@ -172,9 +178,13 @@ def _run_fix_agent(
         agent.run(task=task, quiet=True)
         return True
     except Exception as exc:
-        print(f"  [FIX-FAIL] {indiv_filename}: {type(exc).__name__}: {exc}",
-              file=sys.stderr)
+        print(
+            f"  [FIX-FAIL] {indiv_filename}: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
         return False
+
+
 def _run_split(
     project: Path,
     output: Path,
@@ -216,10 +226,14 @@ def _run_split(
 
     total_funcs = sum(len(funcs) for _, _, funcs in all_funcs)
     if only_set:
-        print(f"\nParsed {total_funcs} matching functions (from {len(only_set)} in specs.toml)"
-              f" across {len(all_funcs)} files.")
+        print(
+            f"\nParsed {total_funcs} matching functions (from {len(only_set)} in specs.toml)"
+            f" across {len(all_funcs)} files."
+        )
     else:
-        print(f"\nParsed {total_funcs} documented functions across {len(all_funcs)} files.")
+        print(
+            f"\nParsed {total_funcs} documented functions across {len(all_funcs)} files."
+        )
 
     if not all_funcs:
         print("No documented functions found. Nothing to do.")
@@ -227,8 +241,10 @@ def _run_split(
 
     # Spawn agents in parallel
     func_iterations = max(3, max_iterations)
-    print(f"\nPhase 2: Generating harnesses — {jobs} parallel agents "
-          f"({func_iterations} iterations max each, {total_funcs} functions)...")
+    print(
+        f"\nPhase 2: Generating harnesses — {jobs} parallel agents "
+        f"({func_iterations} iterations max each, {total_funcs} functions)..."
+    )
 
     # Flatten into (indiv_filename, merged_filename, func_info) tasks
     tasks: list[tuple[str, str, dict]] = []
@@ -243,7 +259,9 @@ def _run_split(
     print_lock = threading.Lock()
     completed = 0
 
-    def run_one(indiv_fn: str, merged_fn: str, func_info: dict) -> tuple[str, str, str, bool]:
+    def run_one(
+        indiv_fn: str, merged_fn: str, func_info: dict
+    ) -> tuple[str, str, str, bool]:
         """Run a single function agent. Returns (indiv_fn, merged_fn, name, ok)."""
         ok = _run_func_agent(
             project_path=project_path,
@@ -260,8 +278,9 @@ def _run_split(
         return indiv_fn, merged_fn, func_info["name"], ok
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        futures = {pool.submit(run_one, ifn, mfn, fi): (ifn, mfn, fi)
-                   for ifn, mfn, fi in tasks}
+        futures = {
+            pool.submit(run_one, ifn, mfn, fi): (ifn, mfn, fi) for ifn, mfn, fi in tasks
+        }
 
         for future in as_completed(futures):
             indiv_fn, merged_fn, fn_name, ok = future.result()
@@ -269,7 +288,9 @@ def _run_split(
             with print_lock:
                 completed += 1
                 status = "OK" if ok else "FAIL"
-                print(f"  [{completed}/{total_funcs}] {indiv_fn} :: {fn_name}  {status}")
+                print(
+                    f"  [{completed}/{total_funcs}] {indiv_fn} :: {fn_name}  {status}"
+                )
 
     succeeded = sum(1 for _, _, _, ok in func_results if ok)
     failed = sum(1 for _, _, _, ok in func_results if not ok)
@@ -305,12 +326,13 @@ def _run_split(
     index_path = output / "INDEX"
     index_path.write_text("\n".join(index_lines) + "\n")
     print(f"\nWrote INDEX → {index_path}")
-    print(f"Done: {succeeded} succeeded, {failed} failed "
-          f"({total_funcs} harnesses total)")
+    print(
+        f"Done: {succeeded} succeeded, {failed} failed "
+        f"({total_funcs} harnesses total)"
+    )
 
     # Write structured JSON manifest
     with open(project / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", project.name)
     _write_spec_json(output_dir, crate_name, func_results)
-

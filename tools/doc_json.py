@@ -4,9 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from tool_registry import register, get_project_root
-
 from rustdoc import RustDoc, RustItem
+from tool_registry import get_project_root, register
 
 
 def _find_doc_json(root: Path, crate_name: str) -> Path | None:
@@ -43,7 +42,11 @@ def ensure_rustdoc_json(root: Path, crate_name: str) -> Path | None:
     cmd.extend(["--", "-Zunstable-options", "--output-format", "json"])
     try:
         proc = subprocess.run(
-            cmd, cwd=str(root), capture_output=True, text=True, timeout=300,
+            cmd,
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            timeout=300,
             env={**os.environ, "CARGO_TERM_COLOR": "never"},
         )
     except subprocess.TimeoutExpired:
@@ -79,6 +82,7 @@ def generate_doc_json(
     root = Path(get_project_root())
 
     import tomllib
+
     with open(root / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", root.name)
@@ -107,14 +111,18 @@ def generate_doc_json(
         )
 
     cmd = [
-        "cargo", f"+{nightly}", "rustdoc",
+        "cargo",
+        f"+{nightly}",
+        "rustdoc",
     ]
     if features == "all":
         cmd.append("--all-features")
     elif features:
         cmd.extend(["--features", features])
 
-    cmd.extend(["--", "-Zunstable-options", "--output-format", "json"] + extra_rustdoc_args)
+    cmd.extend(
+        ["--", "-Zunstable-options", "--output-format", "json"] + extra_rustdoc_args
+    )
 
     try:
         proc = subprocess.run(
@@ -160,6 +168,7 @@ def read_rustdoc(module: str = "") -> str:
     root = Path(get_project_root())
 
     import tomllib
+
     with open(root / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", root.name)
@@ -180,7 +189,7 @@ def read_rustdoc(module: str = "") -> str:
             f"Total items: {len(doc.items)}",
             "",
             "## Module tree (public items with doc counts)",
-            "Use `read_rustdoc(module=\"path\")` to drill into a module.",
+            'Use `read_rustdoc(module="path")` to drill into a module.',
             "",
         ]
 
@@ -208,7 +217,9 @@ def read_rustdoc(module: str = "") -> str:
 
             for cm in sorted(child_modules, key=lambda c: c.name or ""):
                 cm_name = cm.name or "?"
-                _summarize(cm.id, depth + 1, f"{path}::{cm_name}" if depth > 0 else cm_name)
+                _summarize(
+                    cm.id, depth + 1, f"{path}::{cm_name}" if depth > 0 else cm_name
+                )
 
         _summarize(doc.root_id, 0, doc.root().name or "crate")
         return "\n".join(output)
@@ -341,7 +352,9 @@ def read_rustdoc(module: str = "") -> str:
                         rd = rc.docs or ""
                         if len(rd) > 1000:
                             rd = rd[:1000] + "\n... (truncated)"
-                        output.append(f"\n## {rkind}: {rname} (via {inner_name}::{rname})")
+                        output.append(
+                            f"\n## {rkind}: {rname} (via {inner_name}::{rname})"
+                        )
                         if rd:
                             output.append(f"\n{rd}\n")
                         if rkind in ("struct", "enum", "trait"):
@@ -413,7 +426,7 @@ register(
     description=(
         "Read the generated rustdoc JSON. With no arguments, shows a summary "
         "of all public modules with documented item counts. "
-        "Pass module=\"path::to::module\" to drill into a specific module "
+        'Pass module="path::to::module" to drill into a specific module '
         "and see all public items with their full doc comments and impl blocks. "
         "Doc comments are the PRIMARY source for extracting pre/post conditions."
     ),

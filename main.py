@@ -16,9 +16,9 @@ import os
 import sys
 from pathlib import Path
 
-from pipeline.checks import _check_specs, _structural_check, _verify_specs
-from pipeline.auto_fix import _auto_fix_checks
 from pipeline.agents import _run_split
+from pipeline.auto_fix import _auto_fix_checks
+from pipeline.checks import _check_specs, _structural_check, _verify_specs
 from pipeline.files import _merge_specs
 from pipeline.generation import _get_spec_targets, _load_specs_toml
 from pipeline.report import _generate_report
@@ -30,8 +30,9 @@ def _api_key() -> str:
     """Return the API key, or exit with an error message."""
     key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
     if not key:
-        print("Error: ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN not set.",
-              file=sys.stderr)
+        print(
+            "Error: ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN not set.", file=sys.stderr
+        )
         sys.exit(1)
     return key
 
@@ -80,12 +81,16 @@ def _run_checks(
         )
     else:
         print("\n[2] Compilation check ...")
-        compilation_ok, _, _ = _check_specs(project_path, output_dir, return_errors=True)
+        compilation_ok, _, _ = _check_specs(
+            project_path, output_dir, return_errors=True
+        )
 
     if compilation_ok:
         if verify:
             print(f"\n[3] Kani verification (timeout={kani_timeout}s) ...")
-            _, passed, failed, timed_out = _verify_specs(project_path, output_dir, timeout=kani_timeout)
+            _, passed, failed, timed_out = _verify_specs(
+                project_path, output_dir, timeout=kani_timeout
+            )
             return (passed, failed, timed_out)
     return None
 
@@ -96,11 +101,13 @@ def main() -> None:
         description="Generate formal specifications for Rust projects from doc strings",
     )
     parser.add_argument(
-        "project_path", nargs="?",
+        "project_path",
+        nargs="?",
         help="Path to the Rust project directory (not required for --merge)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="specs",
         help="Directory to write specifications to (default: specs/)",
     )
@@ -122,12 +129,14 @@ def main() -> None:
         help="Maximum tokens for LLM output (default: 4096)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show verbose tool-call output",
     )
     parser.add_argument(
-        "--jobs", "-j",
+        "--jobs",
+        "-j",
         type=int,
         default=5,
         help="Number of parallel agents for --split mode (default: 5)",
@@ -138,10 +147,11 @@ def main() -> None:
         help="Generate specs with one agent per documented function (faster).",
     )
     parser.add_argument(
-        "--check", "-c",
+        "--check",
+        "-c",
         action="store_true",
         help="After generation, compile specs against the original crate "
-             "and run structural validation.",
+        "and run structural validation.",
     )
     parser.add_argument(
         "--check-only",
@@ -156,8 +166,8 @@ def main() -> None:
         default=None,
         metavar="N",
         help="Auto-fix compilation errors with LLM fix agents, up to N rounds "
-             "(default: 2 if --auto-fix is given without a value). "
-             "Requires ANTHROPIC_API_KEY.",
+        "(default: 2 if --auto-fix is given without a value). "
+        "Requires ANTHROPIC_API_KEY.",
     )
     parser.add_argument(
         "--verify",
@@ -179,34 +189,34 @@ def main() -> None:
         "--report-html",
         action="store_true",
         help="Generate a static HTML report with per-function spec content "
-             "and verification status, styled like cargo doc.",
+        "and verification status, styled like cargo doc.",
     )
     parser.add_argument(
         "--only",
         type=str,
         default="",
         help="Comma-separated list of functions to generate specs for, "
-             "e.g. 'geometry::Point::new,linalg::svd::SVD::decompose'. "
-             "Also reads specs.toml from the output directory if present.",
+        "e.g. 'geometry::Point::new,linalg::svd::SVD::decompose'. "
+        "Also reads specs.toml from the output directory if present.",
     )
     parser.add_argument(
         "--crate",
         type=str,
         default="",
         help="Crate name within a workspace (e.g. 'p256', 'k256'). "
-             "Required when target/doc/ has multiple .json files.",
+        "Required when target/doc/ has multiple .json files.",
     )
     parser.add_argument(
         "--clean",
         action="store_true",
         help="Run 'cargo clean' before generating rustdoc JSON "
-             "(ensures a fresh build, removes stale artifacts).",
+        "(ensures a fresh build, removes stale artifacts).",
     )
     parser.add_argument(
         "--serve",
         action="store_true",
         help="Start a local HTTP server for the HTML report with live "
-             "specs.toml save API. Implies --report-html.",
+        "specs.toml save API. Implies --report-html.",
     )
     parser.add_argument(
         "--port",
@@ -243,12 +253,16 @@ def main() -> None:
 
     auto_fix = args.auto_fix or 0
 
-    api_endpoint = os.environ.get("ANTHROPIC_BASE_URL") or "(default: api.anthropic.com)"
+    api_endpoint = (
+        os.environ.get("ANTHROPIC_BASE_URL") or "(default: api.anthropic.com)"
+    )
     print(f"Project:  {project}")
     print(f"Output:   {output}")
     print(f"Model:    {args.model}")
     print(f"API:      {api_endpoint}")
-    wants_generation = args.split or (not args.check_only and auto_fix == 0 and not args.report_html)
+    wants_generation = args.split or (
+        not args.check_only and auto_fix == 0 and not args.report_html
+    )
     mode = []
     if args.split:
         mode.append("generate (split)")
@@ -273,11 +287,16 @@ def main() -> None:
 
     # --clean: run cargo clean before analysis
     if args.clean:
-        import subprocess, os as _os
+        import os as _os
+        import subprocess
+
         print(f"  Cleaning target directory (cargo clean) ...")
         proc = subprocess.run(
-            ["cargo", "clean"], cwd=str(project),
-            capture_output=True, text=True, timeout=60,
+            ["cargo", "clean"],
+            cwd=str(project),
+            capture_output=True,
+            text=True,
+            timeout=60,
             env={**_os.environ, "CARGO_TERM_COLOR": "never"},
         )
         if proc.returncode != 0:
@@ -287,15 +306,23 @@ def main() -> None:
 
     def _report_and_serve(vcounts=None):
         if args.report:
-            _generate_report(str(project), str(output),
-                             verify_counts=vcounts, kani_timeout=args.kani_timeout)
+            _generate_report(
+                str(project),
+                str(output),
+                verify_counts=vcounts,
+                kani_timeout=args.kani_timeout,
+            )
         if args.report_html or args.serve:
-            _generate_html_report(str(project), str(output), crate_name=args.crate or None)
+            _generate_html_report(
+                str(project), str(output), crate_name=args.crate or None
+            )
         if args.serve:
             serve_report(str(output), port=args.port)
 
     # API-only modes (no generation, no checks, no verify)
-    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+    wants_work = (
+        args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+    )
     if not wants_work:
         _report_and_serve()
         return
@@ -303,7 +330,8 @@ def main() -> None:
     # --check-only: validate existing specs, no auto-fix
     if args.check_only:
         vcounts = _run_checks(
-            str(project), str(output),
+            str(project),
+            str(output),
             verify=args.verify,
             kani_timeout=args.kani_timeout,
             auto_fix_rounds=0,
@@ -318,7 +346,8 @@ def main() -> None:
     if auto_fix > 0 and not args.split:
         api_key = _api_key()
         _run_checks(
-            str(project), str(output),
+            str(project),
+            str(output),
             verify=args.verify,
             kani_timeout=args.kani_timeout,
             auto_fix_rounds=auto_fix,
@@ -382,7 +411,8 @@ def main() -> None:
     # Run checks after generation if requested
     if args.check or (auto_fix > 0):
         vcounts = _run_checks(
-            str(project), str(output),
+            str(project),
+            str(output),
             verify=args.verify,
             kani_timeout=args.kani_timeout,
             auto_fix_rounds=auto_fix,

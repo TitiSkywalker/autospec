@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 
 import tools  # noqa: F401 — triggers tool registration
-from tool_registry import set_context, dispatch
+from tool_registry import dispatch, set_context
+
 
 def _split_detail(detail: str) -> list[dict]:
     """Split read_rustdoc detail output into per-item sections.
@@ -45,14 +46,21 @@ def _split_detail(detail: str) -> list[dict]:
 
     return sections
 
+
 def _section_has_docs(text: str) -> bool:
     """Check whether a detail section has real doc comments beyond the header."""
     for line in text.split("\n")[1:]:  # skip the ## header
         stripped = line.strip()
         # Real doc content is a non-empty line that isn't a sub-header or impl stub
-        if stripped and not stripped.startswith("##") and not stripped.startswith("[impl") and not stripped.startswith("  fn "):
+        if (
+            stripped
+            and not stripped.startswith("##")
+            and not stripped.startswith("[impl")
+            and not stripped.startswith("  fn ")
+        ):
             return True
     return False
+
 
 def _parse_functions_from_section(doc_section: str) -> list[dict]:
     """Parse individual documented functions from a doc section.
@@ -100,17 +108,19 @@ def _parse_functions_from_section(doc_section: str) -> list[dict]:
                     break
             doc = " ".join(doc_lines).strip()
             if doc and sig and name:
-                functions.append({
-                    "name": name,
-                    "sig": sig,
-                    "doc": doc,
-                    "impl": "standalone",
-                    "module": module,
-                    "type_kind": "",
-                    "type_name": "",
-                    "is_standalone": True,
-                    "fields": "",
-                })
+                functions.append(
+                    {
+                        "name": name,
+                        "sig": sig,
+                        "doc": doc,
+                        "impl": "standalone",
+                        "module": module,
+                        "type_kind": "",
+                        "type_name": "",
+                        "is_standalone": True,
+                        "fields": "",
+                    }
+                )
     else:
         # Struct/enum/trait methods from impl blocks
         current_impl = "inherent"
@@ -129,36 +139,87 @@ def _parse_functions_from_section(doc_section: str) -> list[dict]:
                 doc = fn_m.group(4).strip()
                 if not doc:
                     continue
-                functions.append({
-                    "name": name,
-                    "sig": f"fn {name}({params}) -> {ret}",
-                    "doc": doc,
-                    "impl": current_impl,
-                    "module": module,
-                    "type_kind": type_kind,
-                    "type_name": type_name,
-                    "is_standalone": False,
-                    "fields": fields_text,
-                })
+                functions.append(
+                    {
+                        "name": name,
+                        "sig": f"fn {name}({params}) -> {ret}",
+                        "doc": doc,
+                        "impl": current_impl,
+                        "module": module,
+                        "type_kind": type_kind,
+                        "type_name": type_name,
+                        "is_standalone": False,
+                        "fields": fields_text,
+                    }
+                )
 
     return functions
 
+
 # ——— Standard trait names whose properties are well-known ———
 _STANDARD_TRAITS: set[str] = {
-    "Clone", "Copy", "Debug", "Display", "Default",
-    "PartialEq", "Eq", "PartialOrd", "Ord", "Hash",
-    "Borrow", "BorrowMut", "AsRef", "AsMut", "Deref", "DerefMut",
-    "From", "Into", "TryFrom", "TryInto",
-    "Serialize", "Deserialize", "Zeroize", "ToOwned", "FromStr",
-    "Iterator", "IntoIterator", "FromIterator", "DoubleEndedIterator",
-    "ExactSizeIterator", "Index", "IndexMut",
-    "Add", "Sub", "Mul", "Div", "Rem", "Neg", "Not",
-    "AddAssign", "SubAssign", "MulAssign", "DivAssign",
-    "BitAnd", "BitOr", "BitXor", "Shl", "Shr",
-    "Sum", "Product", "FusedIterator",
-    "Send", "Sync", "Unpin", "Sized",
-    "ConditionallySelectable", "CtOption",
-    "Any", "Freeze", "RefUnwindSafe", "UnwindSafe", "UnsafeUnpin",
+    "Clone",
+    "Copy",
+    "Debug",
+    "Display",
+    "Default",
+    "PartialEq",
+    "Eq",
+    "PartialOrd",
+    "Ord",
+    "Hash",
+    "Borrow",
+    "BorrowMut",
+    "AsRef",
+    "AsMut",
+    "Deref",
+    "DerefMut",
+    "From",
+    "Into",
+    "TryFrom",
+    "TryInto",
+    "Serialize",
+    "Deserialize",
+    "Zeroize",
+    "ToOwned",
+    "FromStr",
+    "Iterator",
+    "IntoIterator",
+    "FromIterator",
+    "DoubleEndedIterator",
+    "ExactSizeIterator",
+    "Index",
+    "IndexMut",
+    "Add",
+    "Sub",
+    "Mul",
+    "Div",
+    "Rem",
+    "Neg",
+    "Not",
+    "AddAssign",
+    "SubAssign",
+    "MulAssign",
+    "DivAssign",
+    "BitAnd",
+    "BitOr",
+    "BitXor",
+    "Shl",
+    "Shr",
+    "Sum",
+    "Product",
+    "FusedIterator",
+    "Send",
+    "Sync",
+    "Unpin",
+    "Sized",
+    "ConditionallySelectable",
+    "CtOption",
+    "Any",
+    "Freeze",
+    "RefUnwindSafe",
+    "UnwindSafe",
+    "UnsafeUnpin",
     "CloneToUninit",
 }
 
@@ -208,6 +269,7 @@ def _strip_standard_trait_impls(detail: str) -> str:
 
     return "\n".join(result)
 
+
 def _load_specs_toml(output_dir: str) -> list[str] | None:
     """Load the specs.toml selection file. Returns list of function paths or None."""
     toml_path = Path(output_dir) / "specs.toml"
@@ -215,6 +277,7 @@ def _load_specs_toml(output_dir: str) -> list[str] | None:
         return None
     try:
         import tomllib
+
         with open(toml_path, "rb") as f:
             data = tomllib.load(f)
         return data.get("verify", {}).get("functions", [])
@@ -233,8 +296,9 @@ def _make_filter_key(func_info: dict) -> str:
     return f"{mod}::{name}" if mod else name
 
 
-def _get_spec_targets(project_path: str, output_dir: str,
-                      only_functions: list[str] | None = None) -> list[tuple[str, str]]:
+def _get_spec_targets(
+    project_path: str, output_dir: str, only_functions: list[str] | None = None
+) -> list[tuple[str, str]]:
     """Generate per-type spec targets from documented modules.
 
     Returns list of (safe_filename, doc_section) where doc_section is
@@ -258,6 +322,7 @@ def _get_spec_targets(project_path: str, output_dir: str,
 
     # Parse candidate modules from summary
     import re
+
     candidates: list[str] = []
     for line in summary.split("\n"):
         stripped = line.strip()
@@ -290,7 +355,9 @@ def _get_spec_targets(project_path: str, output_dir: str,
         sections = _split_detail(detail)
         safe_mod = mod_path.replace("::", "_") or "crate_root"
 
-        type_sections = [s for s in sections if s["kind"] in ("struct", "enum", "trait")]
+        type_sections = [
+            s for s in sections if s["kind"] in ("struct", "enum", "trait")
+        ]
         func_sections = [s for s in sections if s["kind"] == "function"]
 
         def _doc_functions(text: str) -> list[str]:

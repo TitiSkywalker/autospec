@@ -11,6 +11,7 @@ import time
 import tomllib
 from pathlib import Path
 
+
 def _check_specs(
     project_path: str, output_dir: str, return_errors: bool = False
 ) -> bool | tuple[bool, str, list[str]]:
@@ -71,9 +72,7 @@ def _check_specs(
 
         # Find end of header comments and inject use statements there
         first_non_comment = 0
-        for m in re.finditer(
-            r"^(?://.*\n)*(?:\n)*", content, re.MULTILINE
-        ):
+        for m in re.finditer(r"^(?://.*\n)*(?:\n)*", content, re.MULTILINE):
             first_non_comment = m.end()
             break
 
@@ -110,13 +109,25 @@ def _check_specs(
     except subprocess.TimeoutExpired:
         print("  FAIL: compilation check timed out (2 minutes)")
         shutil.rmtree(tmp)
-        return (False, "TIMEOUT after 2 minutes", spec_file_stems) if return_errors else False
+        return (
+            (False, "TIMEOUT after 2 minutes", spec_file_stems)
+            if return_errors
+            else False
+        )
 
     # Show compilation errors/warnings
     stderr_text = result.stderr + "\n" + result.stdout
     for line in stderr_text.split("\n"):
-        if any(kw in line for kw in ("error[", "warning[", "aborting",
-                                       "could not compile", "Compiling")):
+        if any(
+            kw in line
+            for kw in (
+                "error[",
+                "warning[",
+                "aborting",
+                "could not compile",
+                "Compiling",
+            )
+        ):
             print(f"    {line}")
 
     if result.returncode != 0:
@@ -127,6 +138,7 @@ def _check_specs(
     print(f"  OK: {len(spec_files)} harness files compile successfully.")
     shutil.rmtree(tmp)
     return (True, "", spec_file_stems) if return_errors else True
+
 
 def _parse_compilation_errors(
     stderr: str, file_stems: list[str]
@@ -173,18 +185,23 @@ def _parse_compilation_errors(
         header_end = block.index("\n") + 1
         body = block[header_end:].strip()
 
-        errors_by_file.setdefault(file_stem, []).append({
-            "code": code,
-            "message": message,
-            "harness_file": harness_file,
-            "line": line,
-            "col": col,
-            "body": body,
-        })
+        errors_by_file.setdefault(file_stem, []).append(
+            {
+                "code": code,
+                "message": message,
+                "harness_file": harness_file,
+                "line": line,
+                "col": col,
+                "body": body,
+            }
+        )
 
     return errors_by_file
 
-def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tuple[bool, int, int, int]:
+
+def _verify_specs(
+    project_path: str, output_dir: str, timeout: int = 120
+) -> tuple[bool, int, int, int]:
     """Run full Kani model-checking verification (SLOW)."""
 
     output = Path(output_dir)
@@ -230,7 +247,12 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
             first_non_comment = m.end()
             break
         if first_non_comment > 0:
-            content = content[:first_non_comment] + "\n".join(use_lines) + "\n" + content[first_non_comment:]
+            content = (
+                content[:first_non_comment]
+                + "\n".join(use_lines)
+                + "\n"
+                + content[first_non_comment:]
+            )
         else:
             content = "\n".join(use_lines) + "\n\n" + content
         (tmp / "src" / f"{mod_name}.rs").write_text(content)
@@ -243,6 +265,7 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
 
     # Extract harness function names from spec files
     import re as _re
+
     harnesses: list[tuple[str, str, str]] = []  # (source_file, mod_name, harness_name)
     for i, sf in enumerate(spec_files, 1):
         mod_name = harness_mod_names[i - 1]
@@ -275,6 +298,7 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
         )
 
         import select
+
         deadline = time.time() + timeout
         killed = False
         output_lines: list[str] = []
@@ -330,11 +354,11 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
             # Strip compilation noise: keep only from RESULTS: onwards
             results_pos = full.find("\nRESULTS:")
             if results_pos >= 0:
-                full = full[results_pos + 1:]
+                full = full[results_pos + 1 :]
             else:
                 cbmc_pos = full.find("\nCBMC ")
                 if cbmc_pos >= 0:
-                    full = full[cbmc_pos + 1:]
+                    full = full[cbmc_pos + 1 :]
             # Strip SUCCESS blocks: each block is "Check N: ..." through
             # "Location: ...". Keep blocks whose Status is not SUCCESS.
             filtered: list[str] = []
@@ -383,33 +407,46 @@ def _verify_specs(project_path: str, output_dir: str, timeout: int = 120) -> tup
             # Truncate if still too long
             if len(error_output) > 4000:
                 error_output = error_output[-4000:]
-        per_harness_results.append({
-            "source_file": source,
-            "harness_fn": fn_name,
-            "status": status,
-            "returncode": proc.returncode if not killed else None,
-            "error": error_output,
-        })
+        per_harness_results.append(
+            {
+                "source_file": source,
+                "harness_fn": fn_name,
+                "status": status,
+                "returncode": proc.returncode if not killed else None,
+                "error": error_output,
+            }
+        )
 
         # Failsafe: kill any CBMC processes leaked from this run
         try:
             import subprocess as _sp
-            _sp.run(["pkill", "-f", f"cbmc.*{tmp.name}"], timeout=5,
-                    stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+
+            _sp.run(
+                ["pkill", "-f", f"cbmc.*{tmp.name}"],
+                timeout=5,
+                stdout=_sp.DEVNULL,
+                stderr=_sp.DEVNULL,
+            )
         except Exception:
             pass
 
     # Write per-harness verification results
     results_path = output / "verify_results.json"
-    results_path.write_text(json.dumps({
-        "crate": crate_name,
-        "total": total,
-        "passed": passed,
-        "failed": failed,
-        "timed_out": timed_out,
-        "kani_timeout": timeout,
-        "results": per_harness_results,
-    }, indent=2) + "\n")
+    results_path.write_text(
+        json.dumps(
+            {
+                "crate": crate_name,
+                "total": total,
+                "passed": passed,
+                "failed": failed,
+                "timed_out": timed_out,
+                "kani_timeout": timeout,
+                "results": per_harness_results,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
 
     shutil.rmtree(tmp)
 
@@ -455,7 +492,9 @@ def _structural_check(output_dir: str) -> list[str]:
         if kani_proofs == 0:
             warnings.append(f"{sf.name}: no #[kani::proof] harnesses")
         if spec_for_entries == 0:
-            warnings.append(f"{sf.name}: no Spec-for: mappings (function→harness links)")
+            warnings.append(
+                f"{sf.name}: no Spec-for: mappings (function→harness links)"
+            )
         if spec_blocks != kani_proofs:
             warnings.append(
                 f"{sf.name}: mismatch — {spec_blocks} Description blocks but "
@@ -497,14 +536,14 @@ def _structural_check(output_dir: str) -> list[str]:
         seen: set[str] = set()
         for name in fn_names:
             if name in seen:
-                warnings.append(f"{sf.name}: duplicate harness — pub fn {name}() defined more than once")
+                warnings.append(
+                    f"{sf.name}: duplicate harness — pub fn {name}() defined more than once"
+                )
             seen.add(name)
 
         # Count assert! calls (Kani treats them as proof obligations)
         proof_asserts = len(re.findall(r"assert!?\(", content))
         if proof_asserts == 0:
-            warnings.append(
-                f"{sf.name}: no assert!() calls — harness may be empty"
-            )
+            warnings.append(f"{sf.name}: no assert!() calls — harness may be empty")
 
     return warnings

@@ -4,7 +4,7 @@ import json
 import threading
 from pathlib import Path
 
-from tool_registry import register, get_output_dir
+from tool_registry import get_output_dir, register
 
 # Per-file locks for thread-safe concurrent writes
 _file_locks: dict[str, threading.Lock] = {}
@@ -111,7 +111,7 @@ register(
     description=(
         "Write MULTIPLE specification files at once — one per module. "
         "Pass a JSON object mapping filename → content. "
-        "Example: {\"field_element.rs\": \"... spec content ...\", \"scalar.rs\": \"...\"}. "
+        'Example: {"field_element.rs": "... spec content ...", "scalar.rs": "..."}. '
         "Use this to split specs by module: each public module gets its own file. "
         "Always include a spec.rs or INDEX.md listing the generated files."
     ),

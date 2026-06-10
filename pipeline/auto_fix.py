@@ -4,8 +4,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from pipeline.checks import _check_specs, _parse_compilation_errors
 from pipeline.agents import _run_fix_agent
+from pipeline.checks import _check_specs, _parse_compilation_errors
+
 
 def _auto_fix_checks(
     project_path: str,
@@ -92,18 +93,19 @@ def _auto_fix_checks(
 
         workers = min(len(fix_tasks), 5)
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {
-                pool.submit(run_fix, ifn, errs): ifn
-                for ifn, errs in fix_tasks
-            }
+            futures = {pool.submit(run_fix, ifn, errs): ifn for ifn, errs in fix_tasks}
             for future in as_completed(futures):
                 ifn, ok_fix = future.result()
                 with print_lock:
                     if ok_fix:
                         fixed += 1
-                        print(f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FIXED")
+                        print(
+                            f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FIXED"
+                        )
                     else:
                         fix_failed += 1
-                        print(f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FAILED")
+                        print(
+                            f"    [{fixed + fix_failed}/{len(fix_tasks)}] {ifn}  FAILED"
+                        )
 
     return False

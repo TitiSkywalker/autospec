@@ -6,7 +6,7 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from tool_registry import register, get_project_root
+from tool_registry import get_project_root, register
 
 
 def read_cargo_toml() -> str:
@@ -26,7 +26,9 @@ def read_cargo_toml() -> str:
     bin_entries = data.get("bin", [])
     features = data.get("features", {})
 
-    lines = [f"# Cargo.toml: {package.get('name', 'unknown')} v{package.get('version', '0.0.0')}"]
+    lines = [
+        f"# Cargo.toml: {package.get('name', 'unknown')} v{package.get('version', '0.0.0')}"
+    ]
     if package.get("description"):
         lines.append(f"Description: {package['description']}")
     if package.get("edition"):
@@ -61,14 +63,18 @@ def read_cargo_toml() -> str:
 
     # Lib target
     if lib:
-        lines.append(f"\n## Library target: {lib.get('name', package.get('name', '?'))}  (path: {lib.get('path', 'src/lib.rs')})")
+        lines.append(
+            f"\n## Library target: {lib.get('name', package.get('name', '?'))}  (path: {lib.get('path', 'src/lib.rs')})"
+        )
 
     # Bin targets
     if bin_entries:
         if isinstance(bin_entries, dict):
             bin_entries = [bin_entries]
         for b in bin_entries:
-            lines.append(f"\n## Binary target: {b.get('name', '?')}  (path: {b.get('path', 'src/main.rs')})")
+            lines.append(
+                f"\n## Binary target: {b.get('name', '?')}  (path: {b.get('path', 'src/main.rs')})"
+            )
     elif (root / "src" / "main.rs").exists():
         lines.append("\n## Binary target (inferred): src/main.rs")
 
@@ -98,7 +104,9 @@ def list_tests() -> str:
             continue
         rel = f.relative_to(root)
         # Find #[test] and the associated function name
-        for m in re.finditer(r"#\[test\]\s*(?://[^\n]*\n\s*)*(?:async\s+)?fn\s+(\w+)", content):
+        for m in re.finditer(
+            r"#\[test\]\s*(?://[^\n]*\n\s*)*(?:async\s+)?fn\s+(\w+)", content
+        ):
             name = m.group(1)
             line_no = content[: m.start()].count("\n") + 1
             test_functions.append((str(rel), name, line_no))
@@ -176,8 +184,14 @@ register(
     input_schema={
         "type": "object",
         "properties": {
-            "filter_str": {"type": "string", "description": "Optional test name filter (passed to cargo test)"},
-            "timeout": {"type": "integer", "description": "Timeout in seconds (default 120)"},
+            "filter_str": {
+                "type": "string",
+                "description": "Optional test name filter (passed to cargo test)",
+            },
+            "timeout": {
+                "type": "integer",
+                "description": "Timeout in seconds (default 120)",
+            },
         },
         "required": [],
     },

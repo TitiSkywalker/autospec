@@ -38,13 +38,19 @@ def serve_report(output_dir: str, port: int = 8765) -> None:
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({
-                    "ok": True,
-                    "path": str(toml_path),
-                    "size": len(body),
-                }).encode())
-                print(f"  [api] saved specs.toml ({len(body)} bytes, "
-                      f"{body.count(chr(10))} lines)")
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "ok": True,
+                            "path": str(toml_path),
+                            "size": len(body),
+                        }
+                    ).encode()
+                )
+                print(
+                    f"  [api] saved specs.toml ({len(body)} bytes, "
+                    f"{body.count(chr(10))} lines)"
+                )
                 return
             self.send_response(404)
             self.end_headers()

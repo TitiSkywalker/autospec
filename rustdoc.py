@@ -19,8 +19,9 @@ from typing import Any
 @dataclass
 class WalkItem:
     """An item yielded by ``RustDoc.walk_public()`` with its public API context."""
+
     item: "RustItem"
-    module_path: str                 # e.g. "geometry" or "linalg::svd"
+    module_path: str  # e.g. "geometry" or "linalg::svd"
     reexport_name: str | None = None  # set for named re-exports (the alias)
 
 
@@ -70,8 +71,16 @@ class RustDoc:
                 kind=kind,
                 docs=item.get("docs"),
                 file=item.get("span", {}).get("filename") if item.get("span") else None,
-                begin=tuple(item["span"]["begin"]) if "begin" in (item.get("span") or {}) else None,
-                end=tuple(item["span"]["end"]) if "end" in (item.get("span") or {}) else None,
+                begin=(
+                    tuple(item["span"]["begin"])
+                    if "begin" in (item.get("span") or {})
+                    else None
+                ),
+                end=(
+                    tuple(item["span"]["end"])
+                    if "end" in (item.get("span") or {})
+                    else None
+                ),
                 visibility=item.get("visibility", "default"),
                 inner=inner[kind] if kind in inner else {},
             )
@@ -126,7 +135,9 @@ class RustDoc:
         for child in self.children(start_id):
             self.walk(child.id, depth + 1)
 
-    def walk_public(self, start_id: int | None = None) -> Generator[WalkItem, None, None]:
+    def walk_public(
+        self, start_id: int | None = None
+    ) -> Generator[WalkItem, None, None]:
         """Yield ``WalkItem`` for every public item reachable from *start_id*.
 
         Traverses modules recursively, follows glob and named re-exports,
@@ -137,7 +148,9 @@ class RustDoc:
             start_id = self.root_id
         yield from self._walk_public_impl(start_id, "")
 
-    def _walk_public_impl(self, module_id: int, module_path: str) -> Generator[WalkItem, None, None]:
+    def _walk_public_impl(
+        self, module_id: int, module_path: str
+    ) -> Generator[WalkItem, None, None]:
         """Recursive implementation — yields ``WalkItem`` tuples."""
         for child in self.children(module_id):
             if child.visibility != "public":
@@ -150,13 +163,19 @@ class RustDoc:
                 yield WalkItem(item=child, module_path=module_path)
 
             elif child.kind == "module":
-                next_path = f"{module_path}::{child.name}" if module_path else (child.name or "")
+                next_path = (
+                    f"{module_path}::{child.name}"
+                    if module_path
+                    else (child.name or "")
+                )
                 yield from self._walk_public_impl(child.id, next_path)
 
             elif child.kind == "use":
                 yield from self._walk_use(child, module_path)
 
-    def _walk_use(self, use_item: RustItem, module_path: str) -> Generator[WalkItem, None, None]:
+    def _walk_use(
+        self, use_item: RustItem, module_path: str
+    ) -> Generator[WalkItem, None, None]:
         """Resolve a ``use`` item and yield its public contents."""
         resolved_id = use_item.inner.get("id")
         if resolved_id is None or resolved_id not in self.items:
@@ -167,18 +186,23 @@ class RustDoc:
             # Glob re-export: follow the resolved module's items.
             if resolved.kind != "module":
                 return
-            glob_path = (f"{module_path}::{resolved.name}" if module_path
-                        else (resolved.name or ""))
+            glob_path = (
+                f"{module_path}::{resolved.name}"
+                if module_path
+                else (resolved.name or "")
+            )
             yield from self._walk_public_impl(resolved.id, glob_path)
         else:
             # Named re-export: resolve and yield the single item.
             alias = use_item.inner.get("name") or resolved.name
             if resolved.kind == "function":
-                yield WalkItem(item=resolved, module_path=module_path,
-                              reexport_name=alias)
+                yield WalkItem(
+                    item=resolved, module_path=module_path, reexport_name=alias
+                )
             elif resolved.kind in ("struct", "enum", "trait"):
-                yield WalkItem(item=resolved, module_path=module_path,
-                              reexport_name=alias)
+                yield WalkItem(
+                    item=resolved, module_path=module_path, reexport_name=alias
+                )
 
     # ------------------------------------------------------------------
     # Impl blocks
@@ -194,7 +218,9 @@ class RustDoc:
         impls (trait_name is None) always have is_external=False.
         """
         root_crate = self.items[self.root_id].crate_id
-        results: list[tuple[str | None, list[tuple[str | None, str | None, Any]], bool]] = []
+        results: list[
+            tuple[str | None, list[tuple[str | None, str | None, Any]], bool]
+        ] = []
 
         for id_str, raw in self._index.items():
             inner = raw.get("inner", {})
@@ -300,13 +326,17 @@ class RustDoc:
                 vresult = {"name": v.get("name", "?"), "inner": {}}
                 vkind = list(v.get("inner", {}).keys())[0] if v.get("inner") else None
                 if vkind == "tuple":
-                    vresult["inner"] = {"tuple": self._resolve_fields(
-                        [t.get("id", t) for t in v["inner"]["tuple"]]
-                    )}
+                    vresult["inner"] = {
+                        "tuple": self._resolve_fields(
+                            [t.get("id", t) for t in v["inner"]["tuple"]]
+                        )
+                    }
                 elif vkind == "plain":
-                    vresult["inner"] = {"struct": self._resolve_fields(
-                        v["inner"]["plain"].get("fields", [])
-                    )}
+                    vresult["inner"] = {
+                        "struct": self._resolve_fields(
+                            v["inner"]["plain"].get("fields", [])
+                        )
+                    }
                 result.append(vresult)
             return result
 
@@ -322,9 +352,18 @@ class RustDoc:
             entry: dict[str, Any] = {"name": fitem.name}
             # The type is the single key in fitem.inner (e.g. "primitive", "resolved_path", ...)
             for type_kind, type_data in fitem.inner.items():
-                if type_kind in ("primitive", "resolved_path", "borrowed_ref",
-                                 "generic", "tuple", "array", "slice",
-                                 "raw_ptr", "qualified_path", "fn_ptr"):
+                if type_kind in (
+                    "primitive",
+                    "resolved_path",
+                    "borrowed_ref",
+                    "generic",
+                    "tuple",
+                    "array",
+                    "slice",
+                    "raw_ptr",
+                    "qualified_path",
+                    "fn_ptr",
+                ):
                     entry["type"] = {type_kind: type_data}
                     break
             result.append(entry)
@@ -410,14 +449,12 @@ class RustDoc:
             return f"<{ty} as {qp.get('trait_', {}).get('path', '?')}>::{qp['name']}"
         if "impl_trait" in t:
             bounds = ", ".join(
-                b.get("path", b.get("name", "?"))
-                for b in t["impl_trait"]
+                b.get("path", b.get("name", "?")) for b in t["impl_trait"]
             )
             return f"impl {bounds}"
         if "dyn_trait" in t:
             bounds = ", ".join(
-                b.get("path", b.get("name", "?"))
-                for b in t["dyn_trait"]
+                b.get("path", b.get("name", "?")) for b in t["dyn_trait"]
             )
             return f"dyn {bounds}"
         if "raw_ptr" in t:

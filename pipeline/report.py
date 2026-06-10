@@ -6,6 +6,7 @@ from pathlib import Path
 
 from rustdoc import RustDoc, RustItem
 
+
 def _generate_report(
     project_path: str,
     output_dir: str,
@@ -61,8 +62,16 @@ def _generate_report(
                 if child.docs:
                     documented_modules += 1
                 walk_module(child.id)
-            elif child.kind in ("struct", "enum", "trait", "function", "const",
-                                 "type", "static", "union"):
+            elif child.kind in (
+                "struct",
+                "enum",
+                "trait",
+                "function",
+                "const",
+                "type",
+                "static",
+                "union",
+            ):
                 total_public += 1
                 kind = child.kind
                 public_by_kind[kind] = public_by_kind.get(kind, 0) + 1
@@ -114,7 +123,11 @@ def _generate_report(
             mod = entry.get("module", "")
             # Use merged_file to disambiguate same-named methods on different types
             merged = entry.get("merged_file", "")
-            key = f"{merged}::{func}" if merged and func else (f"{mod}::{func}" if func and mod else func)
+            key = (
+                f"{merged}::{func}"
+                if merged and func
+                else (f"{mod}::{func}" if func and mod else func)
+            )
             if key:
                 spec_funcs.add(key)
 
@@ -129,10 +142,18 @@ def _generate_report(
         )
 
     # ── 4. Print report ────────────────────────────────────────────────
-    type_docs = documented_by_kind.get('struct', 0) + documented_by_kind.get('enum', 0) + documented_by_kind.get('trait', 0)
-    type_pub = public_by_kind.get('struct', 0) + public_by_kind.get('enum', 0) + public_by_kind.get('trait', 0)
-    func_docs = documented_by_kind.get('function', 0)
-    func_pub = public_by_kind.get('function', 0)
+    type_docs = (
+        documented_by_kind.get("struct", 0)
+        + documented_by_kind.get("enum", 0)
+        + documented_by_kind.get("trait", 0)
+    )
+    type_pub = (
+        public_by_kind.get("struct", 0)
+        + public_by_kind.get("enum", 0)
+        + public_by_kind.get("trait", 0)
+    )
+    func_docs = documented_by_kind.get("function", 0)
+    func_pub = public_by_kind.get("function", 0)
 
     total_documentable = total_documented + documented_methods
     total_pub = total_public + total_methods
@@ -158,12 +179,16 @@ def _generate_report(
     print(f"\n── Specifications")
     print(f"  Spec files:         {spec_files_count}")
     print(f"  Total harnesses:    {total_harnesses}")
-    print(f"  Coverage:           {len(spec_funcs)}/{spec_targets} functions & methods  ({spec_cov_pct:.0f}%)")
+    print(
+        f"  Coverage:           {len(spec_funcs)}/{spec_targets} functions & methods  ({spec_cov_pct:.0f}%)"
+    )
     print(f"  Generation status:  {spec_status_ok} ok, {spec_status_failed} failed")
 
     if verify_passed >= 0:
         total_verified = verify_passed + verify_failed + verify_timeout
-        verify_pct = (verify_passed / total_verified * 100) if total_verified > 0 else 0.0
+        verify_pct = (
+            (verify_passed / total_verified * 100) if total_verified > 0 else 0.0
+        )
         print(f"\n── Kani Verification")
         print(f"  Total harnesses:    {total_verified}")
         print(f"  Passed:             {verify_passed}")
