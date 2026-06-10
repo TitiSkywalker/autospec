@@ -10,11 +10,20 @@ Usage:
 """
 
 import json
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
 
 # Data model
+@dataclass
+class WalkItem:
+    """An item yielded by ``RustDoc.walk_public()`` with its public API context."""
+    item: "RustItem"
+    module_path: str                 # e.g. "geometry" or "linalg::svd"
+    reexport_name: str | None = None  # set for named re-exports (the alias)
+
+
 @dataclass
 class RustItem:
     id: int
@@ -116,6 +125,60 @@ class RustDoc:
         print(f"{'  ' * depth}{item.summary()}")
         for child in self.children(start_id):
             self.walk(child.id, depth + 1)
+
+    def walk_public(self, start_id: int | None = None) -> Generator[WalkItem, None, None]:
+        """Yield ``WalkItem`` for every public item reachable from *start_id*.
+
+        Traverses modules recursively, follows glob and named re-exports,
+        and skips non-public items.  Callers must use ``get_impls()``
+        separately to enumerate methods on types.
+        """
+        if start_id is None:
+            start_id = self.root_id
+        yield from self._walk_public_impl(start_id, "")
+
+    def _walk_public_impl(self, module_id: int, module_path: str) -> Generator[WalkItem, None, None]:
+        """Recursive implementation — yields ``WalkItem`` tuples."""
+        for child in self.children(module_id):
+            if child.visibility != "public":
+                continue
+
+            if child.kind == "function":
+                yield WalkItem(item=child, module_path=module_path)
+
+            elif child.kind in ("struct", "enum", "trait"):
+                yield WalkItem(item=child, module_path=module_path)
+
+            elif child.kind == "module":
+                next_path = f"{module_path}::{child.name}" if module_path else (child.name or "")
+                yield from self._walk_public_impl(child.id, next_path)
+
+            elif child.kind == "use":
+                yield from self._walk_use(child, module_path)
+
+    def _walk_use(self, use_item: RustItem, module_path: str) -> Generator[WalkItem, None, None]:
+        """Resolve a ``use`` item and yield its public contents."""
+        resolved_id = use_item.inner.get("id")
+        if resolved_id is None or resolved_id not in self.items:
+            return
+        resolved = self.items[resolved_id]
+
+        if use_item.inner.get("is_glob"):
+            # Glob re-export: follow the resolved module's items.
+            if resolved.kind != "module":
+                return
+            glob_path = (f"{module_path}::{resolved.name}" if module_path
+                        else (resolved.name or ""))
+            yield from self._walk_public_impl(resolved.id, glob_path)
+        else:
+            # Named re-export: resolve and yield the single item.
+            alias = use_item.inner.get("name") or resolved.name
+            if resolved.kind == "function":
+                yield WalkItem(item=resolved, module_path=module_path,
+                              reexport_name=alias)
+            elif resolved.kind in ("struct", "enum", "trait"):
+                yield WalkItem(item=resolved, module_path=module_path,
+                              reexport_name=alias)
 
     # ------------------------------------------------------------------
     # Impl blocks

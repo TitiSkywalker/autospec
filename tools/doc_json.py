@@ -32,6 +32,33 @@ def _find_doc_json(root: Path, crate_name: str) -> Path | None:
     return None
 
 
+def ensure_rustdoc_json(root: Path, crate_name: str) -> Path | None:
+    """Find or auto-generate rustdoc JSON for *crate_name*. Returns path or None."""
+    json_path = _find_doc_json(root, crate_name)
+    if json_path:
+        return json_path
+
+    print(f"  Generating rustdoc JSON for {crate_name} ...")
+    cmd = ["cargo", "+nightly", "rustdoc", "--all-features"]
+    cmd.extend(["--", "-Zunstable-options", "--output-format", "json"])
+    try:
+        proc = subprocess.run(
+            cmd, cwd=str(root), capture_output=True, text=True, timeout=300,
+            env={**os.environ, "CARGO_TERM_COLOR": "never"},
+        )
+    except subprocess.TimeoutExpired:
+        print("  Error: cargo rustdoc timed out")
+        return None
+    if proc.returncode != 0:
+        stderr = proc.stderr.strip()[-1500:] if proc.stderr else "(no output)"
+        print(f"  Error: cargo rustdoc failed (exit {proc.returncode})\n{stderr}")
+        return None
+    json_path = _find_doc_json(root, crate_name)
+    if json_path:
+        print(f"  Generated: {json_path}")
+    return json_path
+
+
 def generate_doc_json(
     nightly: str = "nightly",
     features: str = "auto",

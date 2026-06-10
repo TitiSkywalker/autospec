@@ -8,391 +8,19 @@ import subprocess
 from pathlib import Path
 
 from pipeline.checks import _load_verify_results
-
-
-# ── Shared CSS ───────────────────────────────────────────────────────────────
-
-_STYLES = """
-:root {
-  --badge-green: #2e7d32;
-  --badge-red: #c62828;
-  --badge-amber: #e65100;
-  --badge-gray: #757575;
-}
-body {
-  margin: 0;
-  font-family: "Fira Sans", Arial, sans-serif;
-  display: flex;
-  min-height: 100vh;
-}
-.sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  background: #f5f5f5;
-  padding: 16px;
-  overflow-y: auto;
-  border-right: 1px solid #e0e0e0;
-  font-size: 14px;
-}
-.sidebar h2 {
-  font-size: 16px;
-  margin: 0 0 12px 0;
-  color: #333;
-}
-.sidebar details {
-  margin: 4px 0;
-}
-.sidebar summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: #555;
-  padding: 2px 0;
-}
-.sidebar ul {
-  list-style: none;
-  padding-left: 16px;
-  margin: 2px 0;
-}
-.sidebar li {
-  padding: 1px 0;
-}
-.sidebar a {
-  color: #c25c00;
-  text-decoration: none;
-}
-.sidebar a:hover {
-  text-decoration: underline;
-}
-.sidebar-type {
-  font-size: 12px;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.main-content {
-  flex: 1;
-  padding: 24px 40px;
-  max-width: 960px;
-}
-h1 {
-  font-size: 24px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 8px;
-  margin-bottom: 20px;
-}
-.breadcrumbs {
-  font-size: 14px;
-  margin-bottom: 16px;
-  color: #555;
-}
-.breadcrumbs a {
-  color: #c25c00;
-  text-decoration: none;
-}
-.breadcrumbs a:hover {
-  text-decoration: underline;
-}
-.summary-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.summary-card {
-  padding: 12px 16px;
-  border-radius: 6px;
-  text-align: center;
-  font-size: 14px;
-  color: white;
-}
-.summary-card.pass { background: var(--badge-green); }
-.summary-card.fail { background: var(--badge-red); }
-.summary-card.timeout { background: var(--badge-amber); }
-.summary-card.notrun { background: var(--badge-gray); }
-.summary-card .count {
-  display: block;
-  font-size: 28px;
-  font-weight: 700;
-}
-.index-module-list {
-  margin: 16px 0;
-}
-.index-module-list details {
-  margin: 8px 0;
-}
-.index-module-list summary {
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  padding: 4px 0;
-}
-.index-module-list ul {
-  list-style: none;
-  padding-left: 24px;
-  margin: 4px 0;
-}
-.index-module-list li {
-  padding: 4px 0;
-  font-size: 14px;
-}
-.index-module-list a {
-  color: #c25c00;
-  text-decoration: none;
-}
-.index-module-list a:hover {
-  text-decoration: underline;
-}
-.index-module-list .fn-count {
-  color: #888;
-  font-size: 12px;
-  margin-left: 6px;
-}
-.section-header {
-  font-size: 18px;
-  margin: 24px 0 12px 0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid #eee;
-  color: #333;
-}
-.spec-card {
-  margin: 16px 0;
-  padding: 12px 16px;
-  border: 1px solid #e8e8e8;
-  border-radius: 6px;
-}
-.spec-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  font-weight: 600;
-}
-a.fn {
-  color: #c25c00;
-  font-family: "Fira Mono", monospace;
-}
-.verification-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  color: white;
-}
-.badge-pass  { background: var(--badge-green); }
-.badge-fail  { background: var(--badge-red); }
-.badge-timeout { background: var(--badge-amber); }
-.badge-not-run { background: var(--badge-gray); }
-.docblock {
-  margin: 8px 0 8px 24px;
-  color: #555;
-  font-style: italic;
-}
-.sig {
-  margin: 4px 0 4px 24px;
-  font-size: 13px;
-  color: #666;
-}
-.sig code {
-  font-family: "Fira Mono", monospace;
-}
-.source-details {
-  margin-top: 8px;
-}
-.source-details summary {
-  cursor: pointer;
-  color: #1a73e8;
-  font-size: 13px;
-}
-.source-details pre {
-  background: #f8f8f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 14px;
-  overflow-x: auto;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.orig-source summary {
-  color: #388e3c;
-}
-.error-details {
-  margin-top: 10px;
-}
-.error-details summary {
-  cursor: pointer;
-  color: #c62828;
-  font-size: 13px;
-  font-weight: 600;
-}
-.error-output {
-  background: #fff5f5;
-  border: 1px solid #ffcdd2;
-  border-radius: 4px;
-  padding: 12px;
-  margin-top: 8px;
-  overflow-x: auto;
-  font-size: 12px;
-  line-height: 1.5;
-  max-height: 400px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-.selection-toolbar {
-  position: sticky;
-  top: 0;
-  background: #fff;
-  border-bottom: 2px solid #c25c00;
-  padding: 10px 16px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  z-index: 100;
-}
-.selection-toolbar button {
-  padding: 6px 14px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background: #fafafa;
-  cursor: pointer;
-  font-size: 13px;
-}
-.selection-toolbar button:hover { background: #eee; }
-.selection-toolbar button.primary {
-  background: #c25c00;
-  color: white;
-  border-color: #c25c00;
-}
-.selection-toolbar button.primary:hover { background: #a04e00; }
-.selection-count {
-  font-size: 13px;
-  color: #555;
-  font-weight: 600;
-  min-width: 90px;
-}
-.fn-checkbox {
-  margin-right: 6px;
-  accent-color: #c25c00;
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-.modal-overlay {
-  display: none;
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 1000;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 80px;
-}
-.modal-overlay.active { display: flex; }
-.modal-box {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-  max-width: 700px;
-  width: 90%;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-.modal-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.modal-header h3 { margin: 0; font-size: 16px; }
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #888;
-}
-.modal-close:hover { color: #333; }
-.modal-body { padding: 16px 20px; overflow-y: auto; }
-.modal-body p.path-hint {
-  font-size: 12px;
-  color: #888;
-  margin: 0 0 8px 0;
-  font-family: monospace;
-  background: #f5f5f5;
-  padding: 4px 8px;
-  border-radius: 3px;
-}
-.modal-body textarea {
-  width: 100%;
-  height: 300px;
-  font-family: "Fira Mono", monospace;
-  font-size: 13px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 10px;
-  resize: vertical;
-  box-sizing: border-box;
-}
-.modal-footer {
-  padding: 12px 20px;
-  border-top: 1px solid #e0e0e0;
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-.modal-footer button {
-  padding: 8px 18px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.modal-footer button.primary {
-  background: #2e7d32;
-  color: white;
-  border-color: #2e7d32;
-}
-.modal-footer button.primary:hover { background: #1b5e20; }
-.modal-footer button:hover { background: #eee; }
-.copy-toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #333;
-  color: white;
-  padding: 10px 24px;
-  border-radius: 6px;
-  font-size: 14px;
-  z-index: 2000;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.copy-toast.show { opacity: 1; }
-"""
+from pipeline.report_assets import STYLES, SELECTION_TOOLBAR, SELECTION_SCRIPT
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _build_sig_and_source_lookups(project_path: str, crate_name: str) -> tuple[dict[str, str], dict[str, str]]:
     """Build ``{module::function_name → signature}`` and ``{key → source_code}`` from rustdoc JSON."""
-    from tools.doc_json import _find_doc_json
-    from rustdoc import RustDoc, RustItem
+    from rustdoc import RustDoc
+    from tools.doc_json import ensure_rustdoc_json
 
-    json_path = _find_doc_json(Path(project_path), crate_name)
+    json_path = ensure_rustdoc_json(Path(project_path), crate_name)
     if not json_path:
-        print("  Note: rustdoc JSON not found — signatures and sources omitted. "
-              "Run generate_doc_json first.")
+        print("  Note: rustdoc JSON not found — signatures and sources omitted.")
         return {}, {}
 
     try:
@@ -402,84 +30,27 @@ def _build_sig_and_source_lookups(project_path: str, crate_name: str) -> tuple[d
         return {}, {}
 
     sig_lookup: dict[str, str] = {}
-    item_refs: list[tuple[str, RustItem]] = []
-    seen_modules: set[int] = set()
+    item_refs: list[tuple[str, "RustItem"]] = []
 
-    def _record_type_methods(item: RustItem, mod_path: str) -> None:
-        type_name = item.name or ""
-        for _trait_name, methods, is_external in doc_obj.get_impls(item.id):
-            if is_external:
-                continue
-            for mname, _mdocs, mitem in methods:
-                if not mname or not mitem:
+    for wi in doc_obj.walk_public():
+        mp = wi.module_path
+        if wi.item.kind == "function":
+            name = wi.reexport_name or wi.item.name or ""
+            key = f"{mp}::{name}" if mp else name
+            if key:
+                sig_lookup[key] = doc_obj.format_sig(wi.item)
+                item_refs.append((key, wi.item))
+        elif wi.item.kind in ("struct", "enum", "trait"):
+            tname = wi.reexport_name or wi.item.name or ""
+            for _trait_name, methods, is_external in doc_obj.get_impls(wi.item.id):
+                if is_external:
                     continue
-                key = f"{mod_path}::{type_name}::{mname}"
-                sig_lookup[key] = doc_obj.format_sig(mitem)
-                item_refs.append((key, mitem))
-
-    def _process_use(child: RustItem, mod_path: str) -> None:
-        """Follow re-exports to capture sigs and sources."""
-        resolved_id = child.inner.get("id")
-        if resolved_id is None or resolved_id not in doc_obj.items:
-            return
-        resolved = doc_obj.items[resolved_id]
-
-        if child.inner.get("is_glob"):
-            if resolved.kind != "module" or resolved.id in seen_modules:
-                return
-            seen_modules.add(resolved.id)
-            # Use the resolved module's path so keys match _collect_api_entries
-            glob_mod_path = (f"{mod_path}::{resolved.name}" if mod_path
-                            else (resolved.name or ""))
-            for rc in doc_obj.children(resolved.id):
-                if rc.visibility != "public":
-                    continue
-                if rc.kind == "function":
-                    key = f"{glob_mod_path}::{rc.name}" if glob_mod_path else (rc.name or "")
-                    if key:
-                        sig_lookup[key] = doc_obj.format_sig(rc)
-                        item_refs.append((key, rc))
-                elif rc.kind in ("struct", "enum", "trait"):
-                    _record_type_methods(rc, glob_mod_path)
-                elif rc.kind == "use":
-                    _process_use(rc, glob_mod_path)
-        else:
-            if resolved.kind == "function":
-                key = f"{mod_path}::{child.inner.get('name', resolved.name)}" if mod_path else (child.inner.get("name") or resolved.name or "")
-                if key:
-                    sig_lookup[key] = doc_obj.format_sig(resolved)
-                    item_refs.append((key, resolved))
-            elif resolved.kind in ("struct", "enum", "trait"):
-                tname = child.inner.get("name") or resolved.name
-                for _trait_name, methods, is_external in doc_obj.get_impls(resolved.id):
-                    if is_external:
+                for mname, _mdocs, mitem in methods:
+                    if not mname or not mitem:
                         continue
-                    for mname, _mdocs, mitem in methods:
-                        if not mname or not mitem:
-                            continue
-                        key = f"{mod_path}::{tname}::{mname}" if mod_path else f"{tname}::{mname}"
-                        sig_lookup[key] = doc_obj.format_sig(mitem)
-                        item_refs.append((key, mitem))
-
-    def walk(module_id: int, mod_path: str) -> None:
-        seen_modules.add(module_id)
-        for child in doc_obj.children(module_id):
-            if child.visibility != "public":
-                continue
-            if child.kind == "function":
-                key = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
-                if key:
-                    sig_lookup[key] = doc_obj.format_sig(child)
-                    item_refs.append((key, child))
-            elif child.kind in ("struct", "enum", "trait"):
-                _record_type_methods(child, mod_path)
-            elif child.kind == "module":
-                next_path = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
-                walk(child.id, next_path)
-            elif child.kind == "use":
-                _process_use(child, mod_path)
-
-    walk(doc_obj.root_id, "")
+                    key = f"{mp}::{tname}::{mname}" if mp else f"{tname}::{mname}"
+                    sig_lookup[key] = doc_obj.format_sig(mitem)
+                    item_refs.append((key, mitem))
 
     # Build source lookup using span data
     project_root = Path(project_path)
@@ -554,182 +125,6 @@ def _make_fn_key(mod_name: str, merged_file: str, fn_name: str) -> str:
     return f"{type_name}::{fn_name}"
 
 
-_SELECTION_TOOLBAR = """\
-<div class="selection-toolbar" id="selection-toolbar">
-  <button onclick="selectAllVisible()" title="Select all functions on this page">Select all</button>
-  <button onclick="deselectAllVisible()" title="Deselect all functions on this page">Deselect all</button>
-  <span class="selection-count" id="selection-count">0 selected</span>
-  <button class="primary" onclick="saveSpecsToml()">Save specs.toml</button>
-  <button onclick="clearAllSelection()" title="Clear selection across all pages">Clear all</button>
-</div>"""
-
-
-_SELECTION_SCRIPT = """\
-<script>
-(function() {
-var STORAGE_KEY = 'autospec_selected_functions';
-var SERVER_MODE = (window.location.protocol === 'http:' ||
-                   window.location.protocol === 'https:');
-
-function getSelected() {
-  try {
-    var raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch(e) { return new Set(); }
-}
-
-function saveSelected(s) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(s)));
-}
-
-function buildToml() {
-  var selected = Array.from(getSelected()).sort();
-  var toml = '# Functions selected for verification\\n';
-  toml += '# Generated from the autospec HTML report.\\n\\n';
-  toml += '[verify]\\n';
-  toml += 'functions = [\\n';
-  for (var i = 0; i < selected.length; i++) {
-    toml += '    \"' + selected[i] + '\",\\n';
-  }
-  toml += ']\\n';
-  return toml;
-}
-
-function showToast(msg, duration) {
-  var toast = document.getElementById('copy-toast');
-  toast.textContent = msg;
-  toast.classList.add('show');
-  setTimeout(function() { toast.classList.remove('show'); }, duration || 2000);
-}
-
-window.toggleFn = function(key, checked) {
-  var s = getSelected();
-  if (checked) s.add(key); else s.delete(key);
-  saveSelected(s);
-  updateAll();
-};
-
-window.selectAllVisible = function() {
-  var s = getSelected();
-  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
-    s.add(cb.getAttribute('data-key'));
-  });
-  saveSelected(s);
-  updateAll();
-};
-
-window.deselectAllVisible = function() {
-  var s = getSelected();
-  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
-    s.delete(cb.getAttribute('data-key'));
-  });
-  saveSelected(s);
-  updateAll();
-};
-
-window.clearAllSelection = function() {
-  localStorage.removeItem(STORAGE_KEY);
-  updateAll();
-};
-
-window.saveSpecsToml = function() {
-  var selected = Array.from(getSelected()).sort();
-  if (selected.length === 0) {
-    alert('No functions selected. Check some checkboxes first.');
-    return;
-  }
-  var toml = buildToml();
-
-  if (SERVER_MODE) {
-    // Direct save via API — writes straight to specs/<crate>/specs.toml
-    fetch('/api/save-specs', {method: 'POST', body: toml})
-      .then(function(r) {
-        if (!r.ok) throw new Error('Server error: ' + r.status);
-        return r.json();
-      })
-      .then(function(data) {
-        showToast('Saved: ' + data.path + ' (' + data.size + ' bytes)', 3000);
-      })
-      .catch(function(err) {
-        showToast('Save failed: ' + err.message, 3000);
-      });
-  } else {
-    // File:// mode — show modal with copy/download
-    document.getElementById('modal-textarea').value = toml;
-    var crate = document.title.split(' — ')[1] || 'crate';
-    document.getElementById('modal-path-hint').textContent =
-      'Save as: specs/' + crate + '/specs.toml  (or use --serve for direct save)';
-    document.getElementById('modal-overlay').classList.add('active');
-  }
-};
-
-window.closeModal = function() {
-  document.getElementById('modal-overlay').classList.remove('active');
-};
-
-window.copyToml = function() {
-  var textarea = document.getElementById('modal-textarea');
-  textarea.select();
-  textarea.setSelectionRange(0, 99999);
-  navigator.clipboard.writeText(textarea.value).then(function() {
-    showToast('Copied to clipboard');
-  });
-};
-
-window.downloadToml = function() {
-  var toml = document.getElementById('modal-textarea').value;
-  var blob = new Blob([toml], {type: 'text/plain'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'specs.toml';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-// Restore selections from server — server is source of truth in serve mode
-function loadFromServer() {
-  fetch('/api/specs-toml')
-    .then(function(r) { if (r.ok) return r.text(); else return null; })
-    .then(function(toml) {
-      var s = new Set();
-      if (toml) {
-        var re = /"([^"]+)"/g;
-        var m;
-        while ((m = re.exec(toml)) !== null) {
-          s.add(m[1]);
-        }
-      }
-      saveSelected(s);
-      updateAll();
-    })
-    .catch(function() { updateAll(); });
-}
-
-function updateAll() {
-  var count = getSelected().size;
-  var el = document.getElementById('selection-count');
-  if (el) el.textContent = count + ' selected';
-  var selected = getSelected();
-  document.querySelectorAll('.fn-checkbox').forEach(function(cb) {
-    cb.checked = selected.has(cb.getAttribute('data-key'));
-  });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  if (SERVER_MODE) {
-    // Load server-side specs.toml first, then overlay localStorage on top
-    loadFromServer();
-  } else {
-    updateAll();
-  }
-});
-})();
-</script>"""
-
-
 def _group_entries(entries: list[dict]) -> dict[str, dict[str, list[dict]]]:
     """Group spec entries by module, then by merged_file."""
     grouped: dict[str, dict[str, list[dict]]] = {}
@@ -783,7 +178,7 @@ def _make_page(crate_name: str, sidebar_html: str, body: str,
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{title} — {html.escape(crate_name)}</title>
 {head_extra}
-<style>{_STYLES}</style>
+<style>{STYLES}</style>
 </head>
 <body>
 <nav class="sidebar">
@@ -927,26 +322,18 @@ def _build_fn_card(
         badge_html = _badge(vr.get("status", ""))
         error_text = vr.get("error", "")
 
-    # Signature + source lookup
-    clean_mf = merged_file
-    type_part = clean_mf.split("__")[-1] if "__" in clean_mf else ""
-    if type_part and type_part != "functions":
-        sig_key = f"{mod_name}::{type_part}::{fn_name}"
-    else:
-        sig_key = f"{mod_name}::{fn_name}"
+    # Signature + source lookup — use same key logic as _make_fn_key
+    clean_mf = merged_file[:-3] if merged_file.endswith(".rs") else merged_file
+    sig_key = _make_fn_key(mod_name, clean_mf, fn_name)
     sig = sig_lookup.get(sig_key, "")
     orig_source = source_lookup.get(sig_key, "")
 
-    # Fallback: for re-exported types, the merged_file's first segment
-    # (e.g. "base" from "base__Matrix") may be the original module path.
+    # Fallback: for re-exported types, try the first segment of merged_file
+    # (e.g. "base" from "base__Matrix") as the module path.
     if not sig and not orig_source:
-        mf_parts = merged_file.split("__")
+        mf_parts = clean_mf.split("__")
         if len(mf_parts) >= 2:
-            alt_mod = mf_parts[0]
-            if type_part and type_part != "functions":
-                alt_key = f"{alt_mod}::{type_part}::{fn_name}"
-            else:
-                alt_key = f"{alt_mod}::{fn_name}"
+            alt_key = _make_fn_key(mf_parts[0], clean_mf, fn_name)
             sig = sig_lookup.get(alt_key, "")
             orig_source = source_lookup.get(alt_key, "")
     # Fallback 2: bare function name (root-level re-exports)
@@ -1031,8 +418,8 @@ def _build_type_page(
                                     source_lookup, spec_sources, verify_lookup,
                                     is_api_only=is_api_only))
 
-    selection_ui = (_SELECTION_TOOLBAR + "\n") if is_api_only else ""
-    selection_js = _SELECTION_SCRIPT if is_api_only else ""
+    selection_ui = (SELECTION_TOOLBAR + "\n") if is_api_only else ""
+    selection_js = SELECTION_SCRIPT if is_api_only else ""
     body = (f'<h1>{html.escape(type_label)}</h1>\n'
             f'{breadcrumb}\n'
             f'{selection_ui}'
@@ -1124,15 +511,15 @@ def _build_index_page(
         heading = f'<h1>API Overview — {html.escape(crate_name)}</h1>\n'
         title = f"API Overview — {crate_name}"
 
-    selection_ui = _SELECTION_TOOLBAR if is_api_only else ""
-    selection_js = _SELECTION_SCRIPT if is_api_only else ""
+    selection_ui = SELECTION_TOOLBAR if is_api_only else ""
+    selection_js = SELECTION_SCRIPT if is_api_only else ""
     body = heading + summary + selection_ui + "".join(overview) + selection_js
     return _make_page(crate_name, sidebar, body, css_link, title)
 
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
-def _collect_api_entries(project_path: str) -> tuple[str, list[dict]]:
+def _collect_api_entries(project_path: str, crate_name: str | None = None) -> tuple[str, list[dict]]:
     """Build spec-style entries from rustdoc JSON alone (no harnesses).
 
     Follows glob and named re-exports so the report matches docs.rs coverage.
@@ -1140,107 +527,66 @@ def _collect_api_entries(project_path: str) -> tuple[str, list[dict]]:
     Returns (crate_name, entries) where each entry has:
     module, source_function, merged_file, description, file (empty string).
     """
-    from tools.doc_json import _find_doc_json
-    from rustdoc import RustDoc, RustItem
+    from tools.doc_json import _find_doc_json, ensure_rustdoc_json
+    from rustdoc import RustDoc
 
     root = Path(project_path)
     import tomllib
     with open(root / "Cargo.toml", "rb") as fh:
         cargo = tomllib.load(fh)
-    crate_name = cargo.get("package", {}).get("name", root.name)
+    effective_crate = crate_name or cargo.get("package", {}).get("name", root.name)
 
-    json_path = _find_doc_json(root, crate_name)
+    json_path = _find_doc_json(root, effective_crate)
     if not json_path:
-        return crate_name, []
+        is_workspace = "workspace" in cargo
+        has_package = "package" in cargo and "name" in cargo.get("package", {})
+        if is_workspace and not has_package and not crate_name:
+            members = cargo.get("workspace", {}).get("members", [])
+            print(f"  Workspace detected with members: {', '.join(members[:8])}"
+                  f"{'...' if len(members) > 8 else ''}")
+            print(f"  Use --crate to specify which member to analyze.")
+            return effective_crate, []
+
+        json_path = ensure_rustdoc_json(root, effective_crate)
+        if not json_path:
+            return effective_crate, []
 
     doc_obj = RustDoc(str(json_path))
     entries: list[dict] = []
-    seen_modules: set[int] = set()  # prevent infinite recursion via glob re-exports
 
-    def _add_fn_entry(child: RustItem, mod_path: str) -> None:
-        mf = f"{mod_path}__functions" if mod_path else "functions"
-        entries.append({
-            "module": mod_path or "(root)",
-            "source_function": child.name,
-            "merged_file": mf,
-            "file": "",
-            "description": (child.docs or "").split("\n")[0].strip(),
-        })
-
-    def _add_type_entries(child: RustItem, mod_path: str, type_name: str | None = None) -> None:
-        """Collect methods for a type (struct/enum/trait) and add entries."""
-        tname = type_name or child.name or ""
-        mf = f"{mod_path}__{tname}" if mod_path else tname
-        for _trait_name, methods, is_external in doc_obj.get_impls(child.id):
-            if is_external:
-                continue
-            for mname, mdocs, mitem in methods:
-                if not mname or not mitem:
+    for wi in doc_obj.walk_public():
+        mp = wi.module_path
+        if wi.item.kind == "function":
+            fn_name = wi.reexport_name or wi.item.name or ""
+            mf = f"{mp}__functions" if mp else "functions"
+            entries.append({
+                "module": mp or "(root)",
+                "source_function": fn_name,
+                "merged_file": mf,
+                "file": "",
+                "description": (wi.item.docs or "").split("\n")[0].strip(),
+            })
+        elif wi.item.kind in ("struct", "enum", "trait"):
+            tname = wi.reexport_name or wi.item.name or ""
+            mf = f"{mp}__{tname}" if mp else tname
+            for _trait_name, methods, is_external in doc_obj.get_impls(wi.item.id):
+                if is_external:
                     continue
-                entries.append({
-                    "module": mod_path or "(root)",
-                    "source_function": mname,
-                    "merged_file": mf,
-                    "file": "",
-                    "description": (mdocs or "").split("\n")[0].strip(),
-                })
+                for mname, mdocs, mitem in methods:
+                    if not mname or not mitem:
+                        continue
+                    entries.append({
+                        "module": mp or "(root)",
+                        "source_function": mname,
+                        "merged_file": mf,
+                        "file": "",
+                        "description": (mdocs or "").split("\n")[0].strip(),
+                    })
 
-    def _process_use(child: RustItem, mod_path: str) -> None:
-        """Handle a `use` (re-export) item — glob or named."""
-        resolved_id = child.inner.get("id")
-        if resolved_id is None or resolved_id not in doc_obj.items:
-            return
-        resolved = doc_obj.items[resolved_id]
-
-        if child.inner.get("is_glob"):
-            # Glob re-export: follow the resolved module's items.
-            # Use the resolved module's path so keys match the sig lookup.
-            if resolved.kind != "module":
-                return
-            if resolved.id in seen_modules:
-                return
-            seen_modules.add(resolved.id)
-            glob_path = (f"{mod_path}::{resolved.name}" if mod_path
-                         else (resolved.name or ""))
-            for rc in doc_obj.children(resolved.id):
-                if rc.visibility != "public":
-                    continue
-                if rc.kind == "function":
-                    _add_fn_entry(rc, glob_path)
-                elif rc.kind in ("struct", "enum", "trait"):
-                    _add_type_entries(rc, glob_path)
-                elif rc.kind == "use":
-                    _process_use(rc, glob_path)
-        else:
-            # Named re-export: resolve and process the single item
-            if resolved.kind == "function":
-                _add_fn_entry(resolved, mod_path)
-            elif resolved.kind in ("struct", "enum", "trait"):
-                _add_type_entries(resolved, mod_path, type_name=child.inner.get("name") or resolved.name)
-            elif resolved.kind == "module":
-                # Skip named module re-exports — they're aliases
-                pass
-
-    def walk(module_id: int, mod_path: str) -> None:
-        seen_modules.add(module_id)
-        for child in doc_obj.children(module_id):
-            if child.visibility != "public":
-                continue
-            if child.kind == "function":
-                _add_fn_entry(child, mod_path)
-            elif child.kind in ("struct", "enum", "trait"):
-                _add_type_entries(child, mod_path)
-            elif child.kind == "module":
-                next_path = f"{mod_path}::{child.name}" if mod_path else (child.name or "")
-                walk(child.id, next_path)
-            elif child.kind == "use":
-                _process_use(child, mod_path)
-
-    walk(doc_obj.root_id, "")
-    return crate_name, entries
+    return effective_crate, entries
 
 
-def _generate_html_report(project_path: str, output_dir: str) -> None:
+def _generate_html_report(project_path: str, output_dir: str, crate_name: str | None = None) -> None:
     """Generate a multi-page static HTML report like cargo doc.
 
     If ``specs.json`` exists, shows per-function spec content and verification
@@ -1261,7 +607,7 @@ def _generate_html_report(project_path: str, output_dir: str) -> None:
     api_only = not specs_path.is_file()
 
     if api_only:
-        crate_name, entries = _collect_api_entries(project_path)
+        crate_name, entries = _collect_api_entries(project_path, crate_name)
         if not entries:
             print("Error: no public API found (and no specs.json). "
                   "Generate rustdoc JSON first: cargo +nightly rustdoc -- -Zunstable-options --output-format json")

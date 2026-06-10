@@ -13,9 +13,7 @@ Examples:
 
 import argparse
 import os
-import signal
 import sys
-import time
 from pathlib import Path
 
 from pipeline.checks import _check_specs, _structural_check, _verify_specs
@@ -192,6 +190,19 @@ def main() -> None:
              "Also reads specs.toml from the output directory if present.",
     )
     parser.add_argument(
+        "--crate",
+        type=str,
+        default="",
+        help="Crate name within a workspace (e.g. 'p256', 'k256'). "
+             "Required when target/doc/ has multiple .json files.",
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Run 'cargo clean' before generating rustdoc JSON "
+             "(ensures a fresh build, removes stale artifacts).",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help="Start a local HTTP server for the HTML report with live "
@@ -260,14 +271,33 @@ def main() -> None:
     print(f"Mode:     {', '.join(mode)}")
     print()
 
-    # --serve alone (no generation, checks, or verify): generate report and serve
-    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
-    if args.serve and not wants_work:
-        _generate_html_report(str(project), str(output))
+    # --clean: run cargo clean before analysis
+    if args.clean:
+        import subprocess, os as _os
+        print(f"  Cleaning target directory (cargo clean) ...")
+        proc = subprocess.run(
+            ["cargo", "clean"], cwd=str(project),
+            capture_output=True, text=True, timeout=60,
+            env={**_os.environ, "CARGO_TERM_COLOR": "never"},
+        )
+        if proc.returncode != 0:
+            print(f"  Warning: cargo clean failed: {proc.stderr.strip()[-500:]}")
+        else:
+            print(f"  Cleaned {project}/target/")
+
+    def _report_and_serve(vcounts=None):
         if args.report:
             _generate_report(str(project), str(output),
-                             verify_counts=None, kani_timeout=args.kani_timeout)
-        serve_report(str(output), port=args.port)
+                             verify_counts=vcounts, kani_timeout=args.kani_timeout)
+        if args.report_html or args.serve:
+            _generate_html_report(str(project), str(output), crate_name=args.crate or None)
+        if args.serve:
+            serve_report(str(output), port=args.port)
+
+    # API-only modes (no generation, no checks, no verify)
+    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+    if not wants_work:
+        _report_and_serve()
         return
 
     # --check-only: validate existing specs, no auto-fix
@@ -281,13 +311,7 @@ def main() -> None:
             max_tokens=args.max_tokens,
             verbose=args.verbose,
         )
-        if args.report:
-            _generate_report(str(project), str(output),
-                             verify_counts=vcounts, kani_timeout=args.kani_timeout)
-        if args.report_html or args.serve:
-            _generate_html_report(str(project), str(output))
-        if args.serve:
-            serve_report(str(output), port=args.port)
+        _report_and_serve(vcounts)
         return
 
     # --auto-fix without --split: fix existing specs (implies check-only)
@@ -304,24 +328,7 @@ def main() -> None:
             max_tokens=args.max_tokens,
             verbose=args.verbose,
         )
-        if args.report:
-            _generate_report(str(project), str(output),
-                             kani_timeout=args.kani_timeout)
-        if args.report_html or args.serve:
-            _generate_html_report(str(project), str(output))
-        if args.serve:
-            serve_report(str(output), port=args.port)
-        return
-
-    # --report-html standalone (no generation, checks, or verify): read-only report
-    wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
-    if (args.report_html or args.serve) and not wants_work:
-        _generate_html_report(str(project), str(output))
-        if args.report:
-            _generate_report(str(project), str(output),
-                             verify_counts=None, kani_timeout=args.kani_timeout)
-        if args.serve:
-            serve_report(str(output), port=args.port)
+        _report_and_serve()
         return
 
     # ── Below this point: generation mode ──
@@ -388,14 +395,7 @@ def main() -> None:
     else:
         vcounts = None
 
-    if args.report:
-        _generate_report(str(project), str(output),
-                         verify_counts=vcounts, kani_timeout=args.kani_timeout)
-
-    if args.report_html or args.serve:
-        _generate_html_report(str(project), str(output))
-    if args.serve:
-        serve_report(str(output), port=args.port)
+    _report_and_serve(vcounts)
 
 
 if __name__ == "__main__":
