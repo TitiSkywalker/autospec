@@ -213,6 +213,13 @@ def main() -> None:
         "(ensures a fresh build, removes stale artifacts).",
     )
     parser.add_argument(
+        "--auto-select",
+        action="store_true",
+        help="Explore the codebase with an LLM agent to identify "
+        "algorithmically interesting functions and write specs.toml. "
+        "Use before --split to focus verification on high-value targets.",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help="Start a local HTTP server for the HTML report with live "
@@ -278,6 +285,8 @@ def main() -> None:
         mode.append("verify")
     if args.report_html:
         mode.append("report-html")
+    if args.auto_select:
+        mode.append("auto-select")
     if args.serve:
         mode.append("serve")
     if not mode:
@@ -303,6 +312,26 @@ def main() -> None:
             print(f"  Warning: cargo clean failed: {proc.stderr.strip()[-500:]}")
         else:
             print(f"  Cleaned {project}/target/")
+
+    # --auto-select: explore codebase and write specs.toml
+    if args.auto_select:
+        from pipeline.agents import _run_auto_select
+
+        api_key = _api_key()
+        _run_auto_select(
+            project=project,
+            output=output,
+            api_key=api_key,
+            base_url=os.environ.get("ANTHROPIC_BASE_URL", ""),
+            model=args.model,
+            max_iterations=args.max_iterations,
+            max_tokens=args.max_tokens,
+            verbose=args.verbose,
+        )
+        # If only auto-selecting (no generation, checks), we're done
+        wants_work = args.split or args.check or args.check_only or auto_fix > 0 or args.verify
+        if not wants_work and not args.report and not args.report_html and not args.serve:
+            return
 
     def _report_and_serve(vcounts=None):
         if args.report:

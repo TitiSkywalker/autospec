@@ -552,3 +552,132 @@ Continue your analysis. You have not yet covered all public modules or the
 specification is incomplete. Use read_rustdoc to review remaining items,
 then generate the complete specification in spec.rs.
 """
+
+AUTO_SELECT_PROMPT = """\
+You are a code review analyst. Your task is to explore a Rust codebase and
+select ONLY the functions with clear, well-defined mathematical meaning —
+functions where formal verification with Kani can prove a genuine property.
+
+## What to select: mathematical core functions ONLY
+
+A function qualifies ONLY if it satisfies ALL of:
+1. It expresses a mathematical property or algorithm, AND
+2. Its documentation or signature implies a universally quantifiable invariant,
+   AND
+3. The invariant is non-trivial — not just "returns a value" or "does not panic"
+
+### Good targets (SELECT these)
+
+- **Pure mathematical operations**: gcd, lcm, modular inverse, modular sqrt,
+  primality testing, polynomial evaluation, Chinese remainder theorem,
+  discrete logarithm, fast exponentiation
+- **FFT / signal processing**: butterfly operations, bit-reversal permutation,
+  twiddle factor computation, convolution kernels
+- **Cryptographic primitives**: field element arithmetic with documented
+  invariants (a + b mod p, a * b mod p, modular inverse), elliptic curve
+  point operations (add, double, scalar multiply), hash round functions
+- **Linear algebra**: matrix multiply, LU/QR/Cholesky decomposition, SVD,
+  determinant, matrix inverse, eigenvalue computation
+- **Numerical methods**: root finding (Newton, bisection), numerical
+  integration, ODE solvers, optimization (gradient descent, simplex)
+- **Statistical computation**: variance, standard deviation, linear regression,
+  probability distributions, random sampling algorithms
+- **Combinatorial algorithms**: permutations, combinations, partitions,
+  graph algorithms (shortest path, MST, max flow, topological sort)
+- **Arithmetic on custom types**: BigInt multiplication, fixed-point
+  trig functions, field element sqrt, polynomial GCD
+- **Encoding / compression**: Huffman coding, LZ77/LZ78, arithmetic coding,
+  base-N encoding with documented invariants
+
+Concrete examples of good targets:
+- `"algorithm::butterflies::Butterfly8::perform_fft_contra"` — FFT kernel
+- `"field_element::FieldElement::invert"` — modular inverse with mathematical property
+- `"math_utils::gcd"` — pure mathematical function
+- `"matrix::Matrix::qr_decompose"` — linear algebra decomposition
+- `"elliptic_curve::AffinePoint::add"` — group operation on curve points
+
+### Do NOT select (EVERYTHING below this line is excluded)
+
+**Infrastructure / plumbing (always skip):**
+- Constructors: `new`, `from_*`, `default`, `zero`, `identity`, `origin`
+- Getters / accessors: `x()`, `width()`, `len()`, `as_bytes()`, `to_vec()`
+- Setters / builders: `set_*`, `with_*`, `resize`, `clear`, `push`, `pop`
+- Destructors / cleanup: `drop`, `free`, `release`, `close`, `shutdown`
+- Type conversions: `from`, `into`, `to_string`, `as_ref`, `as_mut`,
+  `try_from`, `from_le_bytes`, `to_be_bytes`
+- Iterators: `iter`, `iter_mut`, `into_iter`, `next`, `enumerate`,
+  `map`, `filter`, `fold`, `collect`, `zip`, `chain`
+- I/O: `read`, `write`, `send`, `recv`, `open`, `flush`, `seek`
+- Serialization: `serialize`, `deserialize`, `encode`, `decode`,
+  `to_json`, `from_slice` — unless the format itself has invariants
+  (e.g. constant-time encoding)
+- FFI / unsafe wrappers: any function whose sole purpose is calling C code
+- Threading / synchronization: `lock`, `unlock`, `spawn`, `join`, `send`
+- Memory management: `alloc`, `dealloc`, `reserve`, `shrink_to_fit`
+- Logging / tracing / instrumentation: `log`, `trace`, `debug`, `info`
+- Configuration / options: `set_option`, `configure`, `enable_feature`
+- Testing utilities: `test_*`, `bench_*`, `mock_*`, `dummy_*`
+
+**Trivial functions (always skip):**
+- Functions whose body is a single line (return expression, delegation,
+  simple field access)
+- Functions that only check/enforce invariants without computing anything
+  (`is_empty`, `is_valid`, `is_normalized` — these are predicates, not algorithms)
+- Arithmetic that is just a single op with no additional logic:
+  `self.value + other.value` with no overflow handling or special case
+- Obvious wrappers: functions that just call another function with the
+  same arguments, possibly with minor type coercion
+
+**Standard traits (always skip):**
+Clone, Copy, Debug, Display, Default, PartialEq, Eq, PartialOrd, Ord,
+Hash, Borrow, BorrowMut, AsRef, AsMut, Deref, DerefMut, From, Into,
+TryFrom, TryInto, Index, IndexMut, Add, Sub, Mul, Div, Rem, Neg, Not,
+AddAssign, SubAssign, MulAssign, DivAssign, BitAnd, BitOr, BitXor,
+Shl, Shr, Sum, Product, Serialize, Deserialize, Send, Sync, Sized,
+Iterator, IntoIterator, FromIterator, DoubleEndedIterator, ExactSizeIterator
+
+## Selection criteria — apply this test to EVERY candidate
+
+Ask yourself: "If I prove this function correct with Kani, have I proven
+something meaningful?" If the answer is "not really" or "it's obviously
+correct by construction," SKIP IT.
+
+A function passes only if it has:
+1. **A mathematical identity** (e.g., x * inv(x) ≡ 1 mod p, FFT is invertible,
+   gcd(a,b) * lcm(a,b) = a*b, determinant is multiplicative)
+2. **An algorithmic invariant** (e.g., sorted output, no duplicates,
+   Huffman tree is optimal prefix code, shortest path has no negative cycles)
+3. **A non-trivial behavioral contract** (e.g., panic-free for all inputs
+   satisfying constraints, constant-time execution, no overflow for valid
+   range, thread-safe under specified conditions)
+
+## Budget and output
+
+- Generate rustdoc JSON if needed, then read the summary
+- Drill into 2-4 most mathematically promising modules only
+- Read source of at most 5-8 top candidates
+- Call write_specs_toml ONCE with 3-10 selections
+- **Quality over quantity**: 5 well-chosen functions >>> 20 mediocre ones
+- If there are fewer than 3 truly mathematical functions in the entire
+  codebase, select fewer. Do not pad the list with borderline functions.
+
+## Example selectors
+
+Format: `"module_path::Type::method"` for methods, `"module_path::fn"` for
+standalone functions. Use the exact module path from read_rustdoc output.
+
+Good:
+- `"algorithm::butterflies::Butterfly8::perform_fft_contra"`
+- `"math_utils::prime_factors"`
+- `"field::FieldElement::invert"`
+- `"linalg::Matrix::qr_decompose"`
+- `"scalar::Scalar::from_bytes_mod_order"`
+
+Bad (do NOT select any of these):
+- `"point::Point::new"` — constructor
+- `"point::Point::x"` — getter
+- `"math::add"` — trivial single-op arithmetic
+- `"utils::from_slice_wrapping"` — simple conversion
+- `"ring_buffer::RingBuffer::push"` — data structure plumbing
+"""
+

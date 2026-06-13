@@ -336,3 +336,61 @@ def _run_split(
         cargo = tomllib.load(fh)
     crate_name = cargo.get("package", {}).get("name", project.name)
     _write_spec_json(output_dir, crate_name, func_results)
+
+
+def _run_auto_select(
+    project: Path,
+    output: Path,
+    api_key: str,
+    base_url: str,
+    model: str,
+    max_iterations: int,
+    max_tokens: int,
+    verbose: bool,
+) -> None:
+    """Run an agent that explores the codebase and selects algorithmically
+    relevant functions for verification, writing results to specs.toml."""
+    from agent import SpecAgent
+    from prompt import AUTO_SELECT_PROMPT
+
+    project_path = str(project)
+    output_dir = str(output)
+
+    task = (
+        "Explore this Rust codebase and identify the most algorithmically "
+        "interesting functions for formal verification. Focus on functions "
+        "with non-trivial mathematical properties, algorithmic complexity, "
+        "or safety-critical logic.\n\n"
+        "1. Call read_rustdoc() to get the module summary\n"
+        "2. Drill into promising modules with read_rustdoc(module=\"...\")\n"
+        "3. Read source files of top candidates with read_file\n"
+        "4. Call write_specs_toml ONCE with your selections\n\n"
+        "Aim for 5-20 high-quality targets. Quality matters more than quantity."
+    )
+
+    print("Auto-select agent exploring the codebase...")
+    try:
+        agent = SpecAgent(
+            project_path=project_path,
+            output_dir=output_dir,
+            model=model,
+            max_iterations=max_iterations,
+            max_tokens=max_tokens,
+            verbose=verbose,
+            api_key=api_key,
+            base_url=base_url,
+            system_prompt=AUTO_SELECT_PROMPT,
+            tool_filter=["read_rustdoc", "read_file", "write_specs_toml", "search_code"],
+        )
+        agent.run(task=task)
+    except Exception as exc:
+        print(f"  Auto-select failed: {type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        return
+
+    toml_path = output / "specs.toml"
+    if toml_path.is_file():
+        n = toml_path.read_text().count('"') // 2
+        print(f"Auto-select: wrote {n} function(s) to {toml_path}")
+    else:
+        print("Auto-select: agent completed but no specs.toml was written.")
