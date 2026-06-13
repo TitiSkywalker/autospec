@@ -162,6 +162,18 @@ a.fn {
   color: #c25c00;
   font-family: "Fira Mono", monospace;
 }
+.src-link {
+  font-size: 11px;
+  color: #888;
+  text-decoration: none;
+  font-family: "Fira Mono", monospace;
+  margin-left: 4px;
+  cursor: pointer;
+}
+.src-link:hover {
+  color: #c25c00;
+  text-decoration: underline;
+}
 .verification-badge {
   display: inline-block;
   padding: 2px 8px;

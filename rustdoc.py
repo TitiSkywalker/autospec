@@ -449,12 +449,14 @@ class RustDoc:
             return f"<{ty} as {qp.get('trait_', {}).get('path', '?')}>::{qp['name']}"
         if "impl_trait" in t:
             bounds = ", ".join(
-                b.get("path", b.get("name", "?")) for b in t["impl_trait"]
+                b if isinstance(b, str) else b.get("path", b.get("name", "?"))
+                for b in t["impl_trait"]
             )
             return f"impl {bounds}"
         if "dyn_trait" in t:
             bounds = ", ".join(
-                b.get("path", b.get("name", "?")) for b in t["dyn_trait"]
+                b if isinstance(b, str) else b.get("path", b.get("name", "?"))
+                for b in t["dyn_trait"]
             )
             return f"dyn {bounds}"
         if "raw_ptr" in t:

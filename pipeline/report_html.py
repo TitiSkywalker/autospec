@@ -15,15 +15,15 @@ from pipeline.report_assets import SELECTION_SCRIPT, SELECTION_TOOLBAR, STYLES
 
 def _build_sig_and_source_lookups(
     project_path: str, crate_name: str
-) -> tuple[dict[str, str], dict[str, str]]:
-    """Build ``{module::function_name → signature}`` and ``{key → source_code}`` from rustdoc JSON."""
+) -> tuple[dict[str, str], dict[str, str], dict[str, tuple[str, int]]]:
+    """Build ``{key → signature}``, ``{key → source_code}``, and ``{key → (file, line)}``."""
     from rustdoc import RustDoc
     from tools.doc_json import ensure_rustdoc_json
 
     json_path = ensure_rustdoc_json(Path(project_path), crate_name)
     if not json_path:
         print("  Note: rustdoc JSON not found — signatures and sources omitted.")
-        return {}, {}
+        return {}, {}, {}
 
     try:
         doc_obj = RustDoc(str(json_path))
@@ -31,7 +31,7 @@ def _build_sig_and_source_lookups(
         print(
             f"  Note: cannot parse rustdoc JSON ({exc}) — signatures and sources omitted."
         )
-        return {}, {}
+        return {}, {}, {}
 
     sig_lookup: dict[str, str] = {}
     item_refs: list[tuple[str, "RustItem"]] = []
@@ -56,10 +56,11 @@ def _build_sig_and_source_lookups(
                     sig_lookup[key] = doc_obj.format_sig(mitem)
                     item_refs.append((key, mitem))
 
-    # Build source lookup using span data
+    # Build source + file lookups using span data
     project_root = Path(project_path)
     file_cache: dict[str, list[str]] = {}  # filename → lines
     source_lookup: dict[str, str] = {}
+    file_lookup: dict[str, tuple[str, int]] = {}
 
     for key, item in item_refs:
         if not item.file or not item.begin or not item.end:
@@ -67,6 +68,8 @@ def _build_sig_and_source_lookups(
         src_path = project_root / item.file
         if not src_path.is_file():
             continue
+        # Record relative path + line for the source link
+        file_lookup[key] = (item.file, item.begin[0])
         if item.file not in file_cache:
             file_cache[item.file] = src_path.read_text().split("\n")
         lines = file_cache[item.file]
@@ -75,7 +78,7 @@ def _build_sig_and_source_lookups(
         if 0 <= begin_line < end_line <= len(lines):
             source_lookup[key] = "\n".join(lines[begin_line:end_line])
 
-    return sig_lookup, source_lookup
+    return sig_lookup, source_lookup, file_lookup
 
 
 def _find_rustdoc_assets_dir() -> Path | None:
@@ -319,6 +322,7 @@ def _build_fn_card(
     mod_name: str,
     sig_lookup: dict[str, str],
     source_lookup: dict[str, str],
+    file_lookup: dict[str, tuple[str, int]],
     spec_sources: dict[str, str],
     verify_lookup: dict[str, dict],
     is_api_only: bool = False,
@@ -344,6 +348,7 @@ def _build_fn_card(
     sig_key = _make_fn_key(mod_name, clean_mf, fn_name)
     sig = sig_lookup.get(sig_key, "")
     orig_source = source_lookup.get(sig_key, "")
+    src_file, src_line = file_lookup.get(sig_key, ("", 0))
 
     # Fallback: for re-exported types, try the first segment of merged_file
     # (e.g. "base" from "base__Matrix") as the module path.
@@ -353,11 +358,30 @@ def _build_fn_card(
             alt_key = _make_fn_key(mf_parts[0], clean_mf, fn_name)
             sig = sig_lookup.get(alt_key, "")
             orig_source = source_lookup.get(alt_key, "")
+            if not src_file:
+                src_file, src_line = file_lookup.get(alt_key, ("", 0))
     # Fallback 2: bare function name (root-level re-exports)
     if not sig:
         sig = sig_lookup.get(fn_name, "")
     if not orig_source:
         orig_source = source_lookup.get(fn_name, "")
+    if not src_file:
+        src_file, src_line = file_lookup.get(fn_name, ("", 0))
+
+    # Build source-file reference (click to copy)
+    source_link = ""
+    if src_file and src_line:
+        display = f"{src_file}:{src_line}"
+        source_link = (
+            f' <span class="src-link" title="Click to copy path"'
+            f' onclick="navigator.clipboard.writeText(\'{html.escape(display)}\')'
+            f'.then(function(){{'
+            f'var t=document.getElementById(\"copy-toast\");'
+            f't.textContent=\'Copied: {html.escape(display)}\';'
+            f't.classList.add(\"show\");'
+            f'setTimeout(function(){{t.classList.remove(\"show\")}},2000)'
+            f'}})">{html.escape(display)}</span>'
+        )
 
     parts: list[str] = []
     parts.append(f'<section id="{anchor}" class="spec-card">')
@@ -370,6 +394,7 @@ def _build_fn_card(
         )
     parts.append(f'<a class="fn" href="#{anchor}">fn {html.escape(fn_name)}</a>')
     parts.append(badge_html)
+    parts.append(source_link)
     parts.append("</div>")
     if sig:
         parts.append(f'<div class="sig"><code>{html.escape(sig)}</code></div>')
@@ -411,6 +436,7 @@ def _build_type_page(
     module_tree: dict,
     sig_lookup: dict[str, str],
     source_lookup: dict[str, str],
+    file_lookup: dict[str, tuple[str, int]],
     spec_sources: dict[str, str],
     verify_lookup: dict[str, dict],
     css_link: str,
@@ -450,6 +476,7 @@ def _build_type_page(
                 mod_name,
                 sig_lookup,
                 source_lookup,
+                file_lookup,
                 spec_sources,
                 verify_lookup,
                 is_api_only=is_api_only,
@@ -716,7 +743,7 @@ def _generate_html_report(
                 verify_lookup[r["source_file"]] = r
 
     # 3. Build function signature + source lookups from rustdoc JSON
-    sig_lookup, source_lookup = _build_sig_and_source_lookups(project_path, crate_name)
+    sig_lookup, source_lookup, file_lookup = _build_sig_and_source_lookups(project_path, crate_name)
 
     # 4. Group entries by module → merged_file
     grouped = _group_entries(entries)
@@ -785,6 +812,7 @@ def _generate_html_report(
                 module_tree,
                 sig_lookup,
                 source_lookup,
+                file_lookup,
                 spec_sources,
                 verify_lookup,
                 page_css,
