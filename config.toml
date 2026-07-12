@@ -1,0 +1,5 @@
+workdir = "./local/traced_repos"
+shallow = true
+
+[[repo]]
+url = "https://github.com/dimforge/nalgebra.git"
