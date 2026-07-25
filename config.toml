@@ -1,5 +1,35 @@
 workdir = "./local/traced_repos"
 shallow = true
 
+# ── linear algebra ──
 [[repo]]
 url = "https://github.com/dimforge/nalgebra.git"
+
+# ── FFT / signal processing ──
+[[repo]]
+url = "https://github.com/ejmahler/RustFFT.git"
+
+# ── statistics / probability ──
+[[repo]]
+url = "https://github.com/statrs-dev/statrs.git"
+
+# ── vector/matrix/quaternion math (graphics) ──
+[[repo]]
+url = "https://github.com/bitshifter/glam-rs.git"
+
+[[repo]]
+url = "https://github.com/rustgd/cgmath.git"
+
+[[repo]]
+url = "https://github.com/yoanlcq/vek.git"
+
+# ── N-dimensional arrays ──
+[[repo]]
+url = "https://github.com/rust-ndarray/ndarray.git"
+
+# ── scientific / special functions ──
+[[repo]]
+url = "https://github.com/Axect/Peroxide.git"
+
+[[repo]]
+url = "https://github.com/cpmech/russell.git"
