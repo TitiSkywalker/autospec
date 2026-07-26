@@ -16,6 +16,7 @@ class VibeAgent:
         self,
         repo_path: str | Path,
         instruction_file: str | Path = "instruction.md",
+        results_dir: str | Path = "results",
         max_turns: int = 50,
         timeout: int = 7200,
         verbose: bool = False,
@@ -23,6 +24,8 @@ class VibeAgent:
     ):
         self.repo_path = Path(repo_path).resolve()
         self.instruction = Path(instruction_file).read_text().strip()
+        self.repo_name = self.repo_path.name
+        self.results_dir = Path(results_dir).resolve() / self.repo_name
         self.max_turns = max_turns
         self.timeout = timeout
         self.verbose = verbose
@@ -40,6 +43,10 @@ class VibeAgent:
         Returns dict with keys: ok, elapsed, output, turn_summary.
         """
         full_prompt = self.instruction
+        full_prompt += (
+            f"\n\nRepository: {self.repo_name}\n"
+            f"Output directory: {self.results_dir}\n"
+        )
         if prompt:
             full_prompt += "\n\n" + prompt
 
@@ -47,6 +54,7 @@ class VibeAgent:
             "vibe",
             "-p",
             full_prompt,
+            "--agent",
             "auto-approve",
             "--max-turns",
             str(self.max_turns),
@@ -75,12 +83,14 @@ class VibeAgent:
 
         elapsed = time.time() - t0
         turn_summary = self._parse_turn_summary(output_lines)
+        results = self.collect_results()
 
         return {
             "ok": True,
             "elapsed": elapsed,
             "output": output,
             "turn_summary": turn_summary,
+            "results": results,
         }
 
     # ── private: subprocess runners ───────────────────────────────────────
@@ -117,7 +127,13 @@ class VibeAgent:
                 elif role == "assistant":
                     content = str(obj.get("content", ""))
                     if content.strip():
-                        print(f"  🤖 {content[:200]}")
+                        # Highlight planning / status lines
+                        ll = content.lower()
+                        if any(kw in ll for kw in ["plan", "grep", "todo", "delegate",
+                                                     "spawn", "sub-agent", "collect"]):
+                            print(f"  📋 {content[:200]}")
+                        else:
+                            print(f"  🤖 {content[:200]}")
             elif line.strip():
                 ll = line.lower()
                 if any(
@@ -147,17 +163,38 @@ class VibeAgent:
 
     @staticmethod
     def _print_tool_line(obj: dict) -> None:
-        """Print a compact one-line tool result."""
+        """Print a compact one-line tool result. Highlights sub-agent spawns."""
         content = str(obj.get("content", ""))
+        tool_name = obj.get("name", "")
+
+        # Sub-agent spawn or completion
+        if tool_name == "task":
+            # Extract sub-agent type and prompt preview from content
+            args_str = str(obj.get("arguments", ""))
+            try:
+                args = json.loads(args_str) if args_str else {}
+            except Exception:
+                args = {}
+            sub_type = args.get("subagent_type", args.get("agent_type", "?"))
+            sub_prompt = str(args.get("prompt", ""))
+            preview = sub_prompt[:80].replace("\n", " ")
+            print(f"  🚀 sub-agent [{sub_type}] {preview}...")
+            return
+
         m = re.search(r"<(tool_error|tool_result)>(\S+)", content)
         if m:
-            tool_name = m.group(2)
+            name = m.group(2)
             prefix = "✗" if m.group(1) == "tool_error" else "•"
             err_msg = content[:120].replace("\n", " ")
-            print(f"  [{tool_name}] {prefix} {err_msg}")
+            print(f"  [{name}] {prefix} {err_msg}")
         elif content.strip():
-            first_line = content.strip().split("\n")[0][:120]
-            print(f"  [tool] {first_line}")
+            # Check for sub-agent completion in content
+            if "sub-agent" in content.lower() or "subagent" in content.lower():
+                first_line = content.strip().split("\n")[0][:150]
+                print(f"  ✅ {first_line}")
+            else:
+                first_line = content.strip().split("\n")[0][:120]
+                print(f"  [tool] {first_line}")
 
     @staticmethod
     def _parse_turn_summary(lines: list[str]) -> dict:
@@ -177,6 +214,29 @@ class VibeAgent:
         return info
 
 
+    # ── result collection ────────────────────────────────────────────────
+
+    def collect_results(self) -> dict:
+        """Read manifest from results_dir/<repo>/manifest.txt.
+
+        Returns dict with keys: functions, count, output_dir.
+        """
+        manifest = self.results_dir / "manifest.txt"
+        functions: list[str] = []
+        if manifest.exists():
+            functions = [
+                line.strip()
+                for line in manifest.read_text().splitlines()
+                if line.strip()
+            ]
+
+        return {
+            "functions": functions,
+            "count": len(functions),
+            "output_dir": str(self.results_dir),
+        }
+
+
 # ── CLI ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -190,18 +250,29 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prompt", default="", help="Extra prompt appended to instructions"
     )
+    parser.add_argument(
+        "--results-dir", default="results", help="Root directory for per-repo results (default: results/)"
+    )
     args = parser.parse_args()
 
     agent = VibeAgent(
         args.repo,
+        results_dir=args.results_dir,
         max_turns=args.max_turns,
         timeout=args.timeout,
         verbose=args.verbose,
     )
     result = agent.run(prompt=args.prompt)
 
+    r = result.get("results", {})
     print(f"\n{'='*50}")
+    print(f"Repo:    {agent.repo_name}")
     print(f"Elapsed: {result['elapsed']:.0f}s")
     print(f"Turns:   {result['turn_summary'].get('turns', '?')}")
     print(f"Status:  {result['turn_summary'].get('final_status', '?')}")
     print(f"Success: {result['ok']}")
+    if r:
+        print(f"\nFunctions extracted: {r.get('count', 0)}")
+        for sig in r.get("functions", []):
+            print(f"  - {sig}")
+        print(f"\nOutput: {r.get('output_dir')}")

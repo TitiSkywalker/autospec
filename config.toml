@@ -1,5 +1,9 @@
 workdir = "./local/traced_repos"
 shallow = true
+results_dir = "results"
+max_turns = 100
+timeout = 7200
+verbose = true
 
 # ── linear algebra ──
 [[repo]]
