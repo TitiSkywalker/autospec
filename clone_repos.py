@@ -23,7 +23,7 @@ def clone_repos(config_path: str = "config.toml") -> list[Path]:
         target = workdir / name
 
         if (target / ".git").exists():
-            print(f"  ⏭  {name} — already cloned")
+            print(f"  [skip] {name} (already cloned)")
             paths.append(target)
             continue
 
@@ -32,13 +32,13 @@ def clone_repos(config_path: str = "config.toml") -> list[Path]:
             cmd += ["--depth", "1"]
         cmd += [url, str(target)]
 
-        print(f"  ↓  {name} ...", end=" ", flush=True)
+        print(f"  [clone] {name} ...", end=" ", flush=True)
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if r.returncode == 0:
-            print("done")
+            print("OK")
             paths.append(target)
         else:
-            print(f"FAIL: {r.stderr.strip()[-200:]}")
+            print("FAIL")
             if target.exists():
                 subprocess.run(["rm", "-rf", str(target)])
 
@@ -48,4 +48,4 @@ def clone_repos(config_path: str = "config.toml") -> list[Path]:
 if __name__ == "__main__":
     cfg = sys.argv[1] if len(sys.argv) > 1 else "config.toml"
     paths = clone_repos(cfg)
-    print(f"\nCloned {len(paths)} repo(s).")
+    print(f"Cloned {len(paths)} repo(s).")

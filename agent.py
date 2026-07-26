@@ -127,13 +127,7 @@ class VibeAgent:
                 elif role == "assistant":
                     content = str(obj.get("content", ""))
                     if content.strip():
-                        # Highlight planning / status lines
-                        ll = content.lower()
-                        if any(kw in ll for kw in ["plan", "grep", "todo", "delegate",
-                                                     "spawn", "sub-agent", "collect"]):
-                            print(f"  📋 {content[:200]}")
-                        else:
-                            print(f"  🤖 {content[:200]}")
+                        print(f"  [agent] {content[:200]}")
             elif line.strip():
                 ll = line.lower()
                 if any(
@@ -163,13 +157,12 @@ class VibeAgent:
 
     @staticmethod
     def _print_tool_line(obj: dict) -> None:
-        """Print a compact one-line tool result. Highlights sub-agent spawns."""
+        """Print a compact one-line tool result."""
         content = str(obj.get("content", ""))
         tool_name = obj.get("name", "")
 
-        # Sub-agent spawn or completion
+        # Sub-agent spawn
         if tool_name == "task":
-            # Extract sub-agent type and prompt preview from content
             args_str = str(obj.get("arguments", ""))
             try:
                 args = json.loads(args_str) if args_str else {}
@@ -178,23 +171,18 @@ class VibeAgent:
             sub_type = args.get("subagent_type", args.get("agent_type", "?"))
             sub_prompt = str(args.get("prompt", ""))
             preview = sub_prompt[:80].replace("\n", " ")
-            print(f"  🚀 sub-agent [{sub_type}] {preview}...")
+            print(f"  [task -> {sub_type}] {preview}...")
             return
 
         m = re.search(r"<(tool_error|tool_result)>(\S+)", content)
         if m:
             name = m.group(2)
-            prefix = "✗" if m.group(1) == "tool_error" else "•"
+            prefix = "ERR" if m.group(1) == "tool_error" else " OK"
             err_msg = content[:120].replace("\n", " ")
-            print(f"  [{name}] {prefix} {err_msg}")
+            print(f"  [{prefix}] {name}: {err_msg}")
         elif content.strip():
-            # Check for sub-agent completion in content
-            if "sub-agent" in content.lower() or "subagent" in content.lower():
-                first_line = content.strip().split("\n")[0][:150]
-                print(f"  ✅ {first_line}")
-            else:
-                first_line = content.strip().split("\n")[0][:120]
-                print(f"  [tool] {first_line}")
+            first_line = content.strip().split("\n")[0][:120]
+            print(f"  [tool] {first_line}")
 
     @staticmethod
     def _parse_turn_summary(lines: list[str]) -> dict:

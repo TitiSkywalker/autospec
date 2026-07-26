@@ -1,9 +1,11 @@
 workdir = "./local/traced_repos"
 shallow = true
 results_dir = "results"
-max_turns = 100
+plan_turns = 50
+work_turns = 100
 timeout = 7200
 verbose = true
+max_workers = 4
 
 # ── linear algebra ──
 [[repo]]
