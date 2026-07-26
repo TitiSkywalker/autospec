@@ -5,7 +5,9 @@ Extract ONE specific method into a standalone pure function.
 ## Rules
 
 1. Never change the algorithm body — the logic must stay identical.
-2. No wrappers — delete the original method from the impl block.
+2. **Remove all `unsafe`.** Replace `get_unchecked` with `[]`, raw pointer
+   access with slice indexing. Use `copy_from_slice` instead of `ptr::copy_nonoverlapping`.
+3. No wrappers — delete the original method from the impl block.
 3. **Self-contained output** — the extracted fn must compile with zero
    dependencies beyond `std`. Recursively decompose ALL types:
    - Crate-internal structs → open their definition, flatten all fields
@@ -24,12 +26,8 @@ Extract ONE specific method into a standalone pure function.
 ## Workflow
 
 1. read_file the target file. Open struct definitions and flatten all fields.
-2. Extract the method as a `pub fn` with std-only params.
-3. Adapt tests if they exist: `Struct::new(a,b)` → raw Vec/primitives;
-   `m.method(args)` → `function(data, dims, args)`.
-   Never change test assertions.
-4. `cargo check` → fix errors. If tests exist: `cargo test` → fix failures.
-5. When `cargo check` passes, write the output immediately:
+2. Extract the method as a `pub fn` with std-only params. Remove all `unsafe`.
+3. Write the output to the provided output directory:
 
 ```
 <output_dir>/<function_name>/src/main.rs   ← pub fn + doc + fn main() {}

@@ -59,6 +59,10 @@ def _worker_target(args: tuple) -> dict:
         f"  Output directory: {fn_output_dir}\n"
     )
 
+    log_dir = results_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"{fn_name}.log"
+
     agent = VibeAgent(
         repo_path,
         instruction_file="instruction.md",
@@ -66,6 +70,7 @@ def _worker_target(args: tuple) -> dict:
         max_turns=config.get("work_turns", 30),
         timeout=config.get("timeout", 7200),
         verbose=config.get("verbose", True),
+        log_file=str(log_file),
     )
     result = agent.run(prompt=prompt)
     ok = (fn_output_dir / "src" / "main.rs").exists()

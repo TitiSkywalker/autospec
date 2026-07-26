@@ -21,6 +21,7 @@ class VibeAgent:
         timeout: int = 7200,
         verbose: bool = False,
         cwd: str | Path | None = None,
+        log_file: str | Path | None = None,
     ):
         self.repo_path = Path(repo_path).resolve()
         self.instruction = Path(instruction_file).read_text().strip()
@@ -30,6 +31,7 @@ class VibeAgent:
         self.timeout = timeout
         self.verbose = verbose
         self.cwd = Path(cwd) if cwd else self.repo_path
+        self.log_file = Path(log_file) if log_file else None
 
     # ── public API ────────────────────────────────────────────────────────
 
@@ -96,8 +98,12 @@ class VibeAgent:
     # ── private: subprocess runners ───────────────────────────────────────
 
     def _run_streaming(self, cmd: list[str], output_lines: list[str]) -> str:
-        """Run with real-time output, parse JSON tool results for compact display."""
+        """Run with real-time output.
+
+        If self.log_file is set, write all output there. Otherwise print to stdout.
+        """
         all_output: list[str] = []
+        log_fh = open(self.log_file, "w") if self.log_file else None
 
         proc = subprocess.Popen(
             cmd,
@@ -109,34 +115,40 @@ class VibeAgent:
         )
 
         for line in proc.stdout:
-            line = line.rstrip()
-            if not line:
+            line_r = line.rstrip()
+            if not line_r:
                 continue
-            output_lines.append(line)
-            all_output.append(line)
+            output_lines.append(line_r)
+            all_output.append(line_r)
 
-            try:
-                obj = json.loads(line) if line.startswith("{") else None
-            except Exception:
-                obj = None
+            if log_fh:
+                log_fh.write(line)
+                log_fh.flush()
+            else:
+                try:
+                    obj = json.loads(line_r) if line_r.startswith("{") else None
+                except Exception:
+                    obj = None
 
-            if obj and isinstance(obj, dict):
-                role = obj.get("role", "")
-                if role == "tool":
-                    self._print_tool_line(obj)
-                elif role == "assistant":
-                    content = str(obj.get("content", ""))
-                    if content.strip():
-                        print(f"  [agent] {content[:200]}")
-            elif line.strip():
-                ll = line.lower()
-                if any(
-                    kw in ll
-                    for kw in ["error", "fail", "pass", "test result", "turn ", "done"]
-                ):
-                    print(f"  {line[:200]}")
+                if obj and isinstance(obj, dict):
+                    role = obj.get("role", "")
+                    if role == "tool":
+                        self._print_tool_line(obj)
+                    elif role == "assistant":
+                        content = str(obj.get("content", ""))
+                        if content.strip():
+                            print(f"  [agent] {content[:200]}")
+                elif line_r.strip():
+                    ll = line_r.lower()
+                    if any(
+                        kw in ll
+                        for kw in ["error", "fail", "pass", "test result", "turn ", "done"]
+                    ):
+                        print(f"  {line_r[:200]}")
 
         proc.wait(timeout=self.timeout)
+        if log_fh:
+            log_fh.close()
         return "\n".join(all_output)
 
     def _run_quiet(self, cmd: list[str], output_lines: list[str]) -> str:
