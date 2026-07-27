@@ -22,6 +22,11 @@ _FLATTEN_TOOL = (
     / "tools" / "flatten-loops" / "target" / "release" / "flatten-loops"
 )
 
+_PATCH_F64_TOOL = (
+    Path(__file__).resolve().parent
+    / "tools" / "patch-f64" / "target" / "release" / "patch-f64"
+)
+
 # ── f64 helper crate ─────────────────────────────────────────────────────────
 
 F64_HELPERS_CARGO_TOML = """[package]
@@ -44,26 +49,8 @@ F64_HELPERS_LIB_RS = """#![allow(dead_code)]
 #[inline(never)] pub fn ge(a: f64, b: f64) -> bool { a >= b }
 #[inline(never)] pub fn const_0() -> f64 { 0.0 }
 #[inline(never)] pub fn const_1() -> f64 { 1.0 }
+#[inline(never)] pub fn from_usize(x: usize) -> f64 { x as f64 }
 """
-
-# Regex rules — order matters, specific before general.
-_F64_PATCH_RULES = [
-    (r'(\w+(?:\[[^\]]+\]))\.abs\(\)',
-     r'f64_helpers::abs(\1)'),
-    (r'(\w+)\s*==\s*0\.0',
-     r'f64_helpers::eq(\1, f64_helpers::const_0())'),
-    (r'(\w+)\s*>\s*(\w+)\b(?!\s*=)',
-     r'f64_helpers::gt(\1, \2)'),
-    (r'1\.0\s*/\s*(\w+)',
-     r'f64_helpers::div(f64_helpers::const_1(), \1)'),
-    (r'(\w+\[[^\]]+\])\s*\*=\s*(\w+)',
-     r'\1 = f64_helpers::mul(\1, \2)'),
-    (r'(\w+\[[^\]]+\])\s*=\s*\1\s*-\s*(\w+\[[^\]]+\])\s*\*\s*(\w+)',
-     r'\1 = f64_helpers::sub(\1, f64_helpers::mul(\2, \3))'),
-    (r'(\w+\[[^\]]+\])\s*=\s*\1\s*\+\s*(\w+\[[^\]]+\])\s*\*\s*(\w+\[[^\]]+\])',
-     r'\1 = f64_helpers::add(\1, f64_helpers::mul(\2, \3))'),
-]
-
 
 # ── Translator ───────────────────────────────────────────────────────────────
 
@@ -134,12 +121,64 @@ class Translator:
 def _setup_f64_helpers(project_path: Path) -> None:
     print("── Patch f64 operations ──")
 
-    # Create helpers crate
+    all_literals: set[str] = set()
+
+    # Phase 1: syn-based AST transformation
+    if _PATCH_F64_TOOL.exists():
+        for rs in project_path.rglob("*.rs"):
+            if "f64_helpers" in rs.parts:
+                continue
+            result = subprocess.run(
+                [str(_PATCH_F64_TOOL), str(rs)],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                print(f"  Warning: patch-f64 failed on {rs.name}: {result.stderr.strip()}")
+                continue
+            # Parse float literals from stderr
+            for line in result.stderr.strip().split("\n"):
+                if line.startswith("CONST:"):
+                    parts = line.split(":")
+                    if len(parts) >= 3:
+                        all_literals.add(parts[1])
+            rs.write_text(result.stdout)
+            print(f"  {rs.name}: patched")
+
+        # Phase 2: regex fallback for float literals inside macros (e.g., vec![])
+        _FLOAT_RE = re.compile(r'(?<![.\w])(\d+\.\d+)(?![.\w])')
+        for rs in project_path.rglob("*.rs"):
+            if "f64_helpers" in rs.parts:
+                continue
+            content = rs.read_text()
+            # Only replace float literals that are still present
+            # (syn tool already handled standalone ones, these are in macros)
+            rem = set(_FLOAT_RE.findall(content))
+            all_literals.update(rem)
+    else:
+        print(f"  Warning: patch-f64 not found at {_PATCH_F64_TOOL}")
+        print(f"  Build: cargo build --release --manifest-path tools/patch-f64/Cargo.toml")
+
+    # Generate helpers crate with builtin + discovered const helpers
+    helpers = _generate_float_helpers(all_literals)
     h = project_path / "f64_helpers"
     h.mkdir(exist_ok=True)
     (h / "src").mkdir(exist_ok=True)
     (h / "Cargo.toml").write_text(F64_HELPERS_CARGO_TOML)
-    (h / "src" / "lib.rs").write_text(F64_HELPERS_LIB_RS)
+    (h / "src" / "lib.rs").write_text(F64_HELPERS_LIB_RS + helpers)
+
+    # Phase 3: regex replace remaining float literals (inside macros)
+    if all_literals:
+        _FLOAT_RE = re.compile(r'(?<![.\w])(\d+\.\d+)(?![.\w])')
+        for rs in project_path.rglob("*.rs"):
+            if "f64_helpers" in rs.parts:
+                continue
+            content = rs.read_text()
+            patched, n = _FLOAT_RE.subn(
+                lambda m: _float_to_helper(m.group(1)), content
+            )
+            if n:
+                rs.write_text(patched)
+                print(f"  {rs.name}: {n} float literal(s) in macros")
 
     # Add dependency
     cargo_toml = project_path / "Cargo.toml"
@@ -151,22 +190,22 @@ def _setup_f64_helpers(project_path: Path) -> None:
     else:
         cargo_toml.write_text(content.rstrip() + f"\n\n[dependencies]\n{dep}\n")
 
-    # Patch .rs files
-    for rs in project_path.rglob("*.rs"):
-        if "f64_helpers" in rs.parts:
-            continue
-        patched, n = _patch_rust_source(rs.read_text())
-        if n:
-            rs.write_text(patched)
-            print(f"  {rs.name}: {n} replacements")
+
+def _float_to_helper(value: str) -> str:
+    """Convert a float literal like '58.0' to 'f64_helpers::const_58_0()'."""
+    name = "const_" + value.replace(".", "_").replace("-", "neg_")
+    return f"f64_helpers::{name}()"
 
 
-def _patch_rust_source(source: str) -> tuple[str, int]:
-    total = 0
-    for pat, repl in _F64_PATCH_RULES:
-        source, n = re.subn(pat, repl, source)
-        total += n
-    return source, total
+def _generate_float_helpers(literals: set[str]) -> str:
+    """Generate #[inline(never)] helper functions for each float literal."""
+    if not literals:
+        return ""
+    funcs = []
+    for val in sorted(literals, key=lambda v: (len(v), v)):
+        name = "const_" + val.replace(".", "_").replace("-", "neg_")
+        funcs.append(f'#[inline(never)] pub fn {name}() -> f64 {{ {val} }}')
+    return "\n" + "\n".join(funcs) + "\n"
 
 
 # ── nested loop flattening ────────────────────────────────────────────────────

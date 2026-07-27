@@ -301,6 +301,14 @@ fn infer_type(expr: &syn::Expr, known: &HashMap<String, syn::Type>) -> Option<sy
                 None => None,
             }
         }
+        syn::Expr::Macro(mac) => {
+            // vec![f64_expr; N] or vec![f64_expr, ...] → Vec<f64>
+            if mac.mac.path.is_ident("vec") {
+                Some(syn::parse_quote! { Vec<f64> })
+            } else {
+                None
+            }
+        }
         syn::Expr::Reference(r) => {
             // If it's a &[f64], the result type is &[f64] (for passing to functions)
             infer_type(&r.expr, known)
