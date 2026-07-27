@@ -1,0 +1,14 @@
+name = "lean_mode"
+version = "0.1.0"
+defaultTargets = ["lean_mode"]
+
+[[lean_lib]]
+name = "LeanMode"
+
+[[lean_exe]]
+name = "lean_mode"
+root = "Main"
+
+[[require]]
+name = "aeneas"
+path = "../aeneas/backends/lean"
