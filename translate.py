@@ -105,10 +105,12 @@ class Translator:
             if not lean_files:
                 return False
 
-            # Copy output
+            # Copy output, post-processing F64 → Real along the way
             output_path.mkdir(parents=True, exist_ok=True)
             for f in lean_files:
-                shutil.copy2(workdir / f, output_path / f)
+                content = (workdir / f).read_text()
+                content = _lean_f64_to_real(content)
+                (output_path / f).write_text(content)
 
             print(f"── Done ({len(lean_files)} .lean file(s)) ──")
             return True
@@ -206,6 +208,128 @@ def _generate_float_helpers(literals: set[str]) -> str:
         name = "const_" + val.replace(".", "_").replace("-", "neg_")
         funcs.append(f'#[inline(never)] pub fn {name}() -> f64 {{ {val} }}')
     return "\n" + "\n".join(funcs) + "\n"
+
+
+# ── Lean post-processing: F64 → Real ──────────────────────────────────────────
+
+def _lean_f64_to_real(content: str) -> str:
+    """Post-process generated Lean: replace F64 opaque type with Real,
+    and convert f64_helpers axioms to proper Real-based definitions."""
+    if "F64" not in content:
+        return content
+
+    # Extract const_X_Y names before we remove blocks
+    const_names = set(re.findall(r"f64_helpers\.(const_\w+)", content))
+
+    # Step 1: Replace F64.Insts.CoreCloneClone with RealClone
+    content = content.replace("F64.Insts.CoreCloneClone.clone", "RealClone.clone")
+    content = content.replace("F64.Insts.CoreCloneClone", "RealClone")
+
+    # Step 2: Remove f64_helpers and Clone blocks (line-by-line)
+    lines = content.split("\n")
+    skip: set[int] = set()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("/-- [") or (line.startswith("/-- Trait") and "Clone for f64" in line):
+            should_skip = any([
+                "f64_helpers::" in line,
+                "core::clone::impls" in line and "core::clone::Clone for f64" in line,
+                "Trait implementation:" in line and "core::clone::Clone for f64" in line,
+            ])
+            if should_skip:
+                start = i
+                # Skip to end of doc comment (-/)
+                while i < len(lines) and not lines[i].rstrip().endswith("-/"):
+                    i += 1
+                i += 1  # skip -/ line
+                # Skip attribute line(s)
+                while i < len(lines) and lines[i].startswith("@["):
+                    i += 1
+                # Skip the rest of the block until blank line
+                # (handles both single-line axioms and multi-line def bodies)
+                while i < len(lines) and lines[i].strip() != "":
+                    i += 1
+                # Skip trailing blank line
+                if i < len(lines) and lines[i].strip() == "":
+                    i += 1
+                skip.update(range(start, i))
+                continue
+        i += 1
+
+    # Build output, replacing remaining F64 → Real
+    out_lines = []
+    for i, line in enumerate(lines):
+        if i in skip:
+            continue
+        out_lines.append(line.replace("F64", "Real"))
+
+    result = "\n".join(out_lines)
+
+    # Step 3: Insert replacement definitions after the first "namespace XXX"
+    defs = _generate_lean_real_defs(const_names)
+    result = re.sub(r"(namespace \w+\n)", r"\1\n" + defs, result, count=1)
+
+    return result
+
+
+def _const_name_to_float(name: str) -> str:
+    """Convert const_0_001 → 0.001, const_neg_1_0 → -1.0."""
+    v = name[len("const_"):]
+    if v.startswith("neg_"):
+        return "-" + v[len("neg_"):].replace("_", ".")
+    return v.replace("_", ".")
+
+
+def _generate_lean_real_defs(const_names: set[str]) -> str:
+    """Generate Lean definitions for RealClone and f64_helpers using Real."""
+
+    parts: list[str] = []
+
+    # RealClone
+    parts.append("/- F64 replaced with Real by autospec -/")
+    parts.append("def RealClone.clone (x : Real) : Result Real := ok x")
+    parts.append("")
+    parts.append("@[reducible]")
+    parts.append("def RealClone : core.clone.Clone Real := {")
+    parts.append("  clone := RealClone.clone")
+    parts.append("}")
+    parts.append("")
+
+    # f64_helpers redefined with Real operations
+    helpers = [
+        ("add",  "(a b : Real) : Result Real", "ok (a + b)"),
+        ("sub",  "(a b : Real) : Result Real", "ok (a - b)"),
+        ("mul",  "(a b : Real) : Result Real", "ok (a * b)"),
+        ("div",  "(a b : Real) : Result Real", "ok (a / b)"),
+        ("neg",  "(a : Real) : Result Real",  "ok (-a)"),
+        ("abs",  "(a : Real) : Result Real",  "ok (|a|)"),
+        ("eq",   "(a b : Real) : Result Bool", "ok (a = b)"),
+        ("gt",   "(a b : Real) : Result Bool", "ok (a > b)"),
+        ("lt",   "(a b : Real) : Result Bool", "ok (a < b)"),
+        ("ge",   "(a b : Real) : Result Bool", "ok (a ≥ b)"),
+        ("le",   "(a b : Real) : Result Bool", "ok (a ≤ b)"),
+    ]
+    for name, sig, body in helpers:
+        parts.append(f"def f64_helpers.{name} {sig} := {body}")
+
+    parts.append("")
+    parts.append(
+        "def f64_helpers.from_usize (x : Std.Usize) : Result Real "
+        ":= ok ((x.val : Real))"
+    )
+
+    # const helpers, sorted for deterministic output
+    if const_names:
+        parts.append("")
+        for name in sorted(const_names):
+            value = _const_name_to_float(name)
+            parts.append(
+                f"def f64_helpers.{name} : Result Real := ok (({value} : Real))"
+            )
+
+    return "\n".join(parts) + "\n"
 
 
 # ── nested loop flattening ────────────────────────────────────────────────────
