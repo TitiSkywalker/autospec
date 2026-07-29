@@ -22,6 +22,16 @@ Extract ONE specific method into a standalone pure function.
 5. Skip trait impls, getters, setters, constructors.
 6. Preserve doc comments. Naming: `<struct_snake>_<method_name>`.
 7. **One function per crate** — write to `<output_dir>/<function_name>/`.
+8. **Always generate unit tests.** After extraction, write a separate
+   test file at `tests/test_<function_name>.rs` with at least 3 test cases:
+   - **Smoke test** — call the function with a small, valid input to verify
+     it runs without panicking.
+   - **Known-answer test** — compare output against a hand-computed or
+     documented expected result.
+   - **Edge case** — empty input, single element, identity transform, or
+     other boundary condition relevant to the algorithm.
+   Every extracted function MUST have tests. If the original code has
+   existing test vectors or assertions, reuse them.
 
 ## Workflow
 
@@ -30,10 +40,16 @@ Extract ONE specific method into a standalone pure function.
 3. Write the output to the provided output directory:
 
 ```
-<output_dir>/<function_name>/src/main.rs   ← pub fn + doc + fn main() {}
-<output_dir>/<function_name>/Cargo.toml     ← [package] name="..."
-                                                version="0.1.0"
-                                                edition="2021"
+<output_dir>/<function_name>/src/main.rs        ← pub fn + doc + fn main() {}
+<output_dir>/<function_name>/tests/test_<fn>.rs ← at least 3 test cases (Rule 8)
+<output_dir>/<function_name>/Cargo.toml          ← [package] name="..."
+                                                     version="0.1.0"
+                                                     edition="2021"
 ```
 
-Then report: "Extracted: <function_signature>".
+   The `tests/test_<fn>.rs` file MUST contain at least 3 test cases
+   (see Rule 8).
+
+4. Run `cargo test` in the output directory to verify all tests pass.
+
+Then report: "Extracted: <function_signature> (N tests pass)".

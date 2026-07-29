@@ -5,6 +5,7 @@ open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
+set_option linter.style.nameCheck false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -16,7 +17,7 @@ set_option maxRecDepth 2048
 
 namespace test_rust
 
-/- F64 replaced with Rat by autospec -/
+/- F64 replaced with Rat; f64_helpers inlined by autospec -/
 def RatClone.clone (x : Rat) : Result Rat := ok x
 
 @[reducible]
@@ -24,26 +25,19 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-def f64_helpers.add (a b : Rat) : Result Rat := ok (a + b)
-def f64_helpers.sub (a b : Rat) : Result Rat := ok (a - b)
-def f64_helpers.mul (a b : Rat) : Result Rat := ok (a * b)
-def f64_helpers.div (a b : Rat) : Result Rat := ok (a / b)
-def f64_helpers.neg (a : Rat) : Result Rat := ok (-a)
-def f64_helpers.abs (a : Rat) : Result Rat := ok (|a|)
-def f64_helpers.eq (a b : Rat) : Result Bool := ok (a = b)
-def f64_helpers.gt (a b : Rat) : Result Bool := ok (a > b)
-def f64_helpers.lt (a b : Rat) : Result Bool := ok (a < b)
-def f64_helpers.ge (a b : Rat) : Result Bool := ok (a ≥ b)
-def f64_helpers.le (a b : Rat) : Result Bool := ok (a ≤ b)
-
-def f64_helpers.from_usize (x : Std.Usize) : Result Rat := ok ((x.val : Rat))
+/-- [core::mem::maybe_uninit::MaybeUninit]
+    Source: '/rustc/library/core/src/mem/maybe_uninit.rs', lines 355:0-355:24
+    Name pattern: [core::mem::maybe_uninit::MaybeUninit]
+    Visibility: public -/
+@[rust_type "core::mem::maybe_uninit::MaybeUninit"]
+noncomputable axiom core.mem.maybe_uninit.MaybeUninit (T : Type) : Type
 
 /-- [test_rust::__matmul_inner1]: loop body 0:
-    Source: 'src/main.rs', lines 19:4-24:5 -/
+    Source: 'src/main.rs', lines 43:4-48:5 -/
 @[rust_loop_body]
 def __matmul_inner1_loop.body
-  (m : Std.Usize) (a : Slice Rat) (row : Std.Usize) (b : Slice Rat)
-  (col_b : Std.Usize) (k : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (m : Std.Usize) (a : Slice Rat) (row : Std.Usize) (col_b : Std.Usize)
+  (k : Std.Usize) (b : Slice Rat) (iter : core.ops.range.Range Std.Usize)
   (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
@@ -62,40 +56,40 @@ def __matmul_inner1_loop.body
     let fl ← Slice.index_usize c c_idx
     let fl1 ← Slice.index_usize a a_idx
     let fl2 ← Slice.index_usize b b_idx
-    let fl3 ← f64_helpers.mul fl1 fl2
-    let fl4 ← f64_helpers.add fl fl3
+    let fl3 := fl1 * fl2
+    let fl4 := fl + fl3
     let s ← Slice.update c c_idx fl4
     ok (cont (iter1, s))
 
 /-- [test_rust::__matmul_inner1]: loop 0:
-    Source: 'src/main.rs', lines 19:4-24:5 -/
+    Source: 'src/main.rs', lines 43:4-48:5 -/
 @[rust_loop]
 def __matmul_inner1_loop
-  (iter : core.ops.range.Range Std.Usize) (m : Std.Usize) (a : Slice Rat)
-  (row : Std.Usize) (b : Slice Rat) (col_b : Std.Usize) (c : Slice Rat)
-  (k : Std.Usize) :
+  (iter : core.ops.range.Range Std.Usize) (m : Std.Usize) (c : Slice Rat)
+  (a : Slice Rat) (row : Std.Usize) (col_b : Std.Usize) (k : Std.Usize)
+  (b : Slice Rat) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner1_loop.body m a row b col_b k iter1 c1)
+    (fun (iter1, c1) => __matmul_inner1_loop.body m a row col_b k b iter1 c1)
     (iter, c)
 
 /-- [test_rust::__matmul_inner1]:
-    Source: 'src/main.rs', lines 10:0-25:1 -/
+    Source: 'src/main.rs', lines 34:0-49:1 -/
 @[reducible]
 def __matmul_inner1
-  (m : Std.Usize) (a : Slice Rat) (row : Std.Usize) (b : Slice Rat)
-  (col_b : Std.Usize) (c : Slice Rat) (k : Std.Usize) :
+  (m : Std.Usize) (c : Slice Rat) (a : Slice Rat) (row : Std.Usize)
+  (col_b : Std.Usize) (k : Std.Usize) (b : Slice Rat) :
   Result (Slice Rat)
   := do
-  __matmul_inner1_loop { start := 0#usize, «end» := k } m a row b col_b c k
+  __matmul_inner1_loop { start := 0#usize, «end» := k } m c a row col_b k b
 
 /-- [test_rust::__matmul_inner2]: loop body 0:
-    Source: 'src/main.rs', lines 28:4-30:5 -/
+    Source: 'src/main.rs', lines 52:4-54:5 -/
 @[rust_loop_body]
 def __matmul_inner2_loop.body
-  (a : Slice Rat) (k : Std.Usize) (m : Std.Usize) (col_b : Std.Usize)
-  (b : Slice Rat) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
+  (b : Slice Rat) (k : Std.Usize) (col_b : Std.Usize) (m : Std.Usize)
+  (a : Slice Rat) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
   := do
@@ -104,30 +98,30 @@ def __matmul_inner2_loop.body
   match o with
   | none => ok (done c)
   | some row =>
-    let c1 ← __matmul_inner1 m a row b col_b c k
+    let c1 ← __matmul_inner1 m c a row col_b k b
     ok (cont (iter1, c1))
 
 /-- [test_rust::__matmul_inner2]: loop 0:
-    Source: 'src/main.rs', lines 28:4-30:5 -/
+    Source: 'src/main.rs', lines 52:4-54:5 -/
 @[rust_loop]
 def __matmul_inner2_loop
-  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (k : Std.Usize)
-  (m : Std.Usize) (col_b : Std.Usize) (c : Slice Rat) (b : Slice Rat) :
+  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (b : Slice Rat)
+  (k : Std.Usize) (col_b : Std.Usize) (m : Std.Usize) (a : Slice Rat) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner2_loop.body a k m col_b b iter1 c1)
+    (fun (iter1, c1) => __matmul_inner2_loop.body b k col_b m a iter1 c1)
     (iter, c)
 
 /-- [test_rust::__matmul_inner2]:
-    Source: 'src/main.rs', lines 27:0-31:1 -/
+    Source: 'src/main.rs', lines 51:0-55:1 -/
 @[reducible]
 def __matmul_inner2
-  (a : Slice Rat) (k : Std.Usize) (m : Std.Usize) (col_b : Std.Usize)
-  (c : Slice Rat) (b : Slice Rat) :
+  (c : Slice Rat) (b : Slice Rat) (k : Std.Usize) (col_b : Std.Usize)
+  (m : Std.Usize) (a : Slice Rat) :
   Result (Slice Rat)
   := do
-  __matmul_inner2_loop { start := 0#usize, «end» := m } a k m col_b c b
+  __matmul_inner2_loop { start := 0#usize, «end» := m } c b k col_b m a
 
 /-- [test_rust::matmul]: loop body 0:
     Source: 'src/main.rs', lines 3:4-5:5
@@ -144,7 +138,7 @@ def matmul_loop.body
   match o with
   | none => ok (done c)
   | some col_b =>
-    let c1 ← __matmul_inner2 a k m col_b c b
+    let c1 ← __matmul_inner2 c b k col_b m a
     ok (cont (iter1, c1))
 
 /-- [test_rust::matmul]: loop 0:
@@ -171,8 +165,95 @@ def matmul
   := do
   matmul_loop { start := 0#usize, «end» := n } c a b m k
 
+/-- [test_rust::test_matmul]: loop body 0:
+    Source: 'src/main.rs', lines 23:4-30:1 -/
+@[rust_loop_body]
+def test_matmul_loop.body
+  (expected : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat) (tol : Rat)
+  (iter : core.ops.range.Range Std.Usize) :
+  Result (ControlFlow (core.ops.range.Range Std.Usize) Bool)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (done true)
+  | some i =>
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) c i
+    let fl1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
+        i
+    let diff := fl - fl1
+    let fl2 := |diff|
+    let b := fl2 > tol
+    if b
+    then ok (done false)
+    else ok (cont iter1)
+
+/-- [test_rust::test_matmul]: loop 0:
+    Source: 'src/main.rs', lines 23:4-30:1 -/
+@[rust_loop]
+def test_matmul_loop
+  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
+  (c : alloc.vec.Vec Rat) (tol : Rat) :
+  Result Bool
+  := do
+  loop
+    (fun iter1 => test_matmul_loop.body expected c tol iter1)
+    iter
+
+/-- [test_rust::test_matmul]:
+    Source: 'src/main.rs', lines 13:0-30:1 -/
+def test_matmul : Result Bool := do
+  let _f64_const_0 := (0 : Rat)
+  let _f64_const_0_001 := (1/1000 : Rat)
+  let _f64_const_1 := (1 : Rat)
+  let _f64_const_10 := (10 : Rat)
+  let _f64_const_11 := (11 : Rat)
+  let _f64_const_12 := (12 : Rat)
+  let _f64_const_139 := (139 : Rat)
+  let _f64_const_154 := (154 : Rat)
+  let _f64_const_2 := (2 : Rat)
+  let _f64_const_3 := (3 : Rat)
+  let _f64_const_4 := (4 : Rat)
+  let _f64_const_5 := (5 : Rat)
+  let _f64_const_58 := (58 : Rat)
+  let _f64_const_6 := (6 : Rat)
+  let _f64_const_64 := (64 : Rat)
+  let _f64_const_7 := (7 : Rat)
+  let _f64_const_8 := (8 : Rat)
+  let _f64_const_9 := (9 : Rat)
+  let y ←
+    lift (Std.Array.to_slice
+      (Array.make 6#usize [
+         _f64_const_1, _f64_const_4, _f64_const_2, _f64_const_5, _f64_const_3,
+         _f64_const_6
+         ] : Array Rat 6#usize))
+  let ret := alloc.slice.Slice.into_vec y
+  let y1 ←
+    lift (Std.Array.to_slice
+      (Array.make 6#usize [
+         _f64_const_7, _f64_const_9, _f64_const_11, _f64_const_8,
+         _f64_const_10, _f64_const_12
+         ] : Array Rat 6#usize))
+  let ret1 := alloc.slice.Slice.into_vec y1
+  let y2 ←
+    lift (Std.Array.to_slice
+      (Array.make 4#usize [
+         _f64_const_58, _f64_const_139, _f64_const_64, _f64_const_154
+         ] : Array Rat 4#usize))
+  let ret2 := alloc.slice.Slice.into_vec y2
+  let i ← 2#usize * 2#usize
+  let c ← alloc.vec.from_elem RatClone _f64_const_0 i
+  let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut c)
+  let s1 := alloc.vec.Vec.deref ret
+  let s2 := alloc.vec.Vec.deref ret1
+  let s3 ← matmul s s1 s2 2#usize 3#usize 2#usize
+  let c1 := deref_mut_back s3
+  test_matmul_loop { start := 0#usize, «end» := i } ret2 c1 _f64_const_0_001
+
 /-- [test_rust::main]:
-    Source: 'src/main.rs', lines 8:0-8:12 -/
+    Source: 'src/main.rs', lines 32:0-32:12 -/
 def main : Result Unit := do
   ok ()
 

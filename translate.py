@@ -4,7 +4,7 @@ Translate a Rust project into Lean using Charon + Aeneas.
 Pipeline:
   Rust source → [flatten-loops] → charon → .llbc
   → [LLBC adapter: f64→f64_helpers] → aeneas → .lean
-  → [F64→Rat post-process] → output
+  → [F64→Rat + inline helpers] → output
 
 The original project is never modified — all transformations happen on a
 temporary copy.
@@ -25,14 +25,16 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent
 
-_LLBC_ADAPTER = _ROOT / "tools" / "llbc-adapter" / "adapter.py"
+_LLBC_ADAPTER = _ROOT / "tools" / "llbc_adapter.py"
 
 _FLATTEN_TOOL = (
     _ROOT / "tools" / "flatten-loops" / "target" / "release" / "flatten-loops"
 )
 
+from tools.lean_inline import inline_f64_helpers
 
 # ── Translator ────────────────────────────────────────────────────────────────
+
 
 class Translator:
     """Translate Rust projects to Lean via Charon + Aeneas."""
@@ -42,12 +44,8 @@ class Translator:
         charon_bin: str | Path | None = None,
         aeneas_bin: str | Path | None = None,
     ):
-        self.charon = str(
-            charon_bin or _ROOT / "aeneas" / "charon" / "bin" / "charon"
-        )
-        self.aeneas = str(
-            aeneas_bin or _ROOT / "aeneas" / "bin" / "aeneas"
-        )
+        self.charon = str(charon_bin or _ROOT / "aeneas" / "charon" / "bin" / "charon")
+        self.aeneas = str(aeneas_bin or _ROOT / "aeneas" / "bin" / "aeneas")
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -63,77 +61,116 @@ class Translator:
         project_path = Path(project_dir).resolve()
         output_path = Path(output_dir).resolve() if output_dir else project_path
 
+        print(f"autospec  \033[1m{project_path.name}\033[0m  →  {output_path}")
+
         workdir = Path(tempfile.mkdtemp(prefix="autospec_"))
         try:
-            _log("Copy project to", workdir)
-            shutil.copytree(project_path, workdir, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns(
-                                "target", "lean", "*.lean"))
+            shutil.copytree(
+                project_path,
+                workdir,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns("target", "lean", "*.lean"),
+            )
 
             # Phase 0: flatten nested loops
             _flatten_nested_loops(workdir)
 
             # Phase 1: charon → .llbc
-            _log("Charon")
-            if subprocess.run(
+            result = subprocess.run(
                 [self.charon, "cargo", "--preset=aeneas"],
                 cwd=workdir,
-            ).returncode != 0:
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                _fail("charon", "cargo/charon failed — see stderr below")
+                for line in result.stderr.split("\n"):
+                    if line.strip():
+                        print(f"           {line.strip()}", file=sys.stderr)
                 return False
+            _phase("charon", "ok")
 
             # Phase 2: LLBC adapter
-            _log("LLBC adapter")
-            for f in sorted(os.listdir(str(workdir))):
-                if not f.endswith(".llbc"):
-                    continue
-                llbc_path = str(workdir / f)
-                result = subprocess.run(
-                    [sys.executable, str(_LLBC_ADAPTER),
-                     llbc_path, "-o", llbc_path],
-                    capture_output=True, text=True,
-                )
-                if result.returncode != 0:
-                    _log(f"  adapter error: "
-                         f"{result.stderr.strip()[:300]}")
-                else:
-                    for line in result.stderr.strip().split("\n"):
-                        if line.strip():
-                            _log(f"  {line.strip()}")
-
-            # Phase 3: aeneas → .lean
-            _log("Aeneas")
             llbc_files = sorted(
                 f for f in os.listdir(str(workdir)) if f.endswith(".llbc")
             )
             if not llbc_files:
+                _fail("adapter", "no .llbc file found")
                 return False
 
+            adapter_stats: dict[str, str] = {}
+            for f in llbc_files:
+                llbc_path = str(workdir / f)
+                result = subprocess.run(
+                    [sys.executable, str(_LLBC_ADAPTER), llbc_path, "-o", llbc_path],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode != 0:
+                    _fail("adapter", result.stderr.strip()[:200])
+                    return False
+                adapter_stats = _parse_adapter_stderr(result.stderr)
+
+            parts = [f"f64={adapter_stats.get('f64', '?')}"]
+            if adapter_stats.get("binop") and adapter_stats["binop"] != "0":
+                parts.append(f"{adapter_stats['binop']} binop/neg")
+            if adapter_stats.get("consts") and adapter_stats["consts"] != "0":
+                parts.append(f"{adapter_stats['consts']} consts")
+            _phase("adapter", ",  ".join(parts))
+
+            # Phase 3: aeneas → .lean
+            aeneas_warnings: list[str] = []
             for f in llbc_files:
                 result = subprocess.run(
-                    [self.aeneas, "-sequential", "-backend", "lean",
-                     str(workdir / f)],
-                    cwd=str(workdir), capture_output=True, text=True,
+                    [self.aeneas, "-sequential", "-backend", "lean", str(workdir / f)],
+                    cwd=str(workdir),
+                    capture_output=True,
+                    text=True,
                 )
                 for line in (result.stdout + result.stderr).split("\n"):
-                    line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
-                    if line and ("Error" in line or "Warn" in line
-                                 or "Generated" in line):
-                        _log(f"  {line}")
+                    line = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
+                    if not line:
+                        continue
+                    if "[Error" in line or "error:" in line.lower():
+                        _fail("aeneas", line)
+                        return False
+                    m = re.match(r"\[(?:Warn|Warning)\s*\]\s*(.*)", line)
+                    if m:
+                        w = m.group(1)
+                        # Suppress expected aeneas boilerplate warnings
+                        if "external, unknown definitions" not in w:
+                            aeneas_warnings.append(w)
 
-            # Phase 4: post-process → output
             lean_files = sorted(
                 f for f in os.listdir(str(workdir)) if f.endswith(".lean")
             )
             if not lean_files:
+                _fail("aeneas", "no .lean file generated")
                 return False
 
-            output_path.mkdir(parents=True, exist_ok=True)
+            # Count definitions
+            def_count = 0
             for f in lean_files:
-                content = (workdir / f).read_text()
-                content = _lean_f64_to_rat(content)
-                (output_path / f).write_text(content)
+                text = (workdir / f).read_text()
+                text = text.replace(
+                    "set_option linter.unusedVariables false",
+                    "set_option linter.unusedVariables false\n"
+                    "set_option linter.style.nameCheck false",
+                )
+                text = _lean_f64_to_rat(text)
+                text = inline_f64_helpers(text)
+                (output_path / f).write_text(text)
+                def_count += len(
+                    re.findall(r"^\s*(?:def|theorem|axiom)\s+\S+", text, re.MULTILINE)
+                )
 
-            _log(f"Done ({len(lean_files)} .lean file(s))")
+            file_list = ", ".join(f.replace(".lean", "") for f in lean_files)
+            _phase("aeneas", f"{file_list}  {def_count} defs")
+
+            for w in aeneas_warnings:
+                _warn(w)
+
+            _phase("✓ done", f"({len(lean_files)} file(s))")
             return True
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -141,18 +178,30 @@ class Translator:
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-def _log(*args):
-    print("──", *args)
+
+def _phase(tag: str, msg: str = "") -> None:
+    """Print a pipeline phase status line with consistent alignment."""
+    print(f"  {tag:<10} {msg}")
+
+
+def _fail(tag: str, reason: str) -> None:
+    """Print a phase failure and exit."""
+    print(f"  {tag:<10} \033[31mFAIL\033[0m  {reason}", file=sys.stderr)
+
+
+def _warn(msg: str) -> None:
+    """Print a warning."""
+    print(f"           \033[33m⚠\033[0m  {msg}")
 
 
 # ── Lean post-processing: F64 → Rat ──────────────────────────────────────────
+
 
 def _lean_f64_to_rat(content: str) -> str:
     """Replace F64 opaque type with Rat (computable rational arithmetic)."""
     if "F64" not in content:
         return content
 
-    const_names = set(re.findall(r"f64_helpers\.(const_\w+)", content))
     content = content.replace("F64.Insts.CoreCloneClone.clone", "RatClone.clone")
     content = content.replace("F64.Insts.CoreCloneClone", "RatClone")
 
@@ -164,14 +213,16 @@ def _lean_f64_to_rat(content: str) -> str:
         if line.startswith("/-- [") or (
             line.startswith("/-- Trait") and "Clone for f64" in line
         ):
-            if any([
-                "f64_helpers::" in line,
-                "core::clone::impls" in line
-                and "core::clone::Clone for f64" in line,
-                "Trait implementation:" in line
-                and "core::clone::Clone for f64" in line,
-                "core::f64::" in line,
-            ]):
+            if any(
+                [
+                    "f64_helpers::" in line,
+                    "core::clone::impls" in line
+                    and "core::clone::Clone for f64" in line,
+                    "Trait implementation:" in line
+                    and "core::clone::Clone for f64" in line,
+                    "core::f64::" in line,
+                ]
+            ):
                 start = i
                 while i < len(lines) and not lines[i].rstrip().endswith("-/"):
                     i += 1
@@ -194,121 +245,82 @@ def _lean_f64_to_rat(content: str) -> str:
     result = "\n".join(out)
 
     result = re.sub(
-        r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result,
+        r"core\.f64\.\S+\.abs\b",
+        "f64_helpers.abs",
+        result,
     )
     result = re.sub(
-        r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ",
+        r"\baxiom \b(?!.*noncomputable)",
+        "noncomputable axiom ",
         result,
     )
     result = result.replace("noncomputable section\n", "")
 
-    existing = set(re.findall(
-        r"^def (f64_helpers\.\w+|RatClone\S*)", result, re.MULTILINE
-    ))
-    defs = _make_rat_defs(const_names, existing)
-    if defs:
-        result = re.sub(r"(namespace \w+\n)", r"\1\n" + defs, result, count=1)
-    return result
-
-
-def _float_str_to_rat(val: str) -> str:
-    """Convert a float string to a Rat expression."""
-    if val.startswith("-"):
-        return f"-({_float_str_to_rat(val[1:])})"
-    if "." not in val:
-        return f"({val} : Rat)"
-    int_part, frac_part = val.split(".")
-    denom = 10 ** len(frac_part)
-    num = int(int_part) * denom + int(frac_part) if int_part else int(frac_part)
-    return f"({num}/{denom} : Rat)"
-
-
-def _make_rat_defs(
-    const_names: set[str],
-    existing: set[str] | None = None,
-) -> str:
-    """Generate Rat-based Lean definitions replacing f64_helpers."""
-    if existing is None:
-        existing = set()
-    parts = []
-    if "RatClone.clone" not in existing:
-        parts.extend([
-            "/- F64 replaced with Rat by autospec -/",
-            "def RatClone.clone (x : Rat) : Result Rat := ok x",
-            "",
-            "@[reducible]",
-            "def RatClone : core.clone.Clone Rat := {",
-            "  clone := RatClone.clone",
-            "}",
-            "",
-        ])
-    for name, sig, body in [
-        ("add", "(a b : Rat) : Result Rat", "ok (a + b)"),
-        ("sub", "(a b : Rat) : Result Rat", "ok (a - b)"),
-        ("mul", "(a b : Rat) : Result Rat", "ok (a * b)"),
-        ("div", "(a b : Rat) : Result Rat", "ok (a / b)"),
-        ("neg", "(a : Rat) : Result Rat",  "ok (-a)"),
-        ("abs", "(a : Rat) : Result Rat",  "ok (|a|)"),
-        ("eq",  "(a b : Rat) : Result Bool", "ok (a = b)"),
-        ("gt",  "(a b : Rat) : Result Bool", "ok (a > b)"),
-        ("lt",  "(a b : Rat) : Result Bool", "ok (a < b)"),
-        ("ge",  "(a b : Rat) : Result Bool", "ok (a ≥ b)"),
-        ("le",  "(a b : Rat) : Result Bool", "ok (a ≤ b)"),
-    ]:
-        if f"f64_helpers.{name}" not in existing:
-            parts.append(f"def f64_helpers.{name} {sig} := {body}")
-
-    if "f64_helpers.from_usize" not in existing:
-        parts.append("")
-        parts.append(
-            "def f64_helpers.from_usize (x : Std.Usize) : Result Rat "
-            ":= ok ((x.val : Rat))"
+    # Insert RatClone definitions (inline step handles f64_helpers)
+    if "def RatClone.clone" not in result:
+        rat_clone = (
+            "/- F64 replaced with Rat by autospec -/\n"
+            "def RatClone.clone (x : Rat) : Result Rat := ok x\n"
+            "\n"
+            "@[reducible]\n"
+            "def RatClone : core.clone.Clone Rat := {\n"
+            "  clone := RatClone.clone\n"
+            "}\n"
         )
+        result = re.sub(r"(namespace \w+\n)", r"\1\n" + rat_clone, result, count=1)
 
-    new_consts = const_names - {
-        n for n in const_names if f"f64_helpers.{n}" in existing
-    }
-    if new_consts:
-        parts.append("")
-        for name in sorted(new_consts):
-            val = _float_str_to_rat(_const_name_to_float_str(name))
-            parts.append(
-                f"def f64_helpers.{name} : Result Rat := ok ({val})"
-            )
-
-    return "\n".join(parts) + "\n" if parts else ""
-
-
-def _const_name_to_float_str(name: str) -> str:
-    """Convert const_0_001 → "0.001", const_neg_1_0 → "-1.0"."""
-    v = name[len("const_"):]
-    if v.startswith("neg_"):
-        return "-" + v[len("neg_"):].replace("_", ".")
-    return v.replace("_", ".")
+    return result
 
 
 # ── nested loop flattening ────────────────────────────────────────────────────
 
+
+def _parse_adapter_stderr(stderr: str) -> dict[str, str]:
+    """Parse adapter stderr lines like ``[adapter] f64=306, usize=311, ...``."""
+    stats: dict[str, str] = {}
+    for line in stderr.split("\n"):
+        m = re.match(r"\[adapter\]\s+(.+)", line.strip())
+        if not m:
+            continue
+        body = m.group(1)
+        if "=" in body:
+            for part in body.split(","):
+                part = part.strip()
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    stats[k.strip()] = v.strip()
+        else:
+            m2 = re.match(r"(\d+)\s+float consts?,\s*(\d+)\s+binop/neg", body)
+            if m2:
+                stats["consts"] = m2.group(1)
+                stats["binop"] = m2.group(2)
+    return stats
+
+
 def _flatten_nested_loops(project_path: Path) -> None:
     if not _FLATTEN_TOOL.exists():
-        _log(f"Warning: flatten-loops not found at {_FLATTEN_TOOL}")
-        _log("  Build: cargo build --release "
-             "--manifest-path tools/flatten-loops/Cargo.toml")
+        _warn(f"flatten-loops not found at {_FLATTEN_TOOL}")
         return
 
-    _log("Flatten nested loops")
+    modified: list[str] = []
     for rs in project_path.rglob("*.rs"):
         if "f64_helpers" in rs.parts or "target" in rs.parts:
             continue
         result = subprocess.run(
             [str(_FLATTEN_TOOL), str(rs), "--in-place"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
-            _log(f"  Warning: flatten-loops failed on {rs.name}: "
-                 f"{result.stderr.strip()}")
+            _warn(f"flatten-loops failed on {rs.name}: " f"{result.stderr.strip()}")
         elif result.stderr.strip():
-            _log(f"  {rs.name}: {result.stderr.strip()}")
+            modified.append(rs.name)
+
+    if modified:
+        _phase("flatten", ", ".join(modified))
+    else:
+        _phase("flatten", "(nothing to do)")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
