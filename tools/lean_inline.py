@@ -119,10 +119,10 @@ def _const_to_rat(name: str) -> str:
     >>> _const_to_rat("const_neg_1_0")
     '(-(1/1 : Rat))'
     """
-    v = name[len("const_"):]
+    v = name[len("const_") :]
     neg = v.startswith("neg_")
     if neg:
-        v = v[len("neg_"):]
+        v = v[len("neg_") :]
     parts = v.split("_")
     if len(parts) != 2:
         return f"({v} : Rat)"

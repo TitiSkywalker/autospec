@@ -142,7 +142,14 @@ class VibeAgent:
                     ll = line_r.lower()
                     if any(
                         kw in ll
-                        for kw in ["error", "fail", "pass", "test result", "turn ", "done"]
+                        for kw in [
+                            "error",
+                            "fail",
+                            "pass",
+                            "test result",
+                            "turn ",
+                            "done",
+                        ]
                     ):
                         print(f"  {line_r[:200]}")
 
@@ -213,7 +220,6 @@ class VibeAgent:
                     info["final_status"] = m.group(1).lower()
         return info
 
-
     # ── result collection ────────────────────────────────────────────────
 
     def collect_results(self) -> dict:
@@ -251,7 +257,9 @@ if __name__ == "__main__":
         "--prompt", default="", help="Extra prompt appended to instructions"
     )
     parser.add_argument(
-        "--results-dir", default="results", help="Root directory for per-repo results (default: results/)"
+        "--results-dir",
+        default="results",
+        help="Root directory for per-repo results (default: results/)",
     )
     args = parser.parse_args()
 

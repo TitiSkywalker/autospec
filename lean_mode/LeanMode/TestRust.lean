@@ -36,8 +36,8 @@ noncomputable axiom core.mem.maybe_uninit.MaybeUninit (T : Type) : Type
     Source: 'src/main.rs', lines 43:4-48:5 -/
 @[rust_loop_body]
 def __matmul_inner1_loop.body
-  (m : Std.Usize) (a : Slice Rat) (row : Std.Usize) (col_b : Std.Usize)
-  (k : Std.Usize) (b : Slice Rat) (iter : core.ops.range.Range Std.Usize)
+  (row : Std.Usize) (m : Std.Usize) (col_b : Std.Usize) (k : Std.Usize)
+  (a : Slice Rat) (b : Slice Rat) (iter : core.ops.range.Range Std.Usize)
   (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
@@ -65,31 +65,31 @@ def __matmul_inner1_loop.body
     Source: 'src/main.rs', lines 43:4-48:5 -/
 @[rust_loop]
 def __matmul_inner1_loop
-  (iter : core.ops.range.Range Std.Usize) (m : Std.Usize) (c : Slice Rat)
-  (a : Slice Rat) (row : Std.Usize) (col_b : Std.Usize) (k : Std.Usize)
+  (iter : core.ops.range.Range Std.Usize) (row : Std.Usize) (c : Slice Rat)
+  (m : Std.Usize) (col_b : Std.Usize) (k : Std.Usize) (a : Slice Rat)
   (b : Slice Rat) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner1_loop.body m a row col_b k b iter1 c1)
+    (fun (iter1, c1) => __matmul_inner1_loop.body row m col_b k a b iter1 c1)
     (iter, c)
 
 /-- [test_rust::__matmul_inner1]:
     Source: 'src/main.rs', lines 34:0-49:1 -/
 @[reducible]
 def __matmul_inner1
-  (m : Std.Usize) (c : Slice Rat) (a : Slice Rat) (row : Std.Usize)
-  (col_b : Std.Usize) (k : Std.Usize) (b : Slice Rat) :
+  (row : Std.Usize) (c : Slice Rat) (m : Std.Usize) (col_b : Std.Usize)
+  (k : Std.Usize) (a : Slice Rat) (b : Slice Rat) :
   Result (Slice Rat)
   := do
-  __matmul_inner1_loop { start := 0#usize, «end» := k } m c a row col_b k b
+  __matmul_inner1_loop { start := 0#usize, «end» := k } row c m col_b k a b
 
 /-- [test_rust::__matmul_inner2]: loop body 0:
     Source: 'src/main.rs', lines 52:4-54:5 -/
 @[rust_loop_body]
 def __matmul_inner2_loop.body
-  (b : Slice Rat) (k : Std.Usize) (col_b : Std.Usize) (m : Std.Usize)
-  (a : Slice Rat) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
+  (a : Slice Rat) (b : Slice Rat) (col_b : Std.Usize) (m : Std.Usize)
+  (k : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
   := do
@@ -98,30 +98,30 @@ def __matmul_inner2_loop.body
   match o with
   | none => ok (done c)
   | some row =>
-    let c1 ← __matmul_inner1 m c a row col_b k b
+    let c1 ← __matmul_inner1 row c m col_b k a b
     ok (cont (iter1, c1))
 
 /-- [test_rust::__matmul_inner2]: loop 0:
     Source: 'src/main.rs', lines 52:4-54:5 -/
 @[rust_loop]
 def __matmul_inner2_loop
-  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (b : Slice Rat)
-  (k : Std.Usize) (col_b : Std.Usize) (m : Std.Usize) (a : Slice Rat) :
+  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
+  (col_b : Std.Usize) (m : Std.Usize) (k : Std.Usize) (c : Slice Rat) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner2_loop.body b k col_b m a iter1 c1)
+    (fun (iter1, c1) => __matmul_inner2_loop.body a b col_b m k iter1 c1)
     (iter, c)
 
 /-- [test_rust::__matmul_inner2]:
     Source: 'src/main.rs', lines 51:0-55:1 -/
 @[reducible]
 def __matmul_inner2
-  (c : Slice Rat) (b : Slice Rat) (k : Std.Usize) (col_b : Std.Usize)
-  (m : Std.Usize) (a : Slice Rat) :
+  (a : Slice Rat) (b : Slice Rat) (col_b : Std.Usize) (m : Std.Usize)
+  (k : Std.Usize) (c : Slice Rat) :
   Result (Slice Rat)
   := do
-  __matmul_inner2_loop { start := 0#usize, «end» := m } c b k col_b m a
+  __matmul_inner2_loop { start := 0#usize, «end» := m } a b col_b m k c
 
 /-- [test_rust::matmul]: loop body 0:
     Source: 'src/main.rs', lines 3:4-5:5
@@ -138,7 +138,7 @@ def matmul_loop.body
   match o with
   | none => ok (done c)
   | some col_b =>
-    let c1 ← __matmul_inner2 c b k col_b m a
+    let c1 ← __matmul_inner2 a b col_b m k c
     ok (cont (iter1, c1))
 
 /-- [test_rust::matmul]: loop 0:

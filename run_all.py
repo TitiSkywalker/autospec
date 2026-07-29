@@ -8,8 +8,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import toml
-from clone_repos import clone_repos
+
 from agent import VibeAgent
+from clone_repos import clone_repos
 
 
 def run_planner(repo_path: Path, results_dir: Path, config: dict) -> list[dict]:
@@ -95,7 +96,9 @@ def process_repo(repo_path: Path, config: dict) -> list[dict]:
     for t in targets:
         fn_name = f"{t['struct_name'].lower()}_{t['method']}".replace("::", "_")
         if (results_dir / fn_name / "src" / "main.rs").exists():
-            cached.append({"repo": name, "function": fn_name, "ok": True, "cached": True})
+            cached.append(
+                {"repo": name, "function": fn_name, "ok": True, "cached": True}
+            )
         else:
             pending.append(t)
 
@@ -114,12 +117,14 @@ def process_repo(repo_path: Path, config: dict) -> list[dict]:
             futures = {pool.submit(_worker_target, a): a for a in args}
             for i, future in enumerate(as_completed(futures)):
                 r = future.result()
-                results.append({
-                    "repo": name,
-                    "function": r["name"],
-                    "ok": r["ok"],
-                    "cached": False,
-                })
+                results.append(
+                    {
+                        "repo": name,
+                        "function": r["name"],
+                        "ok": r["ok"],
+                        "cached": False,
+                    }
+                )
                 status = "OK" if r["ok"] else "FAIL"
                 print(f"  [{i+1}/{len(pending)}] {status} {r['name']}")
 
@@ -128,9 +133,7 @@ def process_repo(repo_path: Path, config: dict) -> list[dict]:
 
     # Manifest
     manifest = results_dir / "manifest.txt"
-    manifest.write_text("\n".join(
-        r["function"] for r in results if r["ok"]
-    ) + "\n")
+    manifest.write_text("\n".join(r["function"] for r in results if r["ok"]) + "\n")
 
     return results
 

@@ -15,8 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # ── LLBC helpers ─────────────────────────────────────────────────────────────
+
 
 def _is_f64_ty(ty: dict | None, f64_id: int) -> bool:
     if isinstance(ty, dict):
@@ -25,6 +25,7 @@ def _is_f64_ty(ty: dict | None, f64_id: int) -> bool:
 
 
 # ── Type discovery ───────────────────────────────────────────────────────────
+
 
 def _discover_types(translated: dict) -> tuple[int, int, int]:
     """Return (f64_dedup_id, usize_dedup_id, bool_dedup_id)."""
@@ -54,8 +55,9 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
         local_counts = _count_dedup_in_locals(translated)
         if len(f64_candidates) > 1:
             # Pick the candidate with fewest local occurrences (f64)
-            best = min(f64_candidates,
-                       key=lambda d: local_counts.get(d, 0), default=None)
+            best = min(
+                f64_candidates, key=lambda d: local_counts.get(d, 0), default=None
+            )
             if best is not None:
                 f64 = best
         elif len(f64_candidates) == 1:
@@ -98,7 +100,7 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
             continue
         body_str = json.dumps(fd["body"])
         for m in re.finditer(r'"Wrap"', body_str):
-            chunk = body_str[max(0, m.start()-80):m.end()+80]
+            chunk = body_str[max(0, m.start() - 80) : m.end() + 80]
             for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
                 did = int(dm.group(1))
                 wrap_counts[did] = wrap_counts.get(did, 0) + 1
@@ -113,7 +115,7 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
             continue
         body_str = json.dumps(fd["body"])
         for m in re.finditer(r'"Panic"', body_str):
-            chunk = body_str[max(0, m.start()-80):m.end()+80]
+            chunk = body_str[max(0, m.start() - 80) : m.end() + 80]
             for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
                 did = int(dm.group(1))
                 panic_counts[did] = panic_counts.get(did, 0) + 1
@@ -168,9 +170,15 @@ def _extract_slice_elem(ty_node: Any) -> int | None:
 
 # ── Function declaration builder ─────────────────────────────────────────────
 
-def _make_fun_decl(def_id: int, crate: str, name: str,
-                   inputs: list[dict], output: dict,
-                   template: dict | None = None) -> dict:
+
+def _make_fun_decl(
+    def_id: int,
+    crate: str,
+    name: str,
+    inputs: list[dict],
+    output: dict,
+    template: dict | None = None,
+) -> dict:
     """Build a Foreign function declaration.
 
     If template is provided (an existing Foreign function decl from the LLBC),
@@ -240,11 +248,15 @@ def _make_fun_decl(def_id: int, crate: str, name: str,
 
 # ── Statement builders ────────────────────────────────────────────────────────
 
+
 def _call_stmt(func_id: int, args: list, dest: dict, span: dict | None = None) -> dict:
     if span is None:
         span = {
-            "data": {"file_id": 0, "beg": {"line": 0, "col": 0},
-                     "end": {"line": 0, "col": 0}},
+            "data": {
+                "file_id": 0,
+                "beg": {"line": 0, "col": 0},
+                "end": {"line": 0, "col": 0},
+            },
             "generated_from_span": None,
         }
     return {
@@ -276,6 +288,7 @@ def _call_stmt(func_id: int, args: list, dest: dict, span: dict | None = None) -
 
 # ── Body walkers ─────────────────────────────────────────────────────────────
 
+
 def _walk_stmts(stmts: list, visitor, **kw):
     for stmt in stmts:
         visitor(stmt, **kw)
@@ -305,28 +318,36 @@ def _operand_ty(op: dict) -> dict | None:
 # ── Operation maps ────────────────────────────────────────────────────────────
 
 BINOP_MAP = {
-    "Add": "add", "Sub": "sub", "Mul": "mul", "Div": "div",
-    "Eq": "eq", "Gt": "gt", "Lt": "lt", "Ge": "ge", "Le": "le",
+    "Add": "add",
+    "Sub": "sub",
+    "Mul": "mul",
+    "Div": "div",
+    "Eq": "eq",
+    "Gt": "gt",
+    "Lt": "lt",
+    "Ge": "ge",
+    "Le": "le",
 }
 
 HELPER_SIGS = [
-    ("add", [0, 0], 0),       # (f64, f64) -> f64
+    ("add", [0, 0], 0),  # (f64, f64) -> f64
     ("sub", [0, 0], 0),
     ("mul", [0, 0], 0),
     ("div", [0, 0], 0),
     ("neg", [0], 0),
     ("abs", [0], 0),
-    ("eq",  [0, 0], 2),       # (f64, f64) -> bool
-    ("gt",  [0, 0], 2),
-    ("lt",  [0, 0], 2),
-    ("ge",  [0, 0], 2),
-    ("le",  [0, 0], 2),
-    ("from_usize", [1], 0),   # (usize) -> f64
+    ("eq", [0, 0], 2),  # (f64, f64) -> bool
+    ("gt", [0, 0], 2),
+    ("lt", [0, 0], 2),
+    ("ge", [0, 0], 2),
+    ("le", [0, 0], 2),
+    ("from_usize", [1], 0),  # (usize) -> f64
 ]
 # Index 0=f64, 1=usize, 2=bool in the type array
 
 
 # ── Float constant expansion ─────────────────────────────────────────────────
+
 
 def _float_to_name(value: str) -> str:
     return "const_" + value.replace(".", "_").replace("-", "neg_")
@@ -352,9 +373,9 @@ def _collect_float_values(stmts: list) -> set[str]:
     return vals
 
 
-def _expand_float_constants(stmts: list, f64: int,
-                            const_ids: dict[str, int],
-                            locals_info: dict) -> int:
+def _expand_float_constants(
+    stmts: list, f64: int, const_ids: dict[str, int], locals_info: dict
+) -> int:
     """Hoist Float(F64) constants to const_X_Y() calls at top of block."""
     all_vals = _collect_float_values(stmts)
     if not all_vals:
@@ -364,8 +385,11 @@ def _expand_float_constants(stmts: list, f64: int,
     span0 = stmts[0].get("span") if stmts else None
     if span0 is None:
         span0 = {
-            "data": {"file_id": 0, "beg": {"line": 0, "col": 0},
-                     "end": {"line": 0, "col": 0}},
+            "data": {
+                "file_id": 0,
+                "beg": {"line": 0, "col": 0},
+                "end": {"line": 0, "col": 0},
+            },
             "generated_from_span": None,
         }
     init_stmts = []
@@ -377,18 +401,23 @@ def _expand_float_constants(stmts: list, f64: int,
         # Create a proper local entry
         local_idx = len(locals_info["locals"])
         val_to_local[val] = local_idx
-        locals_info["locals"].append({
-            "index": local_idx,
-            "name": f"_f64_{cname}",
-            "span": span0,
-            "ty": {"Deduplicated": f64},
-        })
+        locals_info["locals"].append(
+            {
+                "index": local_idx,
+                "name": f"_f64_{cname}",
+                "span": span0,
+                "ty": {"Deduplicated": f64},
+            }
+        )
 
-        init_stmts.append(_call_stmt(
-            const_ids[cname], [],
-            {"kind": {"Local": local_idx}, "ty": {"Deduplicated": f64}},
-            span0,
-        ))
+        init_stmts.append(
+            _call_stmt(
+                const_ids[cname],
+                [],
+                {"kind": {"Local": local_idx}, "ty": {"Deduplicated": f64}},
+                span0,
+            )
+        )
 
     if init_stmts:
         stmts[:0] = init_stmts
@@ -398,8 +427,7 @@ def _expand_float_constants(stmts: list, f64: int,
     return len(all_vals)
 
 
-def _replace_float_nodes(node: Any, val_to_local: dict[str, int],
-                         f64: int) -> None:
+def _replace_float_nodes(node: Any, val_to_local: dict[str, int], f64: int) -> None:
     """Replace Const(kind=Literal(Float(...))) with Move(local)."""
     if isinstance(node, dict):
         if "Const" in node:
@@ -456,6 +484,7 @@ def _replace_float_nodes(node: Any, val_to_local: dict[str, int],
 
 # ── Main entry point ─────────────────────────────────────────────────────────
 
+
 def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
     path = Path(path)
     if output is None:
@@ -472,8 +501,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
         print("  [adapter] no f64 type found — nothing to do", file=sys.stderr)
         return 0
 
-    print(f"  [adapter] f64={f64}, usize={usize}, bool={bool_id}",
-          file=sys.stderr)
+    print(f"  [adapter] f64={f64}, usize={usize}, bool={bool_id}", file=sys.stderr)
 
     # 1. Collect all float constants used across all function bodies
     all_float_vals: set[str] = set()
@@ -487,10 +515,10 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
 
     # 2. Register f64_helpers + const functions
     base_id = 0
-    for lst in (trans.get("fun_decls") or []):
+    for lst in trans.get("fun_decls") or []:
         if lst is not None:
             base_id = max(base_id, lst["def_id"])
-    for lst in (trans.get("global_decls") or []):
+    for lst in trans.get("global_decls") or []:
         if lst is not None:
             base_id = max(base_id, lst["def_id"])
     base_id += 1
@@ -550,16 +578,24 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
             fd_list.append(None)
         fd_list[did] = decl
         od_list.insert(insert_at, {"Fun": {"NonRec": did}})
-        trans.setdefault("item_names", []).append({
-            "key": {"Fun": did}, "value": [{"Ident": [crate_name, 0]},
-                                            {"Ident": [name, 0]}],
-        })
-        trans.setdefault("short_names", []).append({
-            "key": {"Fun": did}, "value": [{"Ident": [name, 0]}],
-        })
+        trans.setdefault("item_names", []).append(
+            {
+                "key": {"Fun": did},
+                "value": [{"Ident": [crate_name, 0]}, {"Ident": [name, 0]}],
+            }
+        )
+        trans.setdefault("short_names", []).append(
+            {
+                "key": {"Fun": did},
+                "value": [{"Ident": [name, 0]}],
+            }
+        )
 
-    print(f"  [adapter] registered {len(helper_ids)} helpers "
-          f"({len(all_float_vals)} consts)", file=sys.stderr)
+    print(
+        f"  [adapter] registered {len(helper_ids)} helpers "
+        f"({len(all_float_vals)} consts)",
+        file=sys.stderr,
+    )
 
     # 3. Transform function bodies
     total_binop = 0
@@ -591,8 +627,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
                     if _is_f64_ty(lt, f64) or _is_f64_ty(rt, f64):
                         hname = BINOP_MAP[op_name]
                         if hname in helper_ids:
-                            new_s = _call_stmt(helper_ids[hname], [left, right],
-                                               target)
+                            new_s = _call_stmt(helper_ids[hname], [left, right], target)
                             stmt.clear()
                             stmt.update(new_s)
                             total_binop += 1
@@ -625,8 +660,11 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
         total_float += _expand_float_constants(stmts, f64, helper_ids, locals_info)
         _walk_stmts(stmts, _visitor)
 
-    print(f"  [adapter] {total_float} float consts, {total_binop} binop/neg "
-          "transformed", file=sys.stderr)
+    print(
+        f"  [adapter] {total_float} float consts, {total_binop} binop/neg "
+        "transformed",
+        file=sys.stderr,
+    )
 
     with open(output, "w") as f:
         json.dump(data, f, indent=2)
@@ -636,6 +674,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
 
 if __name__ == "__main__":
     import argparse
+
     p = argparse.ArgumentParser()
     p.add_argument("llbc_file")
     p.add_argument("-o", "--output", default=None)
