@@ -1,29 +1,34 @@
 import LeanMode.TestRust
 open Aeneas Aeneas.Std Result
 
--- =============================================================================
--- matmul 正确性规范
+-- ============================================================================
+-- Correctness specification for matmul
 --
---   Precondition  (调用 matmul 之前必须满足):
---     1. 输入矩阵大小与维度一致
---     2. 待验证的坐标 (i, j) 在矩阵范围内
---     3. 索引不越界 (由 1,2 推出)
+--   Preconditions (must hold before calling matmul):
+--     1. Matrix sizes match the declared dimensions
+--     2. The coordinates (i, j) being verified are in range
+--     3. All computed indices are within slice bounds (follows from 1+2)
 --
---   Postcondition (matmul 返回 ok 时保证):
---     c_result[i + j*m] = Σ_{t=0}^{k-1} a[i + t*m] * b[t + j*k]
--- =============================================================================
+--   Postcondition (guaranteed when matmul returns ok):
+--     c[i + j\*m] = Σ_{t=0}^{k-1} a[i + t\*m] \* b[t + j\*k]
+--
+--   Column-major storage: element (row, col) is at index row + col * rows.
+--     a[m×k]: a[i + t*m] = row i, column t
+--     b[k×n]: b[t + j*k] = row t, column j
+--     c[m×n]: c[i + j*m] = row i, column j
+-- ============================================================================
 
 theorem matmul_correct
 
     -- ╔══════════════════════════════════════════════════════════╗
-    -- ║  输入: 矩阵和维度                                        ║
+    -- ║  Input: matrices and dimensions                          ║
     -- ╚══════════════════════════════════════════════════════════╝
 
-    (a b c_result : Slice Rat)               -- a[m×k], b[k×n], c[m×n] (列主序)
-    (m k n : Usize)                          -- 维度参数
+    (a b c_result : Slice Rat)              -- a[m×k], b[k×n], c[m×n] (column-major)
+    (m k n : Usize)                         -- dimensions
 
     -- ╔══════════════════════════════════════════════════════════╗
-    -- ║  Precondition 1: 矩阵大小 = 维度乘积                     ║
+    -- ║  Precondition 1: |slice| = dimension product             ║
     -- ╚══════════════════════════════════════════════════════════╝
 
     (h_len_a : a.length = m.val * k.val)
@@ -31,33 +36,34 @@ theorem matmul_correct
     (h_len_c : c_result.length = m.val * n.val)
 
     -- ╔══════════════════════════════════════════════════════════╗
-    -- ║  Precondition 2: 合法坐标                                ║
+    -- ║  Precondition 2: coordinates in range                    ║
     -- ╚══════════════════════════════════════════════════════════╝
 
-    (i j : Nat)                              -- 坐标 (行号, 列号)
-    (hi : i < m.val)                          --  行号 < 行数
-    (hj : j < n.val)                           --  列号 < 列数
+    (i j : Nat)                               -- coordinates (row, col)
+    (hi : i < m.val)                          -- row < #rows
+    (hj : j < n.val)                          -- col < #cols
 
     -- ╔══════════════════════════════════════════════════════════╗
-    -- ║  Precondition 3: 索引不越界 (由 Pre 1+2 推出)             ║
+    -- ║  Precondition 3: index bounds (follows from Pre 1+2)     ║
     -- ╚══════════════════════════════════════════════════════════╝
 
-    (hc : i + j * m.val < c_result.length)    -- c 的索引安全
-    (ha : ∀ t, t < k.val → i + t * m.val < a.length)  -- a 的索引安全
-    (hb : ∀ t, t < k.val → t + j * k.val < b.length)  -- b 的索引安全
+    (hc : i + j * m.val < c_result.length)            -- c index is safe
+    (ha : ∀ t, t < k.val → i + t * m.val < a.length)  -- a index is safe
+    (hb : ∀ t, t < k.val → t + j * k.val < b.length)  -- b index is safe
 
     -- ╔══════════════════════════════════════════════════════════╗
-    -- ║  Postcondition: matmul 返回 ok 时，结果等于点积           ║
+    -- ║  Postcondition: if matmul returns ok, the result         ║
+    -- ║  element equals the dot product                          ║
     -- ╚══════════════════════════════════════════════════════════╝
 
     (h_result : test_rust.matmul c_result a b m k n = ok c_result) :
-    --          ^^^^^^^^ 如果 matmul 不失败 (返回 ok) ...
+    --          ^^^^^^^^^ if matmul succeeds (returns ok) ...
 
-    c_result[i + j * m.val]'hc =             -- ... 则 c 在 (i,j) 的值
+    c_result[i + j * m.val]'hc =            -- ... then c at (i,j)
     Finset.sum (Finset.attach (Finset.range k.val)) (λ ⟨t, ht⟩ =>
       let ht' : t < k.val := Finset.mem_range.1 ht
       a[i + t * m.val]'(ha t ht') * b[t + j * k.val]'(hb t ht'))
-    -- = Σ_{t=0}^{k-1} a 在 (i,t) 的值 * b 在 (t,j) 的值
+    -- = Σ_{t=0}^{k-1} a at (i,t) * b at (t,j)
 
     := by
   sorry

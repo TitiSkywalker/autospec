@@ -4,7 +4,7 @@ Translate a Rust project into Lean using Charon + Aeneas.
 Pipeline:
   Rust source → [flatten-loops] → charon → .llbc
   → [LLBC adapter: f64→f64_helpers] → aeneas → .lean
-  → [F64→Real post-process] → output
+  → [F64→Rat post-process] → output
 
 The original project is never modified — all transformations happen on a
 temporary copy.
@@ -32,96 +32,111 @@ _FLATTEN_TOOL = (
 )
 
 
-# ── public API ────────────────────────────────────────────────────────────────
+# ── Translator ────────────────────────────────────────────────────────────────
 
-def translate(
-    project_dir: str | Path,
-    output_dir: str | Path | None = None,
-    *,
-    charon_bin: str | Path | None = None,
-    aeneas_bin: str | Path | None = None,
-    flatten_loops: bool = False,
-    llbc_adapter: bool = True,
-) -> bool:
-    """Translate a Rust project to Lean.
+class Translator:
+    """Translate Rust projects to Lean via Charon + Aeneas."""
 
-    Returns True if at least one .lean file was produced.
-    """
-    project_path = Path(project_dir).resolve()
-    output_path = Path(output_dir).resolve() if output_dir else project_path
-    charon = str(charon_bin or _ROOT / "aeneas" / "charon" / "bin" / "charon")
-    aeneas = str(aeneas_bin or _ROOT / "aeneas" / "bin" / "aeneas")
+    def __init__(
+        self,
+        charon_bin: str | Path | None = None,
+        aeneas_bin: str | Path | None = None,
+    ):
+        self.charon = str(
+            charon_bin or _ROOT / "aeneas" / "charon" / "bin" / "charon"
+        )
+        self.aeneas = str(
+            aeneas_bin or _ROOT / "aeneas" / "bin" / "aeneas"
+        )
 
-    workdir = Path(tempfile.mkdtemp(prefix="autospec_"))
-    try:
-        _log("Copy project to", workdir)
-        shutil.copytree(project_path, workdir, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("target", "lean", "*.lean"))
+    # ── public API ──────────────────────────────────────────────────────────
 
-        if flatten_loops:
+    def translate(
+        self,
+        project_dir: str | Path,
+        output_dir: str | Path | None = None,
+    ) -> bool:
+        """Translate a Rust project to Lean.
+
+        Returns True if at least one .lean file was produced.
+        """
+        project_path = Path(project_dir).resolve()
+        output_path = Path(output_dir).resolve() if output_dir else project_path
+
+        workdir = Path(tempfile.mkdtemp(prefix="autospec_"))
+        try:
+            _log("Copy project to", workdir)
+            shutil.copytree(project_path, workdir, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns(
+                                "target", "lean", "*.lean"))
+
+            # Phase 0: flatten nested loops
             _flatten_nested_loops(workdir)
 
-        # ── Phase 1: charon → .llbc ─────────────────────────────────────────
-        _log("Charon")
-        if subprocess.run([charon, "cargo", "--preset=aeneas"],
-                          cwd=workdir).returncode != 0:
-            return False
+            # Phase 1: charon → .llbc
+            _log("Charon")
+            if subprocess.run(
+                [self.charon, "cargo", "--preset=aeneas"],
+                cwd=workdir,
+            ).returncode != 0:
+                return False
 
-        # ── Phase 2: LLBC adapter ───────────────────────────────────────────
-        if llbc_adapter:
+            # Phase 2: LLBC adapter
             _log("LLBC adapter")
             for f in sorted(os.listdir(str(workdir))):
                 if not f.endswith(".llbc"):
                     continue
                 llbc_path = str(workdir / f)
                 result = subprocess.run(
-                    [sys.executable, str(_LLBC_ADAPTER), llbc_path,
-                     "-o", llbc_path],
+                    [sys.executable, str(_LLBC_ADAPTER),
+                     llbc_path, "-o", llbc_path],
                     capture_output=True, text=True,
                 )
                 if result.returncode != 0:
-                    _log(f"  adapter error: {result.stderr.strip()[:300]}")
+                    _log(f"  adapter error: "
+                         f"{result.stderr.strip()[:300]}")
                 else:
                     for line in result.stderr.strip().split("\n"):
                         if line.strip():
                             _log(f"  {line.strip()}")
 
-        # ── Phase 3: aeneas → .lean ─────────────────────────────────────────
-        _log("Aeneas")
-        llbc_files = sorted(
-            f for f in os.listdir(str(workdir)) if f.endswith(".llbc")
-        )
-        if not llbc_files:
-            return False
-
-        for f in llbc_files:
-            result = subprocess.run(
-                [aeneas, "-sequential", "-backend", "lean", str(workdir / f)],
-                cwd=str(workdir), capture_output=True, text=True,
+            # Phase 3: aeneas → .lean
+            _log("Aeneas")
+            llbc_files = sorted(
+                f for f in os.listdir(str(workdir)) if f.endswith(".llbc")
             )
-            for line in (result.stdout + result.stderr).split("\n"):
-                line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
-                if line and ("Error" in line or "Warn" in line
-                             or "Generated" in line):
-                    _log(f"  {line}")
+            if not llbc_files:
+                return False
 
-        # ── Phase 4: post-process → output ──────────────────────────────────
-        lean_files = sorted(
-            f for f in os.listdir(str(workdir)) if f.endswith(".lean")
-        )
-        if not lean_files:
-            return False
+            for f in llbc_files:
+                result = subprocess.run(
+                    [self.aeneas, "-sequential", "-backend", "lean",
+                     str(workdir / f)],
+                    cwd=str(workdir), capture_output=True, text=True,
+                )
+                for line in (result.stdout + result.stderr).split("\n"):
+                    line = re.sub(r'\x1b\[[0-9;]*m', '', line).strip()
+                    if line and ("Error" in line or "Warn" in line
+                                 or "Generated" in line):
+                        _log(f"  {line}")
 
-        output_path.mkdir(parents=True, exist_ok=True)
-        for f in lean_files:
-            content = (workdir / f).read_text()
-            content = _lean_f64_to_rat(content)
-            (output_path / f).write_text(content)
+            # Phase 4: post-process → output
+            lean_files = sorted(
+                f for f in os.listdir(str(workdir)) if f.endswith(".lean")
+            )
+            if not lean_files:
+                return False
 
-        _log(f"Done ({len(lean_files)} .lean file(s))")
-        return True
-    finally:
-        shutil.rmtree(workdir, ignore_errors=True)
+            output_path.mkdir(parents=True, exist_ok=True)
+            for f in lean_files:
+                content = (workdir / f).read_text()
+                content = _lean_f64_to_rat(content)
+                (output_path / f).write_text(content)
+
+            _log(f"Done ({len(lean_files)} .lean file(s))")
+            return True
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -177,20 +192,16 @@ def _lean_f64_to_rat(content: str) -> str:
             continue
         out.append(line.replace("F64", "Rat"))
     result = "\n".join(out)
-    # Rat operations are fully computable.  Remove the blanket
-    # noncomputable section and mark only the remaining axioms.
-    # Replace remaining calls to core.f64.X.abs with f64_helpers.abs
+
     result = re.sub(
         r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result,
     )
-    # Mark remaining axioms as noncomputable
     result = re.sub(
         r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ",
         result,
     )
     result = result.replace("noncomputable section\n", "")
 
-    # Only add defs that don't already exist
     existing = set(re.findall(
         r"^def (f64_helpers\.\w+|RatClone\S*)", result, re.MULTILINE
     ))
@@ -201,7 +212,7 @@ def _lean_f64_to_rat(content: str) -> str:
 
 
 def _float_str_to_rat(val: str) -> str:
-    """Convert a float string to a Rat expression.  E.g. 0.001 → (1/1000 : Rat)."""
+    """Convert a float string to a Rat expression."""
     if val.startswith("-"):
         return f"-({_float_str_to_rat(val[1:])})"
     if "." not in val:
@@ -212,8 +223,10 @@ def _float_str_to_rat(val: str) -> str:
     return f"({num}/{denom} : Rat)"
 
 
-def _make_rat_defs(const_names: set[str],
-                    existing: set[str] | None = None) -> str:
+def _make_rat_defs(
+    const_names: set[str],
+    existing: set[str] | None = None,
+) -> str:
     """Generate Rat-based Lean definitions replacing f64_helpers."""
     if existing is None:
         existing = set()
@@ -308,16 +321,8 @@ if __name__ == "__main__":
     p.add_argument("-o", "--output-dir", default=None)
     p.add_argument("--charon", default=None)
     p.add_argument("--aeneas", default=None)
-    p.add_argument("--flatten-loops", action="store_true",
-                   help="Extract nested inner for-loops into separate functions")
-    p.add_argument("--no-llbc-adapter", action="store_true",
-                   help="Skip LLBC-level f64 transformation")
     args = p.parse_args()
 
-    ok = translate(
-        args.project_dir, args.output_dir,
-        charon_bin=args.charon, aeneas_bin=args.aeneas,
-        flatten_loops=args.flatten_loops,
-        llbc_adapter=not args.no_llbc_adapter,
-    )
+    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas)
+    ok = t.translate(args.project_dir, args.output_dir)
     raise SystemExit(0 if ok else 1)

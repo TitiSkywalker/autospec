@@ -10,6 +10,7 @@ Injects properly-formatted Foreign function declarations matching charon's forma
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -38,21 +39,27 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
         if not sig:
             continue
 
-        # f64: look for Slice<f64> element type, or plain f64 in params
-        if f64 is None:
+        # f64: gather candidates from multiple sources, then pick best
+        f64_candidates: set[int] = set()
+        for inp in sig.get("inputs") or []:
+            elem = _extract_slice_elem(inp)
+            if elem is not None:
+                f64_candidates.add(elem)
+        src = fd["item_meta"].get("source_text") or ""
+        if "f64" in src:
             for inp in sig.get("inputs") or []:
-                elem = _extract_slice_elem(inp)
-                if elem is not None:
-                    f64 = elem
-                    break
-            # Fallback: find plain f64 Dedup from function params
-            if f64 is None:
-                src = fd["item_meta"].get("source_text") or ""
-                if "f64" in src:
-                    for inp in sig.get("inputs") or []:
-                        if isinstance(inp, dict) and "Deduplicated" in inp:
-                            f64 = inp["Deduplicated"]
-                            break
+                if isinstance(inp, dict) and "Deduplicated" in inp:
+                    f64_candidates.add(inp["Deduplicated"])
+        # Discard candidates that appear many times in locals (likely usize)
+        local_counts = _count_dedup_in_locals(translated)
+        if len(f64_candidates) > 1:
+            # Pick the candidate with fewest local occurrences (f64)
+            best = min(f64_candidates,
+                       key=lambda d: local_counts.get(d, 0), default=None)
+            if best is not None:
+                f64 = best
+        elif len(f64_candidates) == 1:
+            f64 = f64_candidates.pop()
 
         # bool: look at the return-local (index 0) of a bool-returning function
         if bool_id is None:
@@ -79,7 +86,68 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
         if f64 and usize and bool_id:
             break
 
+    # Most reliable: find f64 via "Wrap" mode BinaryOps
+    # (f64 uses Wrap, usize uses Panic) — only in user functions
+    wrap_f64 = None
+    wrap_usize = None
+    wrap_counts: dict[int, int] = {}
+    for fd in translated.get("fun_decls") or []:
+        if fd is None or fd.get("body") is None:
+            continue
+        if not fd["item_meta"].get("is_local", True):
+            continue
+        body_str = json.dumps(fd["body"])
+        for m in re.finditer(r'"Wrap"', body_str):
+            chunk = body_str[max(0, m.start()-80):m.end()+80]
+            for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
+                did = int(dm.group(1))
+                wrap_counts[did] = wrap_counts.get(did, 0) + 1
+    if len(wrap_counts) >= 1:
+        wrap_f64 = max(wrap_counts, key=wrap_counts.get)
+    # Also find usize via "Panic" mode BinaryOps
+    panic_counts: dict[int, int] = {}
+    for fd in translated.get("fun_decls") or []:
+        if fd is None or fd.get("body") is None:
+            continue
+        if not fd["item_meta"].get("is_local", True):
+            continue
+        body_str = json.dumps(fd["body"])
+        for m in re.finditer(r'"Panic"', body_str):
+            chunk = body_str[max(0, m.start()-80):m.end()+80]
+            for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
+                did = int(dm.group(1))
+                panic_counts[did] = panic_counts.get(did, 0) + 1
+    if len(panic_counts) >= 1:
+        wrap_usize = max(panic_counts, key=panic_counts.get)
+    if wrap_f64 is not None:
+        f64 = wrap_f64
+    if wrap_usize is not None and usize is None:
+        usize = wrap_usize
+    if usize is None:
+        by_count = sorted(
+            _count_dedup_in_locals(translated).items(), key=lambda x: -x[1]
+        )
+        if len(by_count) >= 1:
+            usize = by_count[0][0]
+
     return f64, usize, bool_id
+
+
+def _count_dedup_in_locals(translated: dict) -> dict[int, int]:
+    """Count occurrences of each Dedup ID in function locals."""
+    counts: dict[int, int] = {}
+    for fd in translated.get("fun_decls") or []:
+        if fd is None or fd.get("body") is None:
+            continue
+        body = fd["body"]
+        if not isinstance(body, dict) or "Structured" not in body:
+            continue
+        for loc in body["Structured"].get("locals", {}).get("locals") or []:
+            ty = loc.get("ty")
+            if isinstance(ty, dict) and "Deduplicated" in ty:
+                did = ty["Deduplicated"]
+                counts[did] = counts.get(did, 0) + 1
+    return counts
 
 
 def _extract_slice_elem(ty_node: Any) -> int | None:
