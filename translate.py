@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -60,6 +59,7 @@ class Translator:
         """
         project_path = Path(project_dir).resolve()
         output_path = Path(output_dir).resolve() if output_dir else project_path
+        output_path.mkdir(parents=True, exist_ok=True)
 
         print(f"autospec  \033[1m{project_path.name}\033[0m  →  {output_path}")
 
@@ -72,8 +72,9 @@ class Translator:
                 ignore=shutil.ignore_patterns("target", "lean", "*.lean"),
             )
 
-            # Phase 0: flatten nested loops
-            _flatten_nested_loops(workdir)
+            # Phase 0: flatten nested loops (required by aeneas)
+            if not _flatten_nested_loops(workdir, project_path):
+                return False
 
             # Phase 1: charon → .llbc
             result = subprocess.run(
@@ -297,30 +298,50 @@ def _parse_adapter_stderr(stderr: str) -> dict[str, str]:
     return stats
 
 
-def _flatten_nested_loops(project_path: Path) -> None:
+def _flatten_nested_loops(project_path: Path, source_path: Path) -> bool:
+    """Try to flatten nested loops.  Returns True on success (or no-op),
+    False if flattening broke compilation and we cannot proceed."""
     if not _FLATTEN_TOOL.exists():
         _warn(f"flatten-loops not found at {_FLATTEN_TOOL}")
-        return
+        return True  # not a hard failure — aeneas may still work
 
     modified: list[str] = []
     for rs in project_path.rglob("*.rs"):
         if "f64_helpers" in rs.parts or "target" in rs.parts:
             continue
-        result = subprocess.run(
-            [str(_FLATTEN_TOOL), str(rs), "--in-place"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode != 0:
-            _warn(f"flatten-loops failed on {rs.name}: " f"{result.stderr.strip()}")
-        elif result.stderr.strip():
-            modified.append(rs.name)
+        try:
+            result = subprocess.run(
+                [str(_FLATTEN_TOOL), str(rs), "--in-place"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                _warn(f"flatten-loops failed on {rs.name}: " f"{result.stderr.strip()}")
+            elif result.stderr.strip():
+                modified.append(rs.name)
+        except subprocess.TimeoutExpired:
+            _warn(f"flatten-loops timed out on {rs.name}, skipping")
 
-    if modified:
-        _phase("flatten", ", ".join(modified))
-    else:
+    if not modified:
         _phase("flatten", "(nothing to do)")
+        return True
+
+    # Verify flatten-loops didn't break compilation
+    check = subprocess.run(
+        ["cargo", "check"],
+        cwd=str(project_path),
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode == 0:
+        _phase("flatten", ", ".join(modified))
+        return True
+
+    # Flatten-loops broke the code — aeneas cannot handle nested loops,
+    # so there is no point continuing with the originals.
+    _fail("flatten", "broke compilation, cannot proceed (aeneas needs flat loops)")
+    return False
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
