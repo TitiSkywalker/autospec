@@ -5,8 +5,50 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
+
+
+def _extract_turn(line: str) -> int | None:
+    """Extract current turn number from a vibe output line."""
+    import re
+    # Try JSON first — check multiple possible fields
+    if line.startswith("{"):
+        try:
+            obj = json.loads(line)
+            for key in ("turn", "current_turn", "turn_number", "step"):
+                t = obj.get(key, 0)
+                if t:
+                    return int(t)
+            # Check nested in meta
+            meta = obj.get("meta", {})
+            if isinstance(meta, dict):
+                for key in ("turn", "current_turn"):
+                    t = meta.get(key, 0)
+                    if t:
+                        return int(t)
+        except Exception:
+            pass
+    # Fallback: text patterns
+    for pat in [
+        r"\[turn\s*(\d+)/\d+\]",
+        r"turn\s*(\d+)\s*/\s*\d+",
+        r"Turn\s*(\d+)/\d+",
+        r"\bturn\s*(\d+)\b",
+    ]:
+        m = re.search(pat, line, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def _turn_bar(current: int, total: int, width: int = 20) -> str:
+    """Draw a simple progress bar: [###---]."""
+    if total <= 0:
+        return "[" + "-" * width + "]"
+    filled = int(width * current / total)
+    return "[" + "#" * filled + "-" * (width - filled) + "]"
 
 
 class VibeAgent:
@@ -22,16 +64,18 @@ class VibeAgent:
         verbose: bool = False,
         cwd: str | Path | None = None,
         log_file: str | Path | None = None,
+        progress_callback=None,
     ):
         self.repo_path = Path(repo_path).resolve()
         self.instruction = Path(instruction_file).read_text().strip()
         self.repo_name = self.repo_path.name
-        self.results_dir = Path(results_dir).resolve() / self.repo_name
+        self.results_dir = Path(results_dir).resolve()
         self.max_turns = max_turns
         self.timeout = timeout
         self.verbose = verbose
         self.cwd = Path(cwd) if cwd else self.repo_path
         self.log_file = Path(log_file) if log_file else None
+        self.progress_callback = progress_callback
 
     # ── public API ────────────────────────────────────────────────────────
 
@@ -60,20 +104,16 @@ class VibeAgent:
             "auto-approve",
             "--max-turns",
             str(self.max_turns),
+            "--output", "streaming",  # always streaming for progress tracking
         ]
         if extra_args:
             cmd += extra_args
-        if self.verbose:
-            cmd += ["--output", "streaming"]
 
         t0 = time.time()
         output_lines: list[str] = []
 
         try:
-            if self.verbose:
-                output = self._run_streaming(cmd, output_lines)
-            else:
-                output = self._run_quiet(cmd, output_lines)
+            output = self._run_streaming(cmd, output_lines)
         except subprocess.TimeoutExpired:
             elapsed = time.time() - t0
             return {
@@ -104,6 +144,7 @@ class VibeAgent:
         """
         all_output: list[str] = []
         log_fh = open(self.log_file, "w") if self.log_file else None
+        current_turn = 0
 
         proc = subprocess.Popen(
             cmd,
@@ -121,6 +162,18 @@ class VibeAgent:
             output_lines.append(line_r)
             all_output.append(line_r)
 
+            # Track turn progress from vibe output or heuristic
+            turn = _extract_turn(line_r)
+            if turn is not None and turn > current_turn:
+                current_turn = turn
+                if self.progress_callback:
+                    self.progress_callback(current_turn, self.max_turns)
+            # Fallback: each assistant message is one turn
+            if '"role":"assistant"' in line_r or '"role": "assistant"' in line_r:
+                current_turn += 1
+                if self.progress_callback:
+                    self.progress_callback(current_turn, self.max_turns)
+
             if log_fh:
                 log_fh.write(line)
                 log_fh.flush()
@@ -131,13 +184,23 @@ class VibeAgent:
                     obj = None
 
                 if obj and isinstance(obj, dict):
+                    # Try to get turn from JSON first
+                    json_turn = obj.get("turn") or obj.get("current_turn") or 0
+                    if json_turn and json_turn > current_turn:
+                        current_turn = json_turn
+
                     role = obj.get("role", "")
                     if role == "tool":
                         self._print_tool_line(obj)
                     elif role == "assistant":
-                        content = str(obj.get("content", ""))
-                        if content.strip():
-                            print(f"  [agent] {content[:200]}")
+                        content = obj.get("content")
+                        if content and str(content).strip():
+                            bar = _turn_bar(current_turn, self.max_turns)
+                            summary = str(content)[:150].replace("\n", " ")
+                            print(f"\r  {bar} [{current_turn}/{self.max_turns}] {summary}", end="")
+                            sys.stdout.flush()
+                            if not log_fh:
+                                print()
                 elif line_r.strip():
                     ll = line_r.lower()
                     if any(
@@ -151,11 +214,13 @@ class VibeAgent:
                             "done",
                         ]
                     ):
-                        print(f"  {line_r[:200]}")
+                        bar = _turn_bar(current_turn, self.max_turns)
+                        print(f"  {bar} [{current_turn}/{self.max_turns}] {line_r[:150]}")
 
         proc.wait(timeout=self.timeout)
         if log_fh:
             log_fh.close()
+        print()  # final newline after progress
         return "\n".join(all_output)
 
     def _run_quiet(self, cmd: list[str], output_lines: list[str]) -> str:
