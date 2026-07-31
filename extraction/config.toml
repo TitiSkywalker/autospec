@@ -1,41 +1,34 @@
 workdir = "./local/traced_repos"
 shallow = true
 results_dir = "results"
+refined_dir = "refined"
 plan_turns = 50
 work_turns = 100
+refine_turns = 50
 timeout = 7200
 verbose = true
 max_workers = 4
 
-# ── linear algebra ──
+# ── linear algebra (LU, QR, SVD, Cholesky, eigenvalues) ──
 [[repo]]
 url = "https://github.com/dimforge/nalgebra.git"
 
-# ── FFT / signal processing ──
+# ── FFT ──
 [[repo]]
 url = "https://github.com/ejmahler/RustFFT.git"
 
-# ── statistics / probability ──
+# ── graph algorithms (Dijkstra, MST, SCC, toposort) ──
 [[repo]]
-url = "https://github.com/statrs-dev/statrs.git"
+url = "https://github.com/petgraph/petgraph.git"
 
-# ── vector/matrix/quaternion math (graphics) ──
+# ── computational geometry (Delaunay triangulation, convex hull) ──
 [[repo]]
-url = "https://github.com/bitshifter/glam-rs.git"
-
-[[repo]]
-url = "https://github.com/rustgd/cgmath.git"
-
-[[repo]]
-url = "https://github.com/yoanlcq/vek.git"
+url = "https://github.com/acgetchell/delaunay.git"
 
 # ── N-dimensional arrays ──
 [[repo]]
 url = "https://github.com/rust-ndarray/ndarray.git"
 
-# ── scientific / special functions ──
+# ── cryptographic hashing (SHA-256, SHA-512) ──
 [[repo]]
-url = "https://github.com/Axect/Peroxide.git"
-
-[[repo]]
-url = "https://github.com/cpmech/russell.git"
+url = "https://github.com/RustCrypto/hashes.git"

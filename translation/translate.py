@@ -137,7 +137,6 @@ class Translator:
                     m = re.match(r"\[(?:Warn|Warning)\s*\]\s*(.*)", line)
                     if m:
                         w = m.group(1)
-                        # Suppress expected aeneas boilerplate warnings
                         if "external, unknown definitions" not in w:
                             aeneas_warnings.append(w)
 
