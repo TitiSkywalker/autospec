@@ -43,8 +43,8 @@ class Translator:
         charon_bin: str | Path | None = None,
         aeneas_bin: str | Path | None = None,
     ):
-        self.charon = str(charon_bin or _ROOT / "aeneas" / "charon" / "bin" / "charon")
-        self.aeneas = str(aeneas_bin or _ROOT / "aeneas" / "bin" / "aeneas")
+        self.charon = str(charon_bin or _ROOT.parent / "aeneas" / "charon" / "bin" / "charon")
+        self.aeneas = str(aeneas_bin or _ROOT.parent / "aeneas" / "bin" / "aeneas")
 
     # ── public API ──────────────────────────────────────────────────────────
 
