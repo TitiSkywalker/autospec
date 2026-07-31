@@ -116,7 +116,7 @@ def _refiner_target(args: tuple) -> dict:
     agent = VibeAgent(
         dst_dir,
         instruction_file="instruction_refine.md",
-        results_dir=str(dst_dir),
+        results_dir=str(refined_dir),  # parent dir, agent appends fn_name
         max_turns=config.get("refine_turns", 20),
         timeout=config.get("timeout", 7200),
         verbose=config.get("verbose", True),
