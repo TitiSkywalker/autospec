@@ -251,20 +251,18 @@ fn extract_one_nested_loop(
         .iter()
         .map(|p| {
             let id: syn::Ident = format_ident!("{}", p.name);
+            let ty: &syn::Type = &p.ty;
+            let ty_str = quote::quote! { #ty }.to_string();
             if needs_borrow(&p.ty) {
                 syn::parse_quote! { &mut #id }
+            } else if ty_str.starts_with("&mut") || ty_str.starts_with("& mut") {
+                // Already a &mut reference — pass as-is
+                syn::parse_quote! { #id }
+            } else if ty_str.starts_with('&') {
+                // Already a shared reference — pass as-is
+                syn::parse_quote! { #id }
             } else {
-                let ty: &syn::Type = &p.ty;
-                let ty_str = quote::quote! { #ty }.to_string();
-                // If the parameter is a reference to a slice (e.g., &[f64]),
-                // the call-site variable is likely Vec<f64>, which needs `&var`.
-                if ty_str.starts_with("& mut [") || ty_str.starts_with("&mut [") {
-                    syn::parse_quote! { &mut #id }
-                } else if ty_str.starts_with("& [") {
-                    syn::parse_quote! { &#id }
-                } else {
-                    syn::parse_quote! { #id }
-                }
+                syn::parse_quote! { #id }
             }
         })
         .collect();
@@ -1416,4 +1414,135 @@ fn pretty_print(file: &syn::File) -> String {
         }
     }
     code
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::process::Command;
+
+    fn run_rust(src: &str) -> Result<String> {
+        let dir = tempfile::tempdir()?;
+        let file = dir.path().join("main.rs");
+        std::fs::write(&file, src)?;
+        let out = dir.path().join("out");
+
+        let rustc = Command::new("rustc")
+            .arg(file.to_str().unwrap())
+            .arg("-o")
+            .arg(out.to_str().unwrap())
+            .output()?;
+        if !rustc.status.success() {
+            return Err(anyhow::anyhow!(
+                "compilation failed:\n{}",
+                String::from_utf8_lossy(&rustc.stderr)
+            ));
+        }
+        let run = Command::new(out).output()?;
+        Ok(String::from_utf8_lossy(&run.stdout).to_string())
+    }
+
+    fn assert_transform_preserves(original: &str) {
+        assert!(
+            syn::parse_str::<syn::File>(original).is_ok(),
+            "original source must be valid Rust"
+        );
+        let orig_out = run_rust(original).expect("original must compile and run");
+
+        let flattened = transform_file(original).expect("transform must succeed");
+        assert!(flattened != *original, "transform should modify the source");
+
+        let flat_out = run_rust(&flattened).unwrap_or_else(|e| {
+            panic!("flattened must compile and run.\nError: {}\nCode:\n{}", e, flattened)
+        });
+        assert_eq!(orig_out, flat_out, "outputs must match.\nCode:\n{}", flattened);
+    }
+
+    #[test]
+    fn test_no_nested_loops_unchanged() {
+        let src = "\
+fn foo(x: &mut [f64], n: usize) {
+    for i in 0..n { x[i] = 0.0; }
+}
+fn main() {}";
+        let result = transform_file(src).unwrap();
+        assert!(!result.contains("__foo_inner"), "unexpected extraction");
+    }
+
+    #[test]
+    fn test_nested_loop_preserves_output() {
+        assert_transform_preserves(
+"fn sum(data: &[f64], nrows: usize, ncols: usize) -> f64 {
+    let mut total = 0.0f64;
+    for i in 0..nrows {
+        for j in 0..ncols {
+            total += data[i * ncols + j];
+        }
+    }
+    total
+}
+fn main() {
+    let data = [1.0, 2.0, 3.0, 4.0];
+    print!(\"{}\", sum(&data, 2, 2));
+}");
+    }
+
+    #[test]
+    fn test_mut_ref_updates_preserved() {
+        assert_transform_preserves(
+"fn scale(data: &mut [f64], n: usize, factor: f64) {
+    for i in 0..n {
+        for j in 0..n {
+            data[i * n + j] *= factor;
+        }
+    }
+}
+fn main() {
+    let mut data = [1.0, 2.0, 3.0, 4.0];
+    scale(&mut data, 2, 2.0);
+    print!(\"{} {} {} {}\", data[0], data[1], data[2], data[3]);
+}");
+    }
+
+    #[test]
+    fn test_gaussian_elimination_step() {
+        assert_transform_preserves(
+"fn gauss_step(data: &mut [f64], nrows: usize, i: usize, col_i_start: usize) {
+    for k in (i + 1)..nrows {
+        let col_k_start = k * nrows;
+        let pivot_val = data[i + col_k_start];
+        for r in (i + 1)..nrows {
+            data[r + col_k_start] = data[r + col_k_start] - pivot_val * data[r + col_i_start];
+        }
+    }
+}
+fn main() {
+    let mut data = vec![1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0];
+    gauss_step(&mut data, 3, 0, 0);
+    print!(\"{} {} {}\", data[0], data[1], data[2]);
+}");
+    }
+
+    #[test]
+    fn test_multiple_nested_pairs() {
+        assert_transform_preserves(
+"fn two_pair(data: &mut [f64], n: usize) {
+    for i in 0..n {
+        for j in 0..n {
+            data[i * n + j] += 1.0;
+        }
+    }
+    for i in 0..n {
+        for j in 0..n {
+            data[i * n + j] *= 2.0;
+        }
+    }
+}
+fn main() {
+    let mut data = [1.0, 2.0, 3.0, 4.0];
+    two_pair(&mut data, 2);
+    print!(\"{} {} {} {}\", data[0], data[1], data[2], data[3]);
+}");
+    }
 }

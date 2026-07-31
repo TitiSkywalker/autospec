@@ -2,7 +2,7 @@
 Translate a Rust project into Lean using Charon + Aeneas.
 
 Pipeline:
-  Rust source → [flatten-loops] → charon → .llbc
+  Rust source → [flatten-loops, best-effort] → charon → .llbc
   → [LLBC adapter: f64→f64_helpers] → aeneas → .lean
   → [F64→Rat + inline helpers] → output
 
@@ -72,9 +72,8 @@ class Translator:
                 ignore=shutil.ignore_patterns("target", "lean", "*.lean"),
             )
 
-            # Phase 0: flatten nested loops (required by aeneas)
-            if not _flatten_nested_loops(workdir, project_path):
-                return False
+            # Phase 0: try flatten nested loops (best-effort)
+            _try_flatten_nested_loops(workdir, project_path)
 
             # Phase 1: charon → .llbc
             result = subprocess.run(
@@ -273,7 +272,7 @@ def _lean_f64_to_rat(content: str) -> str:
     return result
 
 
-# ── nested loop flattening ────────────────────────────────────────────────────
+# ── adapter helpers ─────────────────────────────────────────────────────────
 
 
 def _parse_adapter_stderr(stderr: str) -> dict[str, str]:
@@ -298,14 +297,16 @@ def _parse_adapter_stderr(stderr: str) -> dict[str, str]:
     return stats
 
 
-def _flatten_nested_loops(project_path: Path, source_path: Path) -> bool:
-    """Try to flatten nested loops.  Returns True on success (or no-op),
-    False if flattening broke compilation and we cannot proceed."""
-    if not _FLATTEN_TOOL.exists():
-        _warn(f"flatten-loops not found at {_FLATTEN_TOOL}")
-        return True  # not a hard failure — aeneas may still work
+# ── nested loop flattening (best-effort) ──────────────────────────────────────
 
-    modified: list[str] = []
+
+def _try_flatten_nested_loops(project_path: Path, source_path: Path) -> None:
+    """Try to flatten nested loops.  Never fails — if flattening doesn't help,
+    we let aeneas handle the nested loops (which it can for simple cases)."""
+    if not _FLATTEN_TOOL.exists():
+        return
+
+    modified: list[Path] = []
     for rs in project_path.rglob("*.rs"):
         if "f64_helpers" in rs.parts or "target" in rs.parts:
             continue
@@ -317,17 +318,15 @@ def _flatten_nested_loops(project_path: Path, source_path: Path) -> bool:
                 timeout=30,
             )
             if result.returncode != 0:
-                _warn(f"flatten-loops failed on {rs.name}: " f"{result.stderr.strip()}")
+                _warn(f"flatten-loops failed on {rs.name}: {result.stderr.strip()}")
             elif result.stderr.strip():
-                modified.append(rs.name)
+                modified.append(rs)
         except subprocess.TimeoutExpired:
             _warn(f"flatten-loops timed out on {rs.name}, skipping")
 
     if not modified:
-        _phase("flatten", "(nothing to do)")
-        return True
+        return
 
-    # Verify flatten-loops didn't break compilation
     check = subprocess.run(
         ["cargo", "check"],
         cwd=str(project_path),
@@ -335,13 +334,15 @@ def _flatten_nested_loops(project_path: Path, source_path: Path) -> bool:
         text=True,
     )
     if check.returncode == 0:
-        _phase("flatten", ", ".join(modified))
-        return True
-
-    # Flatten-loops broke the code — aeneas cannot handle nested loops,
-    # so there is no point continuing with the originals.
-    _fail("flatten", "broke compilation, cannot proceed (aeneas needs flat loops)")
-    return False
+        _phase("flatten", ", ".join(p.name for p in modified))
+    else:
+        # Restore original files from source
+        for rs in modified:
+            rel = rs.relative_to(project_path)
+            src = source_path / rel
+            if src.exists():
+                shutil.copy2(src, rs)
+        _warn("flatten-loops broke compilation, restored originals")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

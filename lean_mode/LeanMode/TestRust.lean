@@ -32,12 +32,13 @@ def RatClone : core.clone.Clone Rat := {
 @[rust_type "core::mem::maybe_uninit::MaybeUninit"]
 noncomputable axiom core.mem.maybe_uninit.MaybeUninit (T : Type) : Type
 
-/-- [test_rust::__matmul_inner1]: loop body 0:
-    Source: 'src/main.rs', lines 43:4-48:5 -/
+/-- [test_rust::matmul]: loop body 2:
+    Source: 'src/main.rs', lines 14:12-19:13
+    Visibility: public -/
 @[rust_loop_body]
-def __matmul_inner1_loop.body
-  (row : Std.Usize) (m : Std.Usize) (col_b : Std.Usize) (k : Std.Usize)
-  (a : Slice Rat) (b : Slice Rat) (iter : core.ops.range.Range Std.Usize)
+def matmul_loop0_loop0_loop0.body
+  (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
+  (col_b : Std.Usize) (row : Std.Usize) (iter : core.ops.range.Range Std.Usize)
   (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
@@ -61,35 +62,28 @@ def __matmul_inner1_loop.body
     let s ← Slice.update c c_idx fl4
     ok (cont (iter1, s))
 
-/-- [test_rust::__matmul_inner1]: loop 0:
-    Source: 'src/main.rs', lines 43:4-48:5 -/
+/-- [test_rust::matmul]: loop 2:
+    Source: 'src/main.rs', lines 14:12-19:13
+    Visibility: public -/
 @[rust_loop]
-def __matmul_inner1_loop
-  (iter : core.ops.range.Range Std.Usize) (row : Std.Usize) (c : Slice Rat)
-  (m : Std.Usize) (col_b : Std.Usize) (k : Std.Usize) (a : Slice Rat)
-  (b : Slice Rat) :
+def matmul_loop0_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
+  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize)
+  (row : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner1_loop.body row m col_b k a b iter1 c1)
+    (fun (iter1, c1) => matmul_loop0_loop0_loop0.body a b m k col_b row iter1
+      c1)
     (iter, c)
 
-/-- [test_rust::__matmul_inner1]:
-    Source: 'src/main.rs', lines 34:0-49:1 -/
-@[reducible]
-def __matmul_inner1
-  (row : Std.Usize) (c : Slice Rat) (m : Std.Usize) (col_b : Std.Usize)
-  (k : Std.Usize) (a : Slice Rat) (b : Slice Rat) :
-  Result (Slice Rat)
-  := do
-  __matmul_inner1_loop { start := 0#usize, «end» := k } row c m col_b k a b
-
-/-- [test_rust::__matmul_inner2]: loop body 0:
-    Source: 'src/main.rs', lines 52:4-54:5 -/
+/-- [test_rust::matmul]: loop body 1:
+    Source: 'src/main.rs', lines 13:8-20:9
+    Visibility: public -/
 @[rust_loop_body]
-def __matmul_inner2_loop.body
-  (a : Slice Rat) (b : Slice Rat) (col_b : Std.Usize) (m : Std.Usize)
-  (k : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
+def matmul_loop0_loop0.body
+  (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
+  (col_b : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
   := do
@@ -98,36 +92,29 @@ def __matmul_inner2_loop.body
   match o with
   | none => ok (done c)
   | some row =>
-    let c1 ← __matmul_inner1 row c m col_b k a b
+    let c1 ←
+      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } c a b m k
+        col_b row
     ok (cont (iter1, c1))
 
-/-- [test_rust::__matmul_inner2]: loop 0:
-    Source: 'src/main.rs', lines 52:4-54:5 -/
+/-- [test_rust::matmul]: loop 1:
+    Source: 'src/main.rs', lines 13:8-20:9
+    Visibility: public -/
 @[rust_loop]
-def __matmul_inner2_loop
-  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
-  (col_b : Std.Usize) (m : Std.Usize) (k : Std.Usize) (c : Slice Rat) :
+def matmul_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
+  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner2_loop.body a b col_b m k iter1 c1)
+    (fun (iter1, c1) => matmul_loop0_loop0.body a b m k col_b iter1 c1)
     (iter, c)
 
-/-- [test_rust::__matmul_inner2]:
-    Source: 'src/main.rs', lines 51:0-55:1 -/
-@[reducible]
-def __matmul_inner2
-  (a : Slice Rat) (b : Slice Rat) (col_b : Std.Usize) (m : Std.Usize)
-  (k : Std.Usize) (c : Slice Rat) :
-  Result (Slice Rat)
-  := do
-  __matmul_inner2_loop { start := 0#usize, «end» := m } a b col_b m k c
-
 /-- [test_rust::matmul]: loop body 0:
-    Source: 'src/main.rs', lines 3:4-5:5
+    Source: 'src/main.rs', lines 12:4-21:5
     Visibility: public -/
 @[rust_loop_body]
-def matmul_loop.body
+def matmul_loop0.body
   (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
   (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
@@ -138,24 +125,25 @@ def matmul_loop.body
   match o with
   | none => ok (done c)
   | some col_b =>
-    let c1 ← __matmul_inner2 a b col_b m k c
+    let c1 ←
+      matmul_loop0_loop0 { start := 0#usize, «end» := m } c a b m k col_b
     ok (cont (iter1, c1))
 
 /-- [test_rust::matmul]: loop 0:
-    Source: 'src/main.rs', lines 3:4-5:5
+    Source: 'src/main.rs', lines 12:4-21:5
     Visibility: public -/
 @[rust_loop]
-def matmul_loop
+def matmul_loop0
   (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
   (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => matmul_loop.body a b m k iter1 c1)
+    (fun (iter1, c1) => matmul_loop0.body a b m k iter1 c1)
     (iter, c)
 
 /-- [test_rust::matmul]:
-    Source: 'src/main.rs', lines 2:0-6:1
+    Source: 'src/main.rs', lines 4:0-22:1
     Visibility: public -/
 @[reducible]
 def matmul
@@ -163,10 +151,10 @@ def matmul
   (k : Std.Usize) (n : Std.Usize) :
   Result (Slice Rat)
   := do
-  matmul_loop { start := 0#usize, «end» := n } c a b m k
+  matmul_loop0 { start := 0#usize, «end» := n } c a b m k
 
 /-- [test_rust::test_matmul]: loop body 0:
-    Source: 'src/main.rs', lines 23:4-30:1 -/
+    Source: 'src/main.rs', lines 40:4-47:1 -/
 @[rust_loop_body]
 def test_matmul_loop.body
   (expected : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat) (tol : Rat)
@@ -191,7 +179,7 @@ def test_matmul_loop.body
     else ok (cont iter1)
 
 /-- [test_rust::test_matmul]: loop 0:
-    Source: 'src/main.rs', lines 23:4-30:1 -/
+    Source: 'src/main.rs', lines 40:4-47:1 -/
 @[rust_loop]
 def test_matmul_loop
   (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
@@ -203,7 +191,7 @@ def test_matmul_loop
     iter
 
 /-- [test_rust::test_matmul]:
-    Source: 'src/main.rs', lines 13:0-30:1 -/
+    Source: 'src/main.rs', lines 29:0-47:1 -/
 def test_matmul : Result Bool := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_0_001 := (1/1000 : Rat)
@@ -253,7 +241,7 @@ def test_matmul : Result Bool := do
   test_matmul_loop { start := 0#usize, «end» := i } ret2 c1 _f64_const_0_001
 
 /-- [test_rust::main]:
-    Source: 'src/main.rs', lines 32:0-32:12 -/
+    Source: 'src/main.rs', lines 49:0-49:12 -/
 def main : Result Unit := do
   ok ()
 

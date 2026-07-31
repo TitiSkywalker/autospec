@@ -32,5 +32,6 @@ Rules:
 - `struct_name` is the type it belongs to (for naming the output function)
 - `complexity`: "high" (multi-loop/numerical), "medium" (several branches), "low" (single loop)
 - Rank by complexity — high first
-- Output at least 10 entries if the repo has enough material
+- **One per algorithm family.** If the repo has multiple variants of the same algorithm, pick ONLY the most representative one. Prefer the simplest variant that still captures the core algorithm logic.
+- Output at least 5 entries if the repo has enough material
 - Include methods even if they have no tests — untested computation is still valuable
