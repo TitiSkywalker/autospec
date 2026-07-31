@@ -15,18 +15,19 @@ results to the original.
 
 ## Workflow
 
-1. Read the original extracted code from the input directory.
-2. Apply aeneas compatibility fixes:
-   - Replace generics with `f64`: `T: Float` → `f64`
-   - Replace `Vec<Vec<T>>` with `&mut [T]` + `nrows` + `ncols`
-   - Replace `vec!` with fixed arrays `[0.0; N]`
-   - Replace closures / iterator chains with `for` loops
-   - Extract inner loops that contain `return`/`break`/`continue`
-   - Replace `main()` body with `fn main() {}`
-   - Avoid `if`-`else` that mutates a borrowed value in both branches
-3. Run `cargo test` in the output directory — tests must pass with identical
-   results (copy the original tests, adjusting call sites if signatures changed).
-4. Report: "Refined: <function> (N changes) — <list of specific changes>"
+1. Read both `src/lib.rs` and `src/main.rs` from the input directory.
+2. Apply fixes from `instruction_aeneas.md`. Start with the most impactful:
+   a. Replace all generics `<T: Float>` with `f64`
+   b. Replace `Vec<Vec<f64>>` with `&[f64]` / `&mut [f64]` + dimension params
+   c. Replace `vec!` with fixed arrays or caller-provided slices
+   d. Extract inner loops that cross nested loop boundaries
+   e. Replace iterator chains with `for` loops
+   f. Avoid mutable branches on the same `&mut` parameter
+3. Copy the original tests from the input directory to the output directory.
+   Update call sites if function signatures changed.
+4. Run `cargo test` — all tests must pass with identical results.
+5. Write `fn main() {}` in `src/main.rs` (algorithm goes in `src/lib.rs`).
+6. Report: "Refined: <function> (N changes) — <list of specific changes>"
 
 ## Output
 

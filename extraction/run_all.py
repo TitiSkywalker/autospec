@@ -155,8 +155,8 @@ def process_repo(repo_path: Path, config: dict) -> dict:
         print(f"  Extract cached: {len(cached)}")
     extracted = list(cached)
 
+    max_workers = config.get("max_workers", 4)
     if pending:
-        max_workers = config.get("max_workers", 4)
         print(f"  Extracting: {len(pending)} targets ({max_workers} workers)")
         t0 = time.time()
         args = [(repo_path, t, results_dir, config) for t in pending]
