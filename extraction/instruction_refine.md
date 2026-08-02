@@ -25,9 +25,11 @@ results to the original.
    f. Avoid mutable branches on the same `&mut` parameter
 3. Copy the original tests from the input directory to the output directory.
    Update call sites if function signatures changed.
-4. Run `cargo test` — all tests must pass with identical results.
-5. Write `fn main() {}` in `src/main.rs` (algorithm goes in `src/lib.rs`).
-6. Report: "Refined: <function> (N changes) — <list of specific changes>"
+4. **Add known-answer tests.** Smoke tests (just checking output changed) are NOT enough. Find official test vectors from the algorithm's specification (RFC, NIST, paper) or compute expected results from a trusted implementation. At least one test MUST verify the output against a known correct answer.
+5. Run `cargo build` — must compile with zero errors.
+6. Run `cargo test` — all tests must pass.
+7. Write `fn main() {}` in `src/main.rs` (algorithm goes in `src/lib.rs`).
+8. Report: "Refined: <function> (N changes, K tests) — <list of specific changes>"
 
 ## Output
 

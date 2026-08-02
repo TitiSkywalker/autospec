@@ -26,8 +26,9 @@ Extract ONE specific method into a standalone pure function.
 8. **Follow instruction_aeneas.md** for all Rust code you generate. The code
    will be translated to Lean via Charon + Aeneas; non-compliant patterns
    will cause translation failures.
-9. **Write at least one basic test.** A smoke test that calls the function
-   and checks the output is reasonable. Reuse existing test vectors if available.
+9. **Write at least one known-answer test.** Verify output matches a known
+   correct value from the algorithm's specification (RFC, paper, etc).
+   "Output changed" smoke tests are NOT sufficient.
 
 ## Workflow
 
@@ -43,7 +44,8 @@ Extract ONE specific method into a standalone pure function.
                                                      edition="2021"
 ```
 
-4. Run `cargo test` in the output directory to verify all tests pass.
+4. Run `cargo build` — must compile with zero errors.
+5. Run `cargo test` — all tests must pass.
 
 Then report: "Extracted: <function_signature> (N tests pass)".
 
