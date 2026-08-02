@@ -26,9 +26,15 @@ Extract ONE specific method into a standalone pure function.
 8. **Follow instruction_aeneas.md** for all Rust code you generate. The code
    will be translated to Lean via Charon + Aeneas; non-compliant patterns
    will cause translation failures.
-9. **Write at least one known-answer test.** Verify output matches a known
-   correct value from the algorithm's specification (RFC, paper, etc).
-   "Output changed" smoke tests are NOT sufficient.
+9. **Write non-trivial tests.** Tests must verify correctness, not just "it runs".
+   - **Known-answer test**: expected output from a trusted source (specification,
+     reference implementation, or hand-computed). For hashing: published test
+     vector (RFC, NIST). For linear algebra: verify invariants (e.g. P*A = L*U).
+     For graph algorithms: hand-computed shortest path / MST weight.
+   - **Property test**: verify a mathematical invariant (e.g. `abs(x) >= 0`,
+     `L * U == original`, `roundtrip(input) == input`).
+   - **Edge case**: empty input, identity matrix, single element, etc.
+   Tests that only check "output changed" are NOT acceptable.
 
 ## Workflow
 
@@ -38,14 +44,14 @@ Extract ONE specific method into a standalone pure function.
 
 ```
 <output_dir>/<function_name>/src/main.rs        ← pub fn + doc + fn main() {}
-<output_dir>/<function_name>/tests/test_<fn>.rs ← at least 1 smoke test (Rule 9)
+<output_dir>/<function_name>/tests/test_<fn>.rs ← 3+ tests (Rule 9)
 <output_dir>/<function_name>/Cargo.toml          ← [package] name="..."
                                                      version="0.1.0"
                                                      edition="2021"
 ```
 
-4. Run `cargo build` — must compile with zero errors.
-5. Run `cargo test` — all tests must pass.
+4. Run `cargo build` — zero errors.
+5. Run `cargo test` — all tests pass.
 
 Then report: "Extracted: <function_signature> (N tests pass)".
 
