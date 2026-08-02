@@ -75,9 +75,9 @@ class Translator:
             # Phase 0: try flatten nested loops (best-effort)
             _try_flatten_nested_loops(workdir, project_path)
 
-            # Phase 1: charon → .llbc
+            # Phase 1: charon → .llbc (library target, so aeneas sees pub fns)
             result = subprocess.run(
-                [self.charon, "cargo", "--preset=aeneas"],
+                [self.charon, "cargo", "--preset=aeneas", "--", "--lib"],
                 cwd=workdir,
                 capture_output=True,
                 text=True,
