@@ -1,6 +1,6 @@
 workdir = "./local/traced_repos"
 shallow = true
-extract_dir = "extracted"
+extract_dir = "results"
 refined_dir = "refined"
 plan_turns = 100
 work_turns = 100
@@ -14,21 +14,21 @@ max_workers = 4
 url = "https://github.com/dimforge/nalgebra.git"
 
 # ── FFT ──
-[[repo]]
-url = "https://github.com/ejmahler/RustFFT.git"
+# [[repo]]
+# url = "https://github.com/ejmahler/RustFFT.git"
 
 # ── graph algorithms (Dijkstra, MST, SCC, toposort) ──
-[[repo]]
-url = "https://github.com/petgraph/petgraph.git"
+# [[repo]]
+# url = "https://github.com/petgraph/petgraph.git"
 
 # ── computational geometry (Delaunay triangulation, convex hull) ──
-[[repo]]
-url = "https://github.com/acgetchell/delaunay.git"
+# [[repo]]
+# url = "https://github.com/acgetchell/delaunay.git"
 
 # ── N-dimensional arrays ──
-[[repo]]
-url = "https://github.com/rust-ndarray/ndarray.git"
+# [[repo]]
+# url = "https://github.com/rust-ndarray/ndarray.git"
 
 # ── cryptographic hashing (SHA-256, SHA-512) ──
-[[repo]]
-url = "https://github.com/RustCrypto/hashes.git"
+# [[repo]]
+# url = "https://github.com/RustCrypto/hashes.git"

@@ -105,11 +105,12 @@ if cond {
 fn main() {}
 ```
 
-No test arrays, no `vec!`, no f64 constants in `main`. Put tests in
-`tests/` and they will NOT be translated.
+No test arrays, no `vec!`, no f64 constants in `main`. `main.rs` should
+contain ONLY `fn main() {}`. Put ALL algorithm code in `src/lib.rs` and
+tests in `tests/` — they will NOT be translated by aeneas.
 
-## 8. Single file: main.rs only
+## 8. Library structure
 
-Put ALL code in `src/main.rs`. Do not create `src/lib.rs`. Charon only
-translates binary targets; functions in `lib.rs` are silently skipped.
-If the original has `lib.rs`, merge it into `main.rs` and delete `lib.rs`.
+Put ALL algorithm code in `src/lib.rs` as `pub fn`. Keep `src/main.rs` as
+`fn main() {}` only. Tests go in `tests/` as integration tests. Charon
+translates the library target (`--lib`); code in `main.rs` is excluded.

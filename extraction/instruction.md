@@ -35,9 +35,9 @@ Extract ONE specific method into a standalone pure function.
      `L * U == original`, `roundtrip(input) == input`).
    - **Edge case**: empty input, identity matrix, single element, etc.
    Tests that only check "output changed" are NOT acceptable.
-10. **Single file only.** Put ALL code (algorithm functions + `fn main() {}` +
-    tests if inline) in `src/main.rs`. Do NOT create `src/lib.rs`. Charon only
-    translates binary targets; library targets are silently skipped.
+10. **Library structure.** Put algorithm code in `src/lib.rs` as `pub fn`.
+    Keep `src/main.rs` minimal — just `fn main() {}`. This allows tests in
+    `tests/` (integration tests) and Charon translates the library target.
 
 ## Workflow
 
@@ -46,11 +46,25 @@ Extract ONE specific method into a standalone pure function.
 3. Write the output to the provided output directory:
 
 ```
-<output_dir>/<function_name>/src/main.rs        ← ALL code: pub fn + fn main() {} ONLY
-<output_dir>/<function_name>/tests/test_<fn>.rs ← 3+ tests (Rule 9)
-<output_dir>/<function_name>/Cargo.toml          ← [package] name="..."
-                                                     version="0.1.0"
-                                                     edition="2021"
+<output_dir>/src/lib.rs     ← ALL algorithm code (pub fn ...)
+<output_dir>/src/main.rs    ← fn main() {} ONLY (empty, no logic)
+<output_dir>/tests/         ← integration tests (can use crate::*)
+<output_dir>/Cargo.toml     ← [package] name="..."
+                                  version="0.1.0"
+                                  edition="2021"
+```
+
+Integration tests go in `tests/`:
+```rust
+// tests/test_<fn>.rs
+use <crate_name>::*;
+
+#[test]
+fn test_known_answer() { ... }
+#[test]
+fn test_property() { ... }
+#[test]
+fn test_edge_case() { ... }
 ```
 
 4. Run `cargo build` — zero errors.
