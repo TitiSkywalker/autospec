@@ -19,11 +19,6 @@ fn matmul_2x3_times_3x2() {
     let tol = 0.001;
     for i in 0..m * n {
         let diff = c[i] - expected[i];
-        assert!(
-            diff.abs() <= tol,
-            "c[{i}] = {}, expected {}",
-            c[i],
-            expected[i]
-        );
+        assert!(diff.abs() <= tol);
     }
 }

@@ -98,7 +98,7 @@ fn extract_one_nested_loop(
     scan_let_bindings_block(&func.block, &mut known_types);
 
     // Find innermost nested loop
-    let (path, for_loop) = find_innermost_nested_loop(&func.block)?;
+    let (path, mut for_loop) = find_innermost_nested_loop(&func.block)?;
 
     // Determine free variables (used in loop body + range expression, not defined there, excluding loop variable)
     let loop_var_names = pat_binding_names(&for_loop.pat);
@@ -165,6 +165,23 @@ fn extract_one_nested_loop(
                 p.ty = syn::parse_quote! { &mut [f64] };
             }
         }
+    }
+
+    // Params whose type was not already a reference — i.e., owned values
+    // (Vec, String, …) that `needs_borrow` upgraded to `&mut` in the function
+    // signature.  Inside the extracted function they are already `&mut`, so
+    // any `&mut name` expression in the loop body is now a double-reference
+    // and must be simplified to just `name`.
+    let borrowed_params: HashSet<String> = params
+        .iter()
+        .filter(|p| needs_borrow(&p.ty))
+        .map(|p| p.name.clone())
+        .collect();
+
+    // Fix up redundant `&mut` references BEFORE the for-loop body is consumed
+    // by the extracted function.
+    if !borrowed_params.is_empty() {
+        remove_redundant_mut_refs(&mut for_loop.body, &borrowed_params);
     }
 
     // Detect which Copy-type params are mutated in the loop body.
@@ -1140,6 +1157,122 @@ fn collect_loops_in_expr(
         }
         syn::Expr::Unsafe(unsafe_expr) => {
             collect_loops_recursive(&unsafe_expr.block, depth, prefix, out);
+        }
+        _ => {}
+    }
+}
+
+// ── Redundant &mut cleanup ────────────────────────────────────────────────────
+
+/// After a captured variable is upgraded from owned (`Vec<f64>`) to
+/// `&mut Vec<f64>` in the extracted function's signature, any occurrences
+/// of `&mut name` inside the function body become double-references.
+/// Replace them with just `name`.
+fn remove_redundant_mut_refs(body: &mut syn::Block, names: &HashSet<String>) {
+    for stmt in &mut body.stmts {
+        remove_redundant_mut_refs_in_stmt(stmt, names);
+    }
+}
+
+fn remove_redundant_mut_refs_in_stmt(stmt: &mut syn::Stmt, names: &HashSet<String>) {
+    match stmt {
+        syn::Stmt::Expr(expr, _) => {
+            remove_redundant_mut_refs_in_expr(expr, names);
+        }
+        syn::Stmt::Local(local) => {
+            if let Some(init) = &mut local.init {
+                remove_redundant_mut_refs_in_expr(&mut init.expr, names);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn remove_redundant_mut_refs_in_expr(expr: &mut syn::Expr, names: &HashSet<String>) {
+    // If this is `&mut name` where `name` is a borrowed param, unwrap to just `name`.
+    if let syn::Expr::Reference(ref_expr) = expr {
+        if ref_expr.mutability.is_some() {
+            if let syn::Expr::Path(path) = &*ref_expr.expr {
+                if let Some(ident) = path.path.get_ident() {
+                    if names.contains(&ident.to_string()) {
+                        *expr = (*ref_expr.expr).clone();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    // Recurse into sub-expressions.
+    match expr {
+        syn::Expr::ForLoop(fl) => {
+            remove_redundant_mut_refs(&mut fl.body, names);
+            remove_redundant_mut_refs_in_expr(&mut fl.expr, names);
+        }
+        syn::Expr::Block(block) => {
+            remove_redundant_mut_refs(&mut block.block, names);
+        }
+        syn::Expr::Call(call) => {
+            for arg in &mut call.args {
+                remove_redundant_mut_refs_in_expr(arg, names);
+            }
+        }
+        syn::Expr::MethodCall(mc) => {
+            remove_redundant_mut_refs_in_expr(&mut mc.receiver, names);
+            for arg in &mut mc.args {
+                remove_redundant_mut_refs_in_expr(arg, names);
+            }
+        }
+        syn::Expr::Binary(bin) => {
+            remove_redundant_mut_refs_in_expr(&mut bin.left, names);
+            remove_redundant_mut_refs_in_expr(&mut bin.right, names);
+        }
+        syn::Expr::Unary(un) => {
+            remove_redundant_mut_refs_in_expr(&mut un.expr, names);
+        }
+        syn::Expr::Assign(assign) => {
+            remove_redundant_mut_refs_in_expr(&mut assign.left, names);
+            remove_redundant_mut_refs_in_expr(&mut assign.right, names);
+        }
+        syn::Expr::If(if_expr) => {
+            remove_redundant_mut_refs_in_expr(&mut if_expr.cond, names);
+            remove_redundant_mut_refs(&mut if_expr.then_branch, names);
+            if let Some((_, else_expr)) = &mut if_expr.else_branch {
+                remove_redundant_mut_refs_in_expr(else_expr, names);
+            }
+        }
+        syn::Expr::Index(idx) => {
+            remove_redundant_mut_refs_in_expr(&mut idx.expr, names);
+            remove_redundant_mut_refs_in_expr(&mut idx.index, names);
+        }
+        syn::Expr::Array(arr) => {
+            for elem in &mut arr.elems {
+                remove_redundant_mut_refs_in_expr(elem, names);
+            }
+        }
+        syn::Expr::Tuple(tup) => {
+            for elem in &mut tup.elems {
+                remove_redundant_mut_refs_in_expr(elem, names);
+            }
+        }
+        syn::Expr::Return(ret) => {
+            if let Some(e) = &mut ret.expr {
+                remove_redundant_mut_refs_in_expr(e, names);
+            }
+        }
+        syn::Expr::Paren(p) => {
+            remove_redundant_mut_refs_in_expr(&mut p.expr, names);
+        }
+        syn::Expr::Reference(r) => {
+            remove_redundant_mut_refs_in_expr(&mut r.expr, names);
+        }
+        syn::Expr::Range(r) => {
+            if let Some(from) = &mut r.start {
+                remove_redundant_mut_refs_in_expr(from, names);
+            }
+            if let Some(to) = &mut r.end {
+                remove_redundant_mut_refs_in_expr(to, names);
+            }
         }
         _ => {}
     }

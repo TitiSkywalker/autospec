@@ -25,12 +25,13 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-/-- [matmul::__matmul_inner1]: loop body 0:
-    Source: 'src/lib.rs', lines 17:4-22:5 -/
+/-- [matmul::matmul]: loop body 2:
+    Source: 'src/lib.rs', lines 7:12-12:13
+    Visibility: public -/
 @[rust_loop_body]
-def __matmul_inner1_loop.body
-  (row : Std.Usize) (b : Slice Rat) (m : Std.Usize) (a : Slice Rat)
-  (k : Std.Usize) (col_b : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+def matmul_loop0_loop0_loop0.body
+  (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
+  (col_b : Std.Usize) (row : Std.Usize) (iter : core.ops.range.Range Std.Usize)
   (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
@@ -54,35 +55,28 @@ def __matmul_inner1_loop.body
     let s ← Slice.update c c_idx fl4
     ok (cont (iter1, s))
 
-/-- [matmul::__matmul_inner1]: loop 0:
-    Source: 'src/lib.rs', lines 17:4-22:5 -/
+/-- [matmul::matmul]: loop 2:
+    Source: 'src/lib.rs', lines 7:12-12:13
+    Visibility: public -/
 @[rust_loop]
-def __matmul_inner1_loop
-  (iter : core.ops.range.Range Std.Usize) (row : Std.Usize) (b : Slice Rat)
-  (m : Std.Usize) (a : Slice Rat) (k : Std.Usize) (col_b : Std.Usize)
-  (c : Slice Rat) :
+def matmul_loop0_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
+  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize)
+  (row : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner1_loop.body row b m a k col_b iter1 c1)
+    (fun (iter1, c1) => matmul_loop0_loop0_loop0.body a b m k col_b row iter1
+      c1)
     (iter, c)
 
-/-- [matmul::__matmul_inner1]:
-    Source: 'src/lib.rs', lines 8:0-23:1 -/
-@[reducible]
-def __matmul_inner1
-  (row : Std.Usize) (b : Slice Rat) (m : Std.Usize) (a : Slice Rat)
-  (k : Std.Usize) (col_b : Std.Usize) (c : Slice Rat) :
-  Result (Slice Rat)
-  := do
-  __matmul_inner1_loop { start := 0#usize, «end» := k } row b m a k col_b c
-
-/-- [matmul::__matmul_inner2]: loop body 0:
-    Source: 'src/lib.rs', lines 26:4-28:5 -/
+/-- [matmul::matmul]: loop body 1:
+    Source: 'src/lib.rs', lines 6:8-13:9
+    Visibility: public -/
 @[rust_loop_body]
-def __matmul_inner2_loop.body
-  (b : Slice Rat) (m : Std.Usize) (col_b : Std.Usize) (a : Slice Rat)
-  (k : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
+def matmul_loop0_loop0.body
+  (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
+  (col_b : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
     Rat))
   := do
@@ -91,36 +85,29 @@ def __matmul_inner2_loop.body
   match o with
   | none => ok (done c)
   | some row =>
-    let c1 ← __matmul_inner1 row b m a k col_b c
+    let c1 ←
+      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } c a b m k
+        col_b row
     ok (cont (iter1, c1))
 
-/-- [matmul::__matmul_inner2]: loop 0:
-    Source: 'src/lib.rs', lines 26:4-28:5 -/
+/-- [matmul::matmul]: loop 1:
+    Source: 'src/lib.rs', lines 6:8-13:9
+    Visibility: public -/
 @[rust_loop]
-def __matmul_inner2_loop
-  (iter : core.ops.range.Range Std.Usize) (b : Slice Rat) (m : Std.Usize)
-  (col_b : Std.Usize) (a : Slice Rat) (k : Std.Usize) (c : Slice Rat) :
+def matmul_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
+  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => __matmul_inner2_loop.body b m col_b a k iter1 c1)
+    (fun (iter1, c1) => matmul_loop0_loop0.body a b m k col_b iter1 c1)
     (iter, c)
 
-/-- [matmul::__matmul_inner2]:
-    Source: 'src/lib.rs', lines 25:0-29:1 -/
-@[reducible]
-def __matmul_inner2
-  (b : Slice Rat) (m : Std.Usize) (col_b : Std.Usize) (a : Slice Rat)
-  (k : Std.Usize) (c : Slice Rat) :
-  Result (Slice Rat)
-  := do
-  __matmul_inner2_loop { start := 0#usize, «end» := m } b m col_b a k c
-
 /-- [matmul::matmul]: loop body 0:
-    Source: 'src/lib.rs', lines 3:4-5:5
+    Source: 'src/lib.rs', lines 5:4-14:5
     Visibility: public -/
 @[rust_loop_body]
-def matmul_loop.body
+def matmul_loop0.body
   (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
   (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
   Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
@@ -131,24 +118,25 @@ def matmul_loop.body
   match o with
   | none => ok (done c)
   | some col_b =>
-    let c1 ← __matmul_inner2 b m col_b a k c
+    let c1 ←
+      matmul_loop0_loop0 { start := 0#usize, «end» := m } c a b m k col_b
     ok (cont (iter1, c1))
 
 /-- [matmul::matmul]: loop 0:
-    Source: 'src/lib.rs', lines 3:4-5:5
+    Source: 'src/lib.rs', lines 5:4-14:5
     Visibility: public -/
 @[rust_loop]
-def matmul_loop
+def matmul_loop0
   (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
   (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) :
   Result (Slice Rat)
   := do
   loop
-    (fun (iter1, c1) => matmul_loop.body a b m k iter1 c1)
+    (fun (iter1, c1) => matmul_loop0.body a b m k iter1 c1)
     (iter, c)
 
 /-- [matmul::matmul]:
-    Source: 'src/lib.rs', lines 2:0-6:1
+    Source: 'src/lib.rs', lines 4:0-15:1
     Visibility: public -/
 @[reducible]
 def matmul
@@ -156,6 +144,6 @@ def matmul
   (k : Std.Usize) (n : Std.Usize) :
   Result (Slice Rat)
   := do
-  matmul_loop { start := 0#usize, «end» := n } c a b m k
+  matmul_loop0 { start := 0#usize, «end» := n } c a b m k
 
 end matmul
