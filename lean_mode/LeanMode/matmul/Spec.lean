@@ -1,30 +1,41 @@
 import LeanMode.matmul.Matmul
+import Mathlib.Data.Matrix.Basic
+import Mathlib.Data.Fin.Basic
+
 open Aeneas Aeneas.Std Result
+open Matrix
 
--- Correctness: matmul (column-major)
---   c[i + j*m] = Σ_{t=0}^{k-1} a[i + t*m] * b[t + j*k]
+set_option linter.unusedVariables false
 
+/-- Convert a column-major flat slice to a Mathlib `Matrix`.
+    `(i, j) ↦ s[i + j * rows]` -/
+def toMatrix (s : Slice Rat) (rows cols : Nat)
+    (h : s.length = rows * cols) : Matrix (Fin rows) (Fin cols) Rat :=
+  λ i j =>
+    have h_bound : i.val + j.val * rows < s.length := by
+      rw [h]
+      have hi : i.val < rows := i.is_lt
+      have hj : j.val < cols := j.is_lt
+      calc
+        i.val + j.val * rows < rows + j.val * rows :=
+          Nat.add_lt_add_right hi (j.val * rows)
+        _ = (j.val + 1) * rows := by ring
+        _ ≤ cols * rows :=
+          Nat.mul_le_mul_right rows (Nat.succ_le_of_lt hj)
+        _ = rows * cols := Nat.mul_comm cols rows
+    s[i.val + j.val * rows]'h_bound
+
+/-- Correctness of column-major matrix multiplication: `C = A * B`. -/
 theorem matmul_correct
-    -- input matrices
-    (a b c_result : Slice Rat)
+    (a b c : Slice Rat)
     (m k n : Usize)
-    -- slice lengths match dimensions
     (h_len_a : a.length = m.val * k.val)
     (h_len_b : b.length = k.val * n.val)
-    (h_len_c : c_result.length = m.val * n.val)
-    -- coordinates in range
-    (i j : Nat)
-    (hi : i < m.val)
-    (hj : j < n.val)
-    -- index bounds
-    (hc : i + j * m.val < c_result.length)
-    (ha : ∀ t, t < k.val → i + t * m.val < a.length)
-    (hb : ∀ t, t < k.val → t + j * k.val < b.length)
-    -- postcondition
-    (h_result : matmul.matmul c_result a b m k n = ok c_result) :
-    c_result[i + j * m.val]'hc =
-    Finset.sum (Finset.attach (Finset.range k.val)) (λ ⟨t, ht⟩ =>
-      let ht' : t < k.val := Finset.mem_range.1 ht
-      a[i + t * m.val]'(ha t ht') * b[t + j * k.val]'(hb t ht'))
-    := by
+    (h_len_c : c.length = m.val * n.val)
+    (h_result : matmul.matmul c a b m k n = ok c) :
+    toMatrix c m.val n.val h_len_c =
+    toMatrix a m.val k.val h_len_a * toMatrix b k.val n.val h_len_b :=
+by
+  ext i j
+  simp [toMatrix, mul_apply]
   sorry
