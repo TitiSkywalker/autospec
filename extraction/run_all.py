@@ -79,16 +79,16 @@ def _print_step(label: str, name: str, status: str, detail: str = "") -> None:
 
 # ── planner ──────────────────────────────────────────────────────────────────
 
-def run_planner(repo_path: Path, results_dir: Path, config: dict) -> list[dict]:
+def run_planner(repo_path: Path, extract_dir: Path, config: dict) -> list[dict]:
     """Run a planner agent to discover extraction targets."""
-    plan_file = results_dir / "plan.json"
+    plan_file = extract_dir / "plan.json"
     if plan_file.exists():
         plan = json.loads(plan_file.read_text())
         _print_step("plan", repo_path.name, "CACHE", f"{len(plan)} targets")
         return plan
 
     # Use a log file to suppress verbose output
-    log_dir = results_dir / "logs"
+    log_dir = extract_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "planner.log"
 
@@ -96,7 +96,7 @@ def run_planner(repo_path: Path, results_dir: Path, config: dict) -> list[dict]:
     agent = VibeAgent(
         repo_path,
         instruction_file="instruction_plan.md",
-        results_dir=str(results_dir),
+        extract_dir=str(extract_dir),
         max_turns=config.get("plan_turns", 30),
         timeout=config.get("timeout", 7200),
         verbose=False,
@@ -119,9 +119,9 @@ def run_planner(repo_path: Path, results_dir: Path, config: dict) -> list[dict]:
 
 def _worker_target(args: tuple) -> dict:
     """Extract a single method → results/{repo}/{fn}/."""
-    repo_path, target, results_dir, config = args
+    repo_path, target, extract_dir, config = args
     fn_name = f"{target['struct_name'].lower()}_{target['method']}".replace("::", "_")
-    fn_output_dir = results_dir / fn_name
+    fn_output_dir = extract_dir / fn_name
 
     if (fn_output_dir / "src" / "main.rs").exists():
         _print_step("extract", fn_name, "CACHE")
@@ -136,7 +136,7 @@ def _worker_target(args: tuple) -> dict:
         f"  Output directory: {fn_output_dir}\n"
     )
 
-    log_dir = results_dir / "logs"
+    log_dir = extract_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{fn_name}.log"
 
@@ -144,7 +144,7 @@ def _worker_target(args: tuple) -> dict:
     agent = VibeAgent(
         repo_path,
         instruction_file="instruction.md",
-        results_dir=str(fn_output_dir),
+        extract_dir=str(fn_output_dir),
         max_turns=max_turns,
         timeout=config.get("timeout", 7200),
         verbose=False,
@@ -166,8 +166,8 @@ def _worker_target(args: tuple) -> dict:
 
 def _refiner_target(args: tuple) -> dict:
     """Fix aeneas compatibility → refined/{repo}/{fn}/."""
-    results_dir, refined_dir, fn_name, config = args
-    src_dir = results_dir / fn_name
+    extract_dir, refined_dir, fn_name, config = args
+    src_dir = extract_dir / fn_name
     dst_dir = refined_dir / fn_name
 
     if (dst_dir / "src" / "main.rs").exists():
@@ -194,7 +194,7 @@ def _refiner_target(args: tuple) -> dict:
     agent = VibeAgent(
         dst_dir,
         instruction_file="instruction_refine.md",
-        results_dir=str(dst_dir),
+        extract_dir=str(dst_dir),
         max_turns=max_turns,
         timeout=config.get("timeout", 7200),
         verbose=False,
@@ -216,7 +216,7 @@ def _refiner_target(args: tuple) -> dict:
 def process_repo(repo_path: Path, config: dict) -> dict:
     """Plan + extract + refine for one repo."""
     name = repo_path.name
-    results_dir = Path(config["results_dir"]).resolve() / name
+    extract_dir = Path(config["extract_dir"]).resolve() / name
     refined_dir = Path(config["refined_dir"]).resolve() / name
 
     print(f"\n{'=' * 50}")
@@ -225,7 +225,7 @@ def process_repo(repo_path: Path, config: dict) -> dict:
 
     # ── Step 1: Plan ──
     print(f"  >>> plan")
-    targets = run_planner(repo_path, results_dir, config)
+    targets = run_planner(repo_path, extract_dir, config)
     if not targets:
         return {"extracted": [], "refined": []}
 
@@ -234,7 +234,7 @@ def process_repo(repo_path: Path, config: dict) -> dict:
     cached, pending = [], []
     for t in targets:
         fn_name = f"{t['struct_name'].lower()}_{t['method']}".replace("::", "_")
-        if (results_dir / fn_name / "src" / "main.rs").exists():
+        if (extract_dir / fn_name / "src" / "main.rs").exists():
             cached.append({"name": fn_name, "ok": True, "cached": True})
         else:
             pending.append(t)
@@ -244,7 +244,7 @@ def process_repo(repo_path: Path, config: dict) -> dict:
     max_workers = config.get("max_workers", 4)
     if pending:
         t0 = time.time()
-        args = [(repo_path, t, results_dir, config) for t in pending]
+        args = [(repo_path, t, extract_dir, config) for t in pending]
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(_worker_target, a): a for a in args}
             for future in as_completed(futures):
@@ -255,7 +255,7 @@ def process_repo(repo_path: Path, config: dict) -> dict:
         ok = sum(1 for r in extracted if r["ok"] and not r.get("cached"))
         print(f"  {'extract':10s} {ok}/{n} done ({elapsed:.0f}s)")
 
-    manifest = results_dir / "manifest.txt"
+    manifest = extract_dir / "manifest.txt"
     manifest.write_text("\n".join(
         r["name"] for r in extracted if r["ok"]) + "\n")
 
@@ -274,7 +274,7 @@ def process_repo(repo_path: Path, config: dict) -> dict:
 
     if ref_pending:
         t0 = time.time()
-        args = [(results_dir, refined_dir, r["name"], config) for r in ref_pending]
+        args = [(extract_dir, refined_dir, r["name"], config) for r in ref_pending]
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(_refiner_target, a): a for a in args}
             for future in as_completed(futures):

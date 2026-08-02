@@ -58,7 +58,7 @@ class VibeAgent:
         self,
         repo_path: str | Path,
         instruction_file: str | Path = "instruction.md",
-        results_dir: str | Path = "results",
+        extract_dir: str | Path = "results",
         max_turns: int = 50,
         timeout: int = 7200,
         verbose: bool = False,
@@ -69,7 +69,7 @@ class VibeAgent:
         self.repo_path = Path(repo_path).resolve()
         self.instruction = Path(instruction_file).read_text().strip()
         self.repo_name = self.repo_path.name
-        self.results_dir = Path(results_dir).resolve()
+        self.extract_dir = Path(extract_dir).resolve()
         self.max_turns = max_turns
         self.timeout = timeout
         self.verbose = verbose
@@ -91,7 +91,7 @@ class VibeAgent:
         full_prompt = self.instruction
         full_prompt += (
             f"\n\nRepository: {self.repo_name}\n"
-            f"Output directory: {self.results_dir}\n"
+            f"Output directory: {self.extract_dir}\n"
         )
         if prompt:
             full_prompt += "\n\n" + prompt
@@ -288,11 +288,11 @@ class VibeAgent:
     # ── result collection ────────────────────────────────────────────────
 
     def collect_results(self) -> dict:
-        """Read manifest from results_dir/<repo>/manifest.txt.
+        """Read manifest from extract_dir/<repo>/manifest.txt.
 
         Returns dict with keys: functions, count, output_dir.
         """
-        manifest = self.results_dir / "manifest.txt"
+        manifest = self.extract_dir / "manifest.txt"
         functions: list[str] = []
         if manifest.exists():
             functions = [
@@ -304,7 +304,7 @@ class VibeAgent:
         return {
             "functions": functions,
             "count": len(functions),
-            "output_dir": str(self.results_dir),
+            "output_dir": str(self.extract_dir),
         }
 
 
@@ -330,7 +330,7 @@ if __name__ == "__main__":
 
     agent = VibeAgent(
         args.repo,
-        results_dir=args.results_dir,
+        extract_dir=args.extract_dir,
         max_turns=args.max_turns,
         timeout=args.timeout,
         verbose=args.verbose,

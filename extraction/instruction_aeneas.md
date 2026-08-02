@@ -108,7 +108,8 @@ fn main() {}
 No test arrays, no `vec!`, no f64 constants in `main`. Put tests in
 `tests/` and they will NOT be translated.
 
-## 8. Handle both lib.rs and main.rs
+## 8. Single file: main.rs only
 
-Some extracted crates have the algorithm in `lib.rs` and a thin `main.rs`.
-Fix BOTH files. The `main.rs` should end up as `fn main() {}`.
+Put ALL code in `src/main.rs`. Do not create `src/lib.rs`. Charon only
+translates binary targets; functions in `lib.rs` are silently skipped.
+If the original has `lib.rs`, merge it into `main.rs` and delete `lib.rs`.

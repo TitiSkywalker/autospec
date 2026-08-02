@@ -1,8 +1,8 @@
 workdir = "./local/traced_repos"
 shallow = true
-results_dir = "results"
+extract_dir = "extracted"
 refined_dir = "refined"
-plan_turns = 50
+plan_turns = 100
 work_turns = 100
 refine_turns = 100
 timeout = 7200

@@ -35,6 +35,9 @@ Extract ONE specific method into a standalone pure function.
      `L * U == original`, `roundtrip(input) == input`).
    - **Edge case**: empty input, identity matrix, single element, etc.
    Tests that only check "output changed" are NOT acceptable.
+10. **Single file only.** Put ALL code (algorithm functions + `fn main() {}` +
+    tests if inline) in `src/main.rs`. Do NOT create `src/lib.rs`. Charon only
+    translates binary targets; library targets are silently skipped.
 
 ## Workflow
 
@@ -43,7 +46,7 @@ Extract ONE specific method into a standalone pure function.
 3. Write the output to the provided output directory:
 
 ```
-<output_dir>/<function_name>/src/main.rs        ← pub fn + doc + fn main() {}
+<output_dir>/<function_name>/src/main.rs        ← ALL code: pub fn + fn main() {} ONLY
 <output_dir>/<function_name>/tests/test_<fn>.rs ← 3+ tests (Rule 9)
 <output_dir>/<function_name>/Cargo.toml          ← [package] name="..."
                                                      version="0.1.0"
