@@ -26,8 +26,8 @@ url = "https://github.com/dimforge/nalgebra.git"
 # url = "https://github.com/acgetchell/delaunay.git"
 
 # ── N-dimensional arrays ──
-# [[repo]]
-# url = "https://github.com/rust-ndarray/ndarray.git"
+[[repo]]
+url = "https://github.com/rust-ndarray/ndarray.git"
 
 # ── cryptographic hashing (SHA-256, SHA-512) ──
 # [[repo]]
