@@ -26,44 +26,45 @@ def RatClone : core.clone.Clone Rat := {
 }
 
 /-- [matmul::matmul]: loop body 2:
-    Source: 'src/lib.rs', lines 7:12-12:13
+    Source: 'src/lib.rs', lines 8:12-10:13
     Visibility: public -/
 @[rust_loop_body]
 def matmul_loop0_loop0_loop0.body
   (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
   (col_b : Std.Usize) (row : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (c : Slice Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
-    Rat))
+  (c : alloc.vec.Vec Rat) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
+    (alloc.vec.Vec Rat))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
   | none => ok (done c)
   | some col_a =>
-    let i ← col_b * m
-    let c_idx ← row + i
-    let i1 ← col_a * m
-    let a_idx ← row + i1
+    let i ← col_a * m
+    let i1 ← row + i
+    let fl ← Slice.index_usize a i1
     let i2 ← col_b * k
-    let b_idx ← col_a + i2
-    let fl ← Slice.index_usize c c_idx
-    let fl1 ← Slice.index_usize a a_idx
-    let fl2 ← Slice.index_usize b b_idx
-    let fl3 := fl1 * fl2
-    let fl4 := fl + fl3
-    let s ← Slice.update c c_idx fl4
-    ok (cont (iter1, s))
+    let i3 ← col_a + i2
+    let fl1 ← Slice.index_usize b i3
+    let fl2 := fl * fl1
+    let i4 ← col_b * m
+    let i5 ← row + i4
+    let (fl3, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i5
+    let fl4 := fl3 + fl2
+    let c1 := index_mut_back fl4
+    ok (cont (iter1, c1))
 
 /-- [matmul::matmul]: loop 2:
-    Source: 'src/lib.rs', lines 7:12-12:13
+    Source: 'src/lib.rs', lines 8:12-10:13
     Visibility: public -/
 @[rust_loop]
 def matmul_loop0_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
-  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize)
+  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
+  (m : Std.Usize) (k : Std.Usize) (c : alloc.vec.Vec Rat) (col_b : Std.Usize)
   (row : Std.Usize) :
-  Result (Slice Rat)
+  Result (alloc.vec.Vec Rat)
   := do
   loop
     (fun (iter1, c1) => matmul_loop0_loop0_loop0.body a b m k col_b row iter1
@@ -71,14 +72,15 @@ def matmul_loop0_loop0_loop0
     (iter, c)
 
 /-- [matmul::matmul]: loop body 1:
-    Source: 'src/lib.rs', lines 6:8-13:9
+    Source: 'src/lib.rs', lines 7:8-11:9
     Visibility: public -/
 @[rust_loop_body]
 def matmul_loop0_loop0.body
   (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
-  (col_b : Std.Usize) (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
-    Rat))
+  (col_b : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (c : alloc.vec.Vec Rat) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
+    (alloc.vec.Vec Rat))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
@@ -86,32 +88,32 @@ def matmul_loop0_loop0.body
   | none => ok (done c)
   | some row =>
     let c1 ←
-      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } c a b m k
+      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } a b m k c
         col_b row
     ok (cont (iter1, c1))
 
 /-- [matmul::matmul]: loop 1:
-    Source: 'src/lib.rs', lines 6:8-13:9
+    Source: 'src/lib.rs', lines 7:8-11:9
     Visibility: public -/
 @[rust_loop]
 def matmul_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
-  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) (col_b : Std.Usize) :
-  Result (Slice Rat)
+  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
+  (m : Std.Usize) (k : Std.Usize) (c : alloc.vec.Vec Rat) (col_b : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   loop
     (fun (iter1, c1) => matmul_loop0_loop0.body a b m k col_b iter1 c1)
     (iter, c)
 
 /-- [matmul::matmul]: loop body 0:
-    Source: 'src/lib.rs', lines 5:4-14:5
+    Source: 'src/lib.rs', lines 6:4-12:5
     Visibility: public -/
 @[rust_loop_body]
 def matmul_loop0.body
   (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (Slice Rat)) (Slice
-    Rat))
+  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat) :
+  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
+    (alloc.vec.Vec Rat))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
@@ -119,31 +121,33 @@ def matmul_loop0.body
   | none => ok (done c)
   | some col_b =>
     let c1 ←
-      matmul_loop0_loop0 { start := 0#usize, «end» := m } c a b m k col_b
+      matmul_loop0_loop0 { start := 0#usize, «end» := m } a b m k c col_b
     ok (cont (iter1, c1))
 
 /-- [matmul::matmul]: loop 0:
-    Source: 'src/lib.rs', lines 5:4-14:5
+    Source: 'src/lib.rs', lines 6:4-12:5
     Visibility: public -/
 @[rust_loop]
 def matmul_loop0
-  (iter : core.ops.range.Range Std.Usize) (c : Slice Rat) (a : Slice Rat)
-  (b : Slice Rat) (m : Std.Usize) (k : Std.Usize) :
-  Result (Slice Rat)
+  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
+  (m : Std.Usize) (k : Std.Usize) (c : alloc.vec.Vec Rat) :
+  Result (alloc.vec.Vec Rat)
   := do
   loop
     (fun (iter1, c1) => matmul_loop0.body a b m k iter1 c1)
     (iter, c)
 
 /-- [matmul::matmul]:
-    Source: 'src/lib.rs', lines 4:0-15:1
+    Source: 'src/lib.rs', lines 4:0-14:1
     Visibility: public -/
-@[reducible]
 def matmul
-  (c : Slice Rat) (a : Slice Rat) (b : Slice Rat) (m : Std.Usize)
-  (k : Std.Usize) (n : Std.Usize) :
-  Result (Slice Rat)
+  (a : Slice Rat) (b : Slice Rat) (m : Std.Usize) (k : Std.Usize)
+  (n : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
-  matmul_loop0 { start := 0#usize, «end» := n } c a b m k
+  let _f64_const_0 := (0 : Rat)
+  let i ← m * n
+  let c ← alloc.vec.from_elem RatClone _f64_const_0 i
+  matmul_loop0 { start := 0#usize, «end» := n } a b m k c
 
 end matmul

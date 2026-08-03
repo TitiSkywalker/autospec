@@ -21,7 +21,7 @@ namespace matmul
 /- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
 /-- [matmul::matmul_2x3_times_3x2]: loop body 0:
-    Source: 'src/lib.rs', lines 35:4-38:5
+    Source: 'src/lib.rs', lines 33:4-36:5
     Visibility: public -/
 @[rust_loop_body]
 def matmul_2x3_times_3x2_loop.body
@@ -46,7 +46,7 @@ def matmul_2x3_times_3x2_loop.body
     ok (cont iter1)
 
 /-- [matmul::matmul_2x3_times_3x2]: loop 0:
-    Source: 'src/lib.rs', lines 35:4-38:5
+    Source: 'src/lib.rs', lines 33:4-36:5
     Visibility: public -/
 @[rust_loop]
 def matmul_2x3_times_3x2_loop
@@ -59,10 +59,9 @@ def matmul_2x3_times_3x2_loop
     iter
 
 /-- [matmul::matmul_2x3_times_3x2]:
-    Source: 'src/lib.rs', lines 22:0-39:1
+    Source: 'src/lib.rs', lines 21:0-37:1
     Visibility: public -/
 def matmul_2x3_times_3x2 : Result Unit := do
-  let _f64_const_0 := (0 : Rat)
   let _f64_const_0_001 := (1/1000 : Rat)
   let _f64_const_1 := (1 : Rat)
   let _f64_const_10 := (10 : Rat)
@@ -100,14 +99,11 @@ def matmul_2x3_times_3x2 : Result Unit := do
          _f64_const_58, _f64_const_139, _f64_const_64, _f64_const_154
          ] : Array Rat 4#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
+  let s := alloc.vec.Vec.deref ret
+  let s1 := alloc.vec.Vec.deref ret1
+  let c ← matmul s s1 2#usize 3#usize 2#usize
   let i ← 2#usize * 2#usize
-  let c ← alloc.vec.from_elem RatClone _f64_const_0 i
-  let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut c)
-  let s1 := alloc.vec.Vec.deref ret
-  let s2 := alloc.vec.Vec.deref ret1
-  let s3 ← matmul s s1 s2 2#usize 3#usize 2#usize
-  let c1 := deref_mut_back s3
-  matmul_2x3_times_3x2_loop { start := 0#usize, «end» := i } ret2 c1
+  matmul_2x3_times_3x2_loop { start := 0#usize, «end» := i } ret2 c
     _f64_const_0_001
 
 #eval matmul_2x3_times_3x2

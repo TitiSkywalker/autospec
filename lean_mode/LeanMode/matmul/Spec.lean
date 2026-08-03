@@ -25,17 +25,22 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
         _ = rows * cols := Nat.mul_comm cols rows
     s[i.val + j.val * rows]'h_bound
 
+/-- `matmul` returns a `Vec` of length `m * n`. -/
+theorem matmul_length (a b : Slice Rat) (m k n : Usize) (result : alloc.vec.Vec Rat)
+    (h : matmul.matmul a b m k n = ok result) :
+    result.length = m.val * n.val :=
+by
+  sorry
+
 /-- Correctness of column-major matrix multiplication: `C = A * B`. -/
 theorem matmul_correct
-    (a b c : Slice Rat)
+    (a b : Slice Rat)
     (m k n : Usize)
     (h_len_a : a.length = m.val * k.val)
     (h_len_b : b.length = k.val * n.val)
-    (h_len_c : c.length = m.val * n.val)
-    (h_result : matmul.matmul c a b m k n = ok c) :
-    toMatrix c m.val n.val h_len_c =
+    (h_result : matmul.matmul a b m k n = ok result) :
+    toMatrix (alloc.vec.Vec.deref result) m.val n.val
+      (matmul_length a b m k n result h_result) =
     toMatrix a m.val k.val h_len_a * toMatrix b k.val n.val h_len_b :=
 by
-  ext i j
-  simp [toMatrix, mul_apply]
   sorry

@@ -13,8 +13,7 @@ fn matmul_2x3_times_3x2() {
     let b = vec![7.0, 9.0, 11.0, 8.0, 10.0, 12.0];
     let expected = vec![58.0, 139.0, 64.0, 154.0];
 
-    let mut c = vec![0.0; m * n];
-    matmul::matmul(&mut c, &a, &b, m, k, n);
+    let c = matmul::matmul(&a, &b, m, k, n);
 
     let tol = 0.001;
     for i in 0..m * n {
