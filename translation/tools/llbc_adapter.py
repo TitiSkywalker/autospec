@@ -537,7 +537,11 @@ def _expand_float_constants(
 
 
 def _replace_float_nodes(node: Any, val_to_local: dict[str, int], f64: int) -> None:
-    """Replace Const(kind=Literal(Float(...))) with Move(local)."""
+    """Replace Const(kind=Literal(Float(...))) with Copy(local).
+
+    Uses ``Copy`` (not ``Move``) because f64 is a Copy type in LLBC.
+    ``Move`` would consume the local, causing ⊥ when the same float
+    constant appears multiple times (e.g. duplicate values in vec!)."""
     if isinstance(node, dict):
         if "Const" in node:
             c = node["Const"]
@@ -549,7 +553,7 @@ def _replace_float_nodes(node: Any, val_to_local: dict[str, int], f64: int) -> N
                         val = lit["Float"]["value"]
                         if val in val_to_local:
                             node.clear()
-                            node["Move"] = {
+                            node["Copy"] = {
                                 "kind": {"Local": val_to_local[val]},
                                 "ty": {"Deduplicated": f64},
                             }
@@ -561,7 +565,7 @@ def _replace_float_nodes(node: Any, val_to_local: dict[str, int], f64: int) -> N
                             val = sc["Float"]["value"]
                             if val in val_to_local:
                                 node.clear()
-                                node["Move"] = {
+                                node["Copy"] = {
                                     "kind": {"Local": val_to_local[val]},
                                     "ty": {"Deduplicated": f64},
                                 }
@@ -583,7 +587,7 @@ def _replace_float_nodes(node: Any, val_to_local: dict[str, int], f64: int) -> N
                                 val = sc["Float"]["value"]
                                 if val in val_to_local:
                                     node[i] = {
-                                        "Move": {
+                                        "Copy": {
                                             "kind": {"Local": val_to_local[val]},
                                             "ty": {"Deduplicated": f64},
                                         }
