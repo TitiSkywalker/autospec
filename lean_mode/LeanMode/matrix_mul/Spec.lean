@@ -1,4 +1,4 @@
-import LeanMode.matmul.Matmul
+import LeanMode.matrix_mul.MatrixMul
 import Mathlib.Data.Matrix.Basic
 import Mathlib.Data.Fin.Basic
 
@@ -27,7 +27,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
 
 /-- `matmul` returns a `Vec` of length `m * n`. -/
 theorem matmul_length (a b : Slice Rat) (m k n : Usize) (result : alloc.vec.Vec Rat)
-    (h : matmul.matmul a b m k n = ok result) :
+    (h : matrix_mul.matmul a b m k n = ok result) :
     result.length = m.val * n.val :=
 by
   sorry
@@ -38,7 +38,7 @@ theorem matmul_correct
     (m k n : Usize)
     (h_len_a : a.length = m.val * k.val)
     (h_len_b : b.length = k.val * n.val)
-    (h_result : matmul.matmul a b m k n = ok result) :
+    (h_result : matrix_mul.matmul a b m k n = ok result) :
     toMatrix (alloc.vec.Vec.deref result) m.val n.val
       (matmul_length a b m k n result h_result) =
     toMatrix a m.val k.val h_len_a * toMatrix b k.val n.val h_len_b :=
