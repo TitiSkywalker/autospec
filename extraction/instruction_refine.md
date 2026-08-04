@@ -24,6 +24,11 @@ results to the original.
    d. Extract inner loops that cross nested loop boundaries
    e. Replace iterator chains with `for` loops
    f. Avoid mutable branches on the same `&mut` parameter
+	   g. **Eliminate side effects.** Replace `&mut [T]` output parameters with
+	      return `Vec<T>`. The function should allocate and return its own result
+	      rather than writing into a caller-provided slice. This produces a clean
+	      Aeneas signature: `... → Result (Vec T)` instead of splitting the
+	      mutable argument into input and output in the Lean translation.
 3. Copy the original `tests/` directory to the output directory.
    Update call sites if function signatures changed.
 4. **Add known-answer tests.** Smoke tests (just checking output changed) are NOT enough. Find official test vectors from the algorithm's specification (RFC, NIST, paper) or compute expected results from a trusted implementation. At least one test MUST verify the output against a known correct answer.

@@ -99,7 +99,26 @@ if cond {
 }
 ```
 
-## 7. Minimal main
+## 7. Pure functions (no output through &mut)
+
+When a function produces a new array/result, return `Vec<T>` instead of
+writing into a `&mut [T]` parameter. This gives a clean Aeneas signature
+without input/output variable splitting:
+
+```
+fn foo(data: &[f64], nrows: usize, ncols: usize,
+       out: &mut [f64])  // ← side effect
+// becomes:
+fn foo(data: &[f64], nrows: usize, ncols: usize)
+    -> Vec<f64>  // ← pure, clean Lean signature
+```
+
+Exception: in-place mutations that truly modify the input (e.g., `sort`,
+`reverse`, Gaussian elimination with pivoting) may keep `&mut [T]`.
+Allocating functions (matrix multiplication, Kronecker product) MUST
+return `Vec<T>`.
+
+## 8. Minimal main
 
 ```
 fn main() {}
@@ -109,7 +128,7 @@ No test arrays, no `vec!`, no f64 constants in `main`. `main.rs` should
 contain ONLY `fn main() {}`. Put ALL algorithm code in `src/lib.rs` and
 tests in `tests/` — they will NOT be translated by aeneas.
 
-## 8. Library structure
+## 9. Library structure
 
 Put ALL algorithm code in `src/lib.rs` as `pub fn`. Keep `src/main.rs` as
 `fn main() {}` only. Tests go in `tests/` as integration tests. Charon
