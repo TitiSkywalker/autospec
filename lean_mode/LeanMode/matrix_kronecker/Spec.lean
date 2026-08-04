@@ -17,7 +17,7 @@ set_option linter.unusedVariables false
 -/
 
 /-- Row-major flat slice → Mathlib `Matrix`.  `(i, j) ↦ s[i * cols + j]` -/
-def toMatrixRowMajor (s : Slice Rat) (rows cols : Nat)
+def toMatrix (s : Slice Rat) (rows cols : Nat)
     (h : s.length = rows * cols) : Matrix (Fin rows) (Fin cols) Rat :=
   λ i j =>
     have h_bound : i.val * cols + j.val < s.length := by
@@ -55,12 +55,12 @@ theorem kron_correct
     (h_len_b : b.length = b_rows.val * b_cols.val)
     (result : alloc.vec.Vec Rat)
     (h_result : matrix_kronecker.kron a a_rows a_cols b b_rows b_cols = ok result) :
-    (toMatrixRowMajor (alloc.vec.Vec.deref result)
+    (toMatrix (alloc.vec.Vec.deref result)
         (a_rows.val * b_rows.val) (a_cols.val * b_cols.val)
         (kron_length a b a_rows a_cols b_rows b_cols result h_result)).reindex
       (finProdFinEquiv (m := a_rows.val) (n := b_rows.val)).symm
       (finProdFinEquiv (m := a_cols.val) (n := b_cols.val)).symm =
-    Matrix.kronecker (toMatrixRowMajor a a_rows.val a_cols.val h_len_a)
-                     (toMatrixRowMajor b b_rows.val b_cols.val h_len_b) :=
+    Matrix.kronecker (toMatrix a a_rows.val a_cols.val h_len_a)
+                     (toMatrix b b_rows.val b_cols.val h_len_b) :=
   by
     sorry

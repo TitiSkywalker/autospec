@@ -1,12 +1,13 @@
-//! Simple f64 matrix multiplication (column-major storage).
+//! f64 matrix multiplication (row-major storage).
 
-/// Multiply two column-major matrices, returning a new matrix.
+/// Multiply two row-major matrices, returning a new matrix.
+/// A: m×k, B: k×n, result: m×n
 pub fn matmul(a: &[f64], b: &[f64], m: usize, k: usize, n: usize) -> Vec<f64> {
     let mut c = vec![0.0; m * n];
-    for col_b in 0..n {
-        for row in 0..m {
-            for col_a in 0..k {
-                c[row + col_b * m] += a[row + col_a * m] * b[col_a + col_b * k];
+    for row in 0..m {
+        for col in 0..n {
+            for t in 0..k {
+                c[row * n + col] += a[row * k + t] * b[t * n + col];
             }
         }
     }

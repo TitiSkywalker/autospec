@@ -21,7 +21,7 @@ namespace matrix_mul
 /- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
 /-- [matrix_mul::matmul_2x3_times_3x2]: loop body 0:
-    Source: 'src/lib.rs', lines 33:4-36:5
+    Source: 'src/lib.rs', lines 34:4-37:5
     Visibility: public -/
 @[rust_loop_body]
 def matmul_2x3_times_3x2_loop.body
@@ -46,7 +46,7 @@ def matmul_2x3_times_3x2_loop.body
     ok (cont iter1)
 
 /-- [matrix_mul::matmul_2x3_times_3x2]: loop 0:
-    Source: 'src/lib.rs', lines 33:4-36:5
+    Source: 'src/lib.rs', lines 34:4-37:5
     Visibility: public -/
 @[rust_loop]
 def matmul_2x3_times_3x2_loop
@@ -59,7 +59,7 @@ def matmul_2x3_times_3x2_loop
     iter
 
 /-- [matrix_mul::matmul_2x3_times_3x2]:
-    Source: 'src/lib.rs', lines 21:0-37:1
+    Source: 'src/lib.rs', lines 22:0-38:1
     Visibility: public -/
 def matmul_2x3_times_3x2 : Result Unit := do
   let _f64_const_0_001 := (1/1000 : Rat)
@@ -82,21 +82,21 @@ def matmul_2x3_times_3x2 : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
       (Array.make 6#usize [
-         _f64_const_1, _f64_const_4, _f64_const_2, _f64_const_5, _f64_const_3,
+         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5,
          _f64_const_6
          ] : Array Rat 6#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 6#usize [
-         _f64_const_7, _f64_const_9, _f64_const_11, _f64_const_8,
-         _f64_const_10, _f64_const_12
+         _f64_const_7, _f64_const_8, _f64_const_9, _f64_const_10,
+         _f64_const_11, _f64_const_12
          ] : Array Rat 6#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let y2 ←
     lift (Std.Array.to_slice
       (Array.make 4#usize [
-         _f64_const_58, _f64_const_139, _f64_const_64, _f64_const_154
+         _f64_const_58, _f64_const_64, _f64_const_139, _f64_const_154
          ] : Array Rat 4#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
   let s := alloc.vec.Vec.deref ret
