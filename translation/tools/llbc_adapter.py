@@ -18,18 +18,43 @@ from typing import Any
 # ── LLBC helpers ─────────────────────────────────────────────────────────────
 
 
-def _is_f64_ty(ty: dict | None, f64_id: int) -> bool:
+def _is_f64_ty(ty: dict | None, f64_ids: set) -> bool:
     if isinstance(ty, dict):
-        return ty.get("Deduplicated") == f64_id
+        if "Deduplicated" in ty:
+            return ty["Deduplicated"] in f64_ids
+        if "HashConsedValue" in ty:
+            return ty["HashConsedValue"][0] in f64_ids
     return False
 
 
 # ── Type discovery ───────────────────────────────────────────────────────────
 
 
-def _discover_types(translated: dict) -> tuple[int, int, int]:
-    """Return (f64_dedup_id, usize_dedup_id, bool_dedup_id)."""
-    f64 = None
+def _discover_f64_ids(raw_json: str) -> set:
+    """Find all dedup IDs whose definition is ``Literal(Float(F64))``.
+
+    Scans the raw LLBC JSON for patterns like::
+
+        "HashConsedValue":[298,{"Literal":{"Float":"F64"}}]
+
+    and returns the set of dedup IDs (both the HashConsedValue wrapper
+    and the underlying Deduplicated reference, which can differ in some
+    contexts).
+    """
+    ids: set[int] = set()
+    for m in re.finditer(
+        r'"HashConsedValue"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Literal"\s*:\s*\{\s*"Float"\s*:\s*"F64"\s*\}',
+        raw_json,
+    ):
+        ids.add(int(m.group(1)))
+    return ids
+
+
+def _discover_types(translated: dict, f64_ids: set) -> tuple[int, int, bool]:
+    """Return (usize_dedup_id, bool_dedup_id, has_f64).
+
+    *f64_ids* must be pre-discovered via :func:`_discover_f64_ids`.
+    """
     usize = None
     bool_id = None
 
@@ -39,29 +64,6 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
         sig = fd.get("signature")
         if not sig:
             continue
-
-        # f64: gather candidates from multiple sources, then pick best
-        f64_candidates: set[int] = set()
-        for inp in sig.get("inputs") or []:
-            elem = _extract_slice_elem(inp)
-            if elem is not None:
-                f64_candidates.add(elem)
-        src = fd["item_meta"].get("source_text") or ""
-        if "f64" in src:
-            for inp in sig.get("inputs") or []:
-                if isinstance(inp, dict) and "Deduplicated" in inp:
-                    f64_candidates.add(inp["Deduplicated"])
-        # Discard candidates that appear many times in locals (likely usize)
-        local_counts = _count_dedup_in_locals(translated)
-        if len(f64_candidates) > 1:
-            # Pick the candidate with fewest local occurrences (f64)
-            best = min(
-                f64_candidates, key=lambda d: local_counts.get(d, 0), default=None
-            )
-            if best is not None:
-                f64 = best
-        elif len(f64_candidates) == 1:
-            f64 = f64_candidates.pop()
 
         # bool: look at the return-local (index 0) of a bool-returning function
         if bool_id is None:
@@ -76,16 +78,16 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
                                 bool_id = ty["Deduplicated"]
                                 break
 
-        # usize: plain Dedup params that aren't f64 or bool
-        if usize is None and f64 is not None:
+        # usize: find a plain Dedup param that isn't f64 or bool
+        if usize is None:
             for inp in sig.get("inputs") or []:
                 if isinstance(inp, dict) and "Deduplicated" in inp:
                     did = inp["Deduplicated"]
-                    if did != f64 and did != bool_id:
+                    if did not in f64_ids and did != bool_id:
                         usize = did
                         break
 
-        if f64 and usize and bool_id:
+        if usize and bool_id:
             break
 
     # bool fallback: scan all locals for Bool literal type
@@ -110,51 +112,16 @@ def _discover_types(translated: dict) -> tuple[int, int, int]:
             if bool_id:
                 break
 
-    # Most reliable: find f64 via "Wrap" mode BinaryOps
-    # (f64 uses Wrap, usize uses Panic) — only in user functions
-    wrap_f64 = None
-    wrap_usize = None
-    wrap_counts: dict[int, int] = {}
-    for fd in translated.get("fun_decls") or []:
-        if fd is None or fd.get("body") is None:
-            continue
-        if not fd["item_meta"].get("is_local", True):
-            continue
-        body_str = json.dumps(fd["body"])
-        for m in re.finditer(r'"Wrap"', body_str):
-            chunk = body_str[max(0, m.start() - 80) : m.end() + 80]
-            for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
-                did = int(dm.group(1))
-                wrap_counts[did] = wrap_counts.get(did, 0) + 1
-    if len(wrap_counts) >= 1:
-        wrap_f64 = max(wrap_counts, key=wrap_counts.get)
-    # Also find usize via "Panic" mode BinaryOps
-    panic_counts: dict[int, int] = {}
-    for fd in translated.get("fun_decls") or []:
-        if fd is None or fd.get("body") is None:
-            continue
-        if not fd["item_meta"].get("is_local", True):
-            continue
-        body_str = json.dumps(fd["body"])
-        for m in re.finditer(r'"Panic"', body_str):
-            chunk = body_str[max(0, m.start() - 80) : m.end() + 80]
-            for dm in re.finditer(r'"Deduplicated":\s*(\d+)', chunk):
-                did = int(dm.group(1))
-                panic_counts[did] = panic_counts.get(did, 0) + 1
-    if len(panic_counts) >= 1:
-        wrap_usize = max(panic_counts, key=panic_counts.get)
-    if wrap_f64 is not None:
-        f64 = wrap_f64
-    if wrap_usize is not None and usize is None:
-        usize = wrap_usize
+    # usize fallback: most common dedup in locals that isn't f64 or bool
     if usize is None:
-        by_count = sorted(
-            _count_dedup_in_locals(translated).items(), key=lambda x: -x[1]
-        )
-        if len(by_count) >= 1:
-            usize = by_count[0][0]
+        local_counts = _count_dedup_in_locals(translated)
+        by_count = sorted(local_counts.items(), key=lambda x: -x[1])
+        for did, _ in by_count:
+            if did not in f64_ids and did != bool_id:
+                usize = did
+                break
 
-    return f64, usize, bool_id
+    return usize, bool_id, bool(f64_ids)
 
 
 def _count_dedup_in_locals(translated: dict) -> dict[int, int]:
@@ -185,6 +152,8 @@ def _extract_slice_elem(ty_node: Any) -> int | None:
                 inner = inner["HashConsedValue"][1]
         if isinstance(inner, dict) and "Slice" in inner:
             elem = inner["Slice"]
+            if isinstance(elem, dict) and "HashConsedValue" in elem:
+                elem = elem["HashConsedValue"][1]
             if isinstance(elem, dict) and "Deduplicated" in elem:
                 return elem["Deduplicated"]
     return None
@@ -312,7 +281,7 @@ def _call_stmt(func_id: int, args: list, dest: dict, span: dict | None = None) -
 
 
 def _transform_switch_conditions(
-    stmts: list, locals_info: dict, f64: int, helper_ids: dict[str, int]
+    stmts: list, locals_info: dict, f64_ids: set, helper_ids: dict[str, int]
 ) -> int:
     """Replace f64 BinaryOp in Switch(If) conditions with helper calls."""
     bool_dedup = _find_bool_dedup(locals_info)
@@ -343,7 +312,7 @@ def _transform_switch_conditions(
                             if op_name in BINOP_MAP:
                                 lt = _operand_ty(binop[1])
                                 rt = _operand_ty(binop[2])
-                                if (_is_f64_ty(lt, f64) or _is_f64_ty(rt, f64)) and bool_dedup is not None:
+                                if (_is_f64_ty(lt, f64_ids) or _is_f64_ty(rt, f64_ids)) and bool_dedup is not None:
                                     hname = BINOP_MAP[op_name]
                                     if hname in helper_ids:
                                         tmp_id = _next_local()
@@ -616,18 +585,30 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
     if output is None:
         output = path
 
-    with open(path) as f:
-        data = json.load(f)
+    raw_json = path.read_text()
+    data = json.loads(raw_json)
 
     trans = data["translated"]
-    f64, usize, bool_id = _discover_types(trans)
-    types_list = [f64, usize, bool_id]
+    f64_ids = _discover_f64_ids(raw_json)
+    usize, bool_id, has_f64 = _discover_types(trans, f64_ids)
+    if has_f64 and not f64_ids:
+        f64_ids = _discover_f64_ids(raw_json)  # retry after processing
 
-    if f64 is None:
+    if not f64_ids:
         print("  [adapter] no f64 type found — nothing to do", file=sys.stderr)
         return 0
 
-    print(f"  [adapter] f64={f64}, usize={usize}, bool={bool_id}", file=sys.stderr)
+    # Pick the primary f64 dedup ID for creating new type references.
+    # Prefer the one that appears most often in function bodies.
+    local_counts = _count_dedup_in_locals(trans)
+    primary_f64 = max(f64_ids, key=lambda d: local_counts.get(d, 0))
+    types_list = [primary_f64, usize, bool_id]
+
+    print(
+        f"  [adapter] f64={primary_f64} (ids={sorted(f64_ids)}),"
+        f" usize={usize}, bool={bool_id}",
+        file=sys.stderr,
+    )
 
     # 1. Collect all float constants used across all function bodies
     all_float_vals: set[str] = set()
@@ -693,7 +674,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
         did = const_start + j
         cname = _float_to_name(val)
         helper_ids[cname] = did
-        all_decls.append((did, crate_name, cname, [], {"Deduplicated": f64}))
+        all_decls.append((did, crate_name, cname, [], {"Deduplicated": primary_f64}))
 
     # Insert all at the correct position (reverse order for correct insertion)
     for did, crate_name, name, inputs, ret_ty in reversed(all_decls):
@@ -746,7 +727,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
                 if op_name in BINOP_MAP:
                     lt = _operand_ty(left)
                     rt = _operand_ty(right)
-                    if _is_f64_ty(lt, f64) or _is_f64_ty(rt, f64):
+                    if _is_f64_ty(lt, f64_ids) or _is_f64_ty(rt, f64_ids):
                         hname = BINOP_MAP[op_name]
                         if hname in helper_ids:
                             new_s = _call_stmt(helper_ids[hname], [left, right], target)
@@ -761,7 +742,7 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
             if len(unop) == 2:
                 op, operand = unop
                 op_name = list(op.keys())[0] if isinstance(op, dict) else str(op)
-                if op_name == "Neg" and _is_f64_ty(_operand_ty(operand), f64):
+                if op_name == "Neg" and _is_f64_ty(_operand_ty(operand), f64_ids):
                     if "neg" in helper_ids:
                         new_s = _call_stmt(helper_ids["neg"], [operand], target)
                         stmt.clear()
@@ -779,10 +760,10 @@ def transform_llbc(path: str | Path, output: str | Path | None = None) -> int:
 
         stmts = body["Structured"]["body"]["statements"]
         locals_info = body["Structured"]["locals"]
-        total_float += _expand_float_constants(stmts, f64, helper_ids, locals_info)
+        total_float += _expand_float_constants(stmts, primary_f64, helper_ids, locals_info)
         _walk_stmts(stmts, _visitor)
         total_binop += _transform_switch_conditions(
-            stmts, locals_info, f64, helper_ids
+            stmts, locals_info, f64_ids, helper_ids
         )
 
     print(
