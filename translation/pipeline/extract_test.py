@@ -110,6 +110,11 @@ def translate_test_file(
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
+def _snake_to_camel(s: str) -> str:
+    """Convert snake_case to CamelCase (e.g. ``matrix_kronecker`` → ``MatrixKronecker``)."""
+    return "".join(part[0].upper() + part[1:] for part in s.split("_") if part)
+
+
 def _compute_module_path(project_path: Path) -> str:
     """Compute the Lean module path for the impl file relative to the Lake root."""
     lake_root = find_lake_root(project_path)
@@ -119,8 +124,9 @@ def _compute_module_path(project_path: Path) -> str:
         if parts:
             parts[0] = capitalize_first(parts[0])
         mod_prefix = ".".join(parts)
-        return f"{mod_prefix}.{capitalize_first(project_path.name.replace('-', '_'))}"
-    return project_path.name.replace("-", "_").capitalize()
+        crate_stem = project_path.name.replace("-", "_")
+        return f"{mod_prefix}.{_snake_to_camel(crate_stem)}"
+    return _snake_to_camel(project_path.name.replace("-", "_"))
 
 
 def _add_import(lean_text: str, module: str) -> str:

@@ -459,6 +459,19 @@ HELPER_SIGS = [
 
 
 def _float_to_name(value: str) -> str:
+    """Convert a float literal text to a safe identifier suffix.
+
+    Normalizes scientific notation (e.g. ``1.0E-10``) to a decimal
+    fraction so the resulting name contains only digits and underscores.
+    """
+    # Normalize scientific notation to avoid 'E' in the name
+    if "E" in value or "e" in value:
+        try:
+            from decimal import Decimal
+            d = Decimal(value)
+            value = format(d, "f")
+        except Exception:
+            pass
     return "const_" + value.replace(".", "_").replace("-", "neg_")
 
 

@@ -118,11 +118,40 @@ def _const_to_rat(name: str) -> str:
     '(5/10 : Rat)'
     >>> _const_to_rat("const_neg_1_0")
     '(-(1/1 : Rat))'
+    >>> _const_to_rat("const_1_0Eneg_10")
+    '(1/10000000000 : Rat)'
     """
     v = name[len("const_") :]
     neg = v.startswith("neg_")
     if neg:
         v = v[len("neg_") :]
+
+    # Handle scientific notation (e.g. "1_0Eneg_10" = 1.0 * 10^-10)
+    em = re.match(r"^(\d+)_(\d+)E(\w+)_(\d+)$", v)
+    if em:
+        int_part, frac_part, exp_sign_str, exp_str = em.groups()
+        mantissa_digits = int_part + frac_part
+        mantissa_len = len(int_part) + len(frac_part)
+        exp_val = int(exp_str)
+        if exp_sign_str == "neg":
+            # mantissa * 10^-exp = mantissa_digits / 10^(exp + len(frac_part))
+            denom = 10 ** (exp_val + len(frac_part))
+            num = int(mantissa_digits)
+        else:
+            # mantissa * 10^exp = mantissa_digits * 10^(exp - len(frac_part)) / 1
+            shift = exp_val - len(frac_part)
+            if shift >= 0:
+                num = int(mantissa_digits) * (10**shift)
+                denom = 1
+            else:
+                num = int(mantissa_digits)
+                denom = 10 ** (-shift)
+        if denom == 1:
+            expr = f"({num} : Rat)"
+        else:
+            expr = f"({num}/{denom} : Rat)"
+        return f"(-{expr})" if neg else expr
+
     parts = v.split("_")
     if len(parts) != 2:
         return f"({v} : Rat)"

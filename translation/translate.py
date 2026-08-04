@@ -22,7 +22,7 @@ from pipeline.simplify import simplify_for_aeneas
 from pipeline.flatten import try_flatten_nested_loops
 from pipeline.charon_aeneas import run_charon, run_adapter, run_aeneas
 from pipeline.lean_post import write_lean_output
-from pipeline.test_extract import translate_test_file
+from pipeline.extract_test import translate_test_file
 
 
 class Translator:
