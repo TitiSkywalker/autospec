@@ -81,6 +81,36 @@ def lean_f64_to_rat(content: str) -> str:
     return result
 
 
+def _fix_partial_mutual(text: str) -> str:
+    """Replace ``partial_fixpoint`` with ``partial`` for tail-recursive
+    functions inside ``mutual`` blocks, so the Lean 4.31 monotonicity
+    checker accepts them.  Also strips the ``@[rust_loop*]`` and
+    ``@[reducible]`` attributes that are incompatible with ``partial``.
+    """
+    # _quick_sort_loop  (rust_loop)
+    text = re.sub(
+        r"@\[rust_loop\]\n(def _quick_sort_loop\b.*?)partial_fixpoint",
+        r"partial \1",
+        text,
+        flags=re.DOTALL,
+    )
+    # _quick_sort_loop.body  (rust_loop_body)
+    text = re.sub(
+        r"@\[rust_loop_body\]\n(def _quick_sort_loop\.body\b.*?)partial_fixpoint",
+        r"partial \1",
+        text,
+        flags=re.DOTALL,
+    )
+    # _quick_sort  (reducible)
+    text = re.sub(
+        r"@\[reducible\]\n(def _quick_sort\b.*?)partial_fixpoint",
+        r"partial \1",
+        text,
+        flags=re.DOTALL,
+    )
+    return text
+
+
 def write_lean_output(
     workdir: Path,
     output_path: Path,
@@ -104,6 +134,7 @@ def write_lean_output(
         )
         text = lean_f64_to_rat(text)
         text = inline_f64_helpers(text)
+        text = _fix_partial_mutual(text)
         (output_path / f).write_text(text)
         written.append(f)
         def_count += len(
