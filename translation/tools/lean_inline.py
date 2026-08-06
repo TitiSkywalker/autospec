@@ -120,8 +120,10 @@ def inline_f64_helpers(content: str) -> str:
         flags=re.MULTILINE,
     )
 
-    # Step 7: handle ``f64_helpers.abs x`` that appears outside a let binding
-    # (e.g. after the core.f64.XXX.abs → f64_helpers.abs rewrite)
+    # Step 7: handle ``f64_helpers.neg`` / ``f64_helpers.abs`` that appear
+    # outside a let binding (e.g. inside if-then branches or after
+    # core.f64.XXX.abs → f64_helpers.abs rewrite).
+    content = re.sub(r"f64_helpers\.neg\s+(\S+)", r"ok (-\1)", content)
     content = re.sub(r"f64_helpers\.abs\s+(\S+)", r"|\1|", content)
 
     # Step 8: remove now-unused ``def f64_helpers.*`` definitions
@@ -176,7 +178,8 @@ def _const_to_rat(name: str) -> str:
 
     parts = v.split("_")
     if len(parts) != 2:
-        return f"({v} : Rat)"
+        expr = f"({v} : Rat)"
+        return f"(-{expr})" if neg else expr
     int_part, frac_part = parts
     denom = 10 ** len(frac_part)
     num = int(int_part) * denom + int(frac_part) if int_part else int(frac_part)
