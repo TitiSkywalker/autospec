@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .log import fail, phase
+from .log import fail, phase, dbg
 from .utils import parse_adapter_stderr
 
 # Paths resolved relative to this file.
@@ -22,6 +22,8 @@ def run_charon(charon_bin: str, workdir: Path) -> bool:
         capture_output=True,
         text=True,
     )
+    if result.stdout.strip():
+        dbg(result.stdout.strip())
     if result.returncode != 0:
         fail("charon", "failed")
         for line in result.stderr.split("\n"):
@@ -50,6 +52,8 @@ def run_adapter(workdir: Path) -> dict[str, str] | None:
             capture_output=True,
             text=True,
         )
+        if result.stdout.strip():
+            dbg(result.stdout.strip())
         if result.returncode != 0:
             fail("adapter", result.stderr.strip()[:200])
             return None
@@ -83,6 +87,7 @@ def run_aeneas(aeneas_bin: str, workdir: Path) -> list[str] | None:
             line = re.sub(r"\x1b\[[0-9;]*m", "", line).strip()
             if not line:
                 continue
+            dbg(f"[aeneas] {line}")
             if "[Error" in line or "error:" in line.lower():
                 fail("aeneas", line)
                 return None

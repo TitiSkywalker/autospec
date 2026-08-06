@@ -17,7 +17,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from pipeline.log import phase, fail, warn
+from pipeline.log import phase, fail, warn, set_verbose
 from pipeline.simplify import simplify_for_aeneas
 from pipeline.flatten import try_flatten_nested_loops
 from pipeline.charon_aeneas import run_charon, run_adapter, run_aeneas
@@ -32,6 +32,7 @@ class Translator:
         self,
         charon_bin: str | Path | None = None,
         aeneas_bin: str | Path | None = None,
+        verbose: bool = False,
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
@@ -40,6 +41,7 @@ class Translator:
         self.aeneas = str(
             aeneas_bin or _root.parent / "aeneas" / "bin" / "aeneas"
         )
+        self.verbose = verbose
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -53,9 +55,15 @@ class Translator:
         ``src/lib.rs`` (implementation) → ``<Crate>.lean``.
         ``tests/*.rs`` (concrete tests) → ``Test_<name>.lean``.
         """
+        set_verbose(self.verbose)
+
         project_path = Path(project_dir).resolve()
         output_path = Path(output_dir).resolve() if output_dir else project_path
         output_path.mkdir(parents=True, exist_ok=True)
+
+        if not (project_path / "Cargo.toml").exists():
+            fail("validate", f"no Cargo.toml in {project_path}")
+            return False
 
         print(f"autospec  \033[1m{project_path.name}\033[0m  →  {output_path}")
 
@@ -125,6 +133,10 @@ class Translator:
                 ignore=shutil.ignore_patterns("target", "lean", "*.lean"),
             )
 
+            if not (workdir / "Cargo.toml").exists():
+                fail("copy", "target missing Cargo.toml")
+                return None
+
             simplify_for_aeneas(workdir)
 
             if flatten:
@@ -162,10 +174,11 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Translate a Rust crate into Lean")
     p.add_argument("project_dir")
     p.add_argument("-o", "--output-dir", default=None)
+    p.add_argument("-v", "--verbose", action="store_true", help="Print debug output")
     p.add_argument("--charon", default=None)
     p.add_argument("--aeneas", default=None)
     args = p.parse_args()
 
-    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas)
+    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas, verbose=args.verbose)
     ok = t.translate(args.project_dir, args.output_dir)
     raise SystemExit(0 if ok else 1)
