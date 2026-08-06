@@ -38,6 +38,15 @@ def translate_test_file(
     raw = test_file.read_text()
     crate_name = read_crate_name(project_path)
 
+    # Record #[test]-annotated function names (these get #eval later).
+    # Handles bare #[test] and #[test] + #[should_panic(...)] chains.
+    eval_names: set[str] = set(
+        re.findall(
+            r"#\[test\]\s*\n(?:\s*#\[[^\]]*\]\s*\n)*\s*fn\s+(\w+)",
+            raw,
+        )
+    )
+
     # Strip #[test] and make every fn pub
     raw = re.sub(r"#\[test\]\s*\n?", "", raw)
     raw = re.sub(r"\bfn\s+(\w+)", r"pub fn \1", raw)
@@ -93,7 +102,7 @@ def translate_test_file(
                 if test_text.strip():
                     impl_module = _compute_module_path(project_path)
                     test_text = _add_import(test_text, impl_module)
-                    test_text = _add_evals(test_text, test_fn_names)
+                    test_text = _add_evals(test_text, eval_names)
                     target = output_path / f"Test_{stem}.lean"
                     target.write_text(test_text)
                     def_count = len(re.findall(

@@ -98,11 +98,33 @@ def inline_f64_helpers(content: str) -> str:
         content,
     )
 
-    # Step 6: handle ``f64_helpers.abs x`` that appears outside a let binding
+    # Step 6: handle tail-position f64_helpers calls (return value of do block)
+    for name, op in _BINARY.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)f64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"\1\2ok (\3 {op} \4)",
+            content,
+            flags=re.MULTILINE,
+        )
+    for name, (prefix, suffix) in _UNARY.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)f64_helpers\.{name}\s+(\S+)[ \t]*$",
+            rf"\1\2ok ({prefix}\3{suffix})",
+            content,
+            flags=re.MULTILINE,
+        )
+    content = re.sub(
+        r"(^|\n)(\s+)f64_helpers\.from_usize\s+(\S+)[ \t]*$",
+        r"\1\2ok ((\3.val : Rat))",
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Step 7: handle ``f64_helpers.abs x`` that appears outside a let binding
     # (e.g. after the core.f64.XXX.abs → f64_helpers.abs rewrite)
     content = re.sub(r"f64_helpers\.abs\s+(\S+)", r"|\1|", content)
 
-    # Step 7: remove now-unused ``def f64_helpers.*`` definitions
+    # Step 8: remove now-unused ``def f64_helpers.*`` definitions
     content = _remove_f64_helper_defs(content)
 
     return content
