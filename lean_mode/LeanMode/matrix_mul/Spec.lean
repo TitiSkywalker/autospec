@@ -7,6 +7,11 @@ open Matrix
 
 set_option linter.unusedVariables false
 
+/-!
+# Specification: Matrix multiplication
+
+-/
+
 /-- Row-major flat slice → Mathlib `Matrix`.  `(i, j) ↦ s[i * cols + j]` -/
 def toMatrix (s : Slice Rat) (rows cols : Nat)
     (h : s.length = rows * cols) : Matrix (Fin rows) (Fin cols) Rat :=
