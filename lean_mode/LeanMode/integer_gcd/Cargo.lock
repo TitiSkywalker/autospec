@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "gcd"
+name = "integer_gcd"
 version = "0.1.0"

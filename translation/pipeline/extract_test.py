@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 from .log import phase, warn
-from .lean_post import lean_f64_to_rat
+from .lean_post import lean_f64_to_rat, lean_integers_to_int
 from .utils import read_crate_name, capitalize_first, find_lake_root
 
 # Import from sibling tools package
@@ -91,6 +91,7 @@ def translate_test_file(
             for lf in sorted(combined_output.glob("*.lean")):
                 combined_text = lf.read_text()
                 combined_text = lean_f64_to_rat(combined_text)
+                combined_text = lean_integers_to_int(combined_text)
                 combined_text = inline_f64_helpers(combined_text)
                 combined_text = re.sub(
                     r"(set_option linter\.style\.nameCheck false\n)+",
@@ -197,12 +198,13 @@ def _extract_defs_by_prefix(combined_text: str, prefixes: set[str]) -> str:
         if text.strip():
             blocks.append(text.strip())
 
+    _KEEP_PREFIXES = set(prefixes)
     kept: list[str] = []
     for block in blocks:
         m = re.search(r"^\s*(?:def|theorem|axiom)\s+(\S+)", block, re.MULTILINE)
         if m:
             name = m.group(1).rstrip(":")
-            if any(name.startswith(p) for p in prefixes):
+            if any(name.startswith(p) for p in _KEEP_PREFIXES):
                 kept.append(block)
 
     if not kept:

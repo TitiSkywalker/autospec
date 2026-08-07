@@ -15,12 +15,19 @@ set_option maxRecDepth 2048
 
 namespace array_bubble_sort
 
-/- I32 replaced with Int by autospec -/
+/- Integer types replaced with Int by autospec -/
 def IntClone.clone (x : Int) : Result Int := ok x
 
 @[reducible]
 def IntClone : core.clone.Clone Int := {
   clone := IntClone.clone
+}
+
+def PartialEqInt.eq (x y : Int) : Result Bool := ok (x = y)
+
+@[reducible]
+def PartialEqInt : core.cmp.PartialEq Int Int := {
+  eq := PartialEqInt.eq
 }
 
 /-- [array_bubble_sort::bubble_sort]: loop body 1:

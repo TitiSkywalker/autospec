@@ -19,7 +19,7 @@ noncomputable section
 
 namespace array_merge_sort
 
-/- I32 replaced with Int by autospec -/
+/- Integer types replaced with Int by autospec -/
 
 /-- [array_merge_sort::test_known_answer_basic]:
     Source: 'src/lib.rs', lines 69:0-74:1
@@ -28,19 +28,19 @@ def test_known_answer_basic : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         10#i32, 8#i32, 4#i32, 3#i32, 1#i32, 9#i32, 2#i32, 7#i32, 5#i32, 6#i32
+         10, 8, 4, 3, 1, 9, 2, 7, 5, 6
          ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         1#i32, 2#i32, 3#i32, 4#i32, 5#i32, 6#i32, 7#i32, 8#i32, 9#i32, 10#i32
+         1, 2, 3, 4, 5, 6, 7, 8, 9, 10
          ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_known_answer_negatives]:
@@ -50,21 +50,21 @@ def test_known_answer_negatives : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         (-5)#i32, 3#i32, (-1)#i32, 0#i32, 2#i32, (-4)#i32, 1#i32, (-2)#i32,
-         4#i32, (-3)#i32
+         (-5), 3, (-1), 0, 2, (-4), 1, (-2),
+         4, (-3)
          ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         (-5)#i32, (-4)#i32, (-3)#i32, (-2)#i32, (-1)#i32, 0#i32, 1#i32, 2#i32,
-         3#i32, 4#i32
+         (-5), (-4), (-3), (-2), (-1), 0, 1, 2,
+         3, 4
          ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_edge_case_empty]:
@@ -74,7 +74,7 @@ def test_edge_case_empty : Result Unit := do
   let s := alloc.vec.Vec.deref (alloc.vec.Vec.new Int)
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result
       (alloc.vec.Vec.new Int)
   massert b
 
@@ -83,17 +83,17 @@ def test_edge_case_empty : Result Unit := do
     Visibility: public -/
 def test_edge_case_single_element : Result Unit := do
   let y ←
-    lift (Std.Array.to_slice (Array.make 1#usize [ 42#i32 ] : Array Int
+    lift (Std.Array.to_slice (Array.make 1#usize [ 42 ] : Array Int
       1#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
-    lift (Std.Array.to_slice (Array.make 1#usize [ 42#i32 ] : Array Int
+    lift (Std.Array.to_slice (Array.make 1#usize [ 42 ] : Array Int
       1#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_edge_case_pre_sorted]:
@@ -102,18 +102,18 @@ def test_edge_case_single_element : Result Unit := do
 def test_edge_case_pre_sorted : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      (Array.make 5#usize [ 1, 2, 3, 4, 5 ] : Array Int
       5#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      (Array.make 5#usize [ 1, 2, 3, 4, 5 ] : Array Int
       5#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_edge_case_reverse_sorted]:
@@ -122,34 +122,34 @@ def test_edge_case_pre_sorted : Result Unit := do
 def test_edge_case_reverse_sorted : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [ 5#i32, 4#i32, 3#i32, 2#i32, 1#i32 ] : Array Int
+      (Array.make 5#usize [ 5, 4, 3, 2, 1 ] : Array Int
       5#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      (Array.make 5#usize [ 1, 2, 3, 4, 5 ] : Array Int
       5#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_edge_case_all_same_elements]:
     Source: 'src/lib.rs', lines 117:0-122:1
     Visibility: public -/
 def test_edge_case_all_same_elements : Result Unit := do
-  let a := Array.repeat 5#usize 7#i32
+  let a := Array.repeat 5#usize 7
   let y ← lift (Std.Array.to_slice a)
   let ret := alloc.slice.Slice.into_vec y
-  let a1 := Array.repeat 5#usize 7#i32
+  let a1 := Array.repeat 5#usize 7
   let y1 ← lift (Std.Array.to_slice a1)
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 /-- [array_merge_sort::test_known_answer_with_duplicates]:
@@ -159,19 +159,19 @@ def test_known_answer_with_duplicates : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         3#i32, 1#i32, 4#i32, 1#i32, 5#i32, 9#i32, 2#i32, 6#i32, 5#i32, 3#i32
+         3, 1, 4, 1, 5, 9, 2, 6, 5, 3
          ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         1#i32, 1#i32, 2#i32, 3#i32, 3#i32, 4#i32, 5#i32, 5#i32, 6#i32, 9#i32
+         1, 1, 2, 3, 3, 4, 5, 5, 6, 9
          ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← merge_sort s
   let b ←
-    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+    alloc.vec.partial_eq.PartialEqVec.eq PartialEqInt result ret1
   massert b
 
 #eval test_edge_case_all_same_elements
