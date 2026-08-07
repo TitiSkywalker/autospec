@@ -1,11 +1,11 @@
-//! Pure merge sort — returns a new sorted `Vec<f64>`.
+//! Pure merge sort — returns a new sorted `Vec<i32>`.
 
 /// Merges two sorted subarrays arr[lo..mid] and arr[mid..hi] into arr[lo..hi].
-fn merge(arr: &mut [f64], lo: usize, mid: usize, hi: usize) {
+fn merge(arr: &mut [i32], lo: usize, mid: usize, hi: usize) {
     let n1 = mid - lo;
     let n2 = hi - mid;
-    let mut left: Vec<f64> = Vec::with_capacity(n1);
-    let mut right: Vec<f64> = Vec::with_capacity(n2);
+    let mut left: Vec<i32> = Vec::with_capacity(n1);
+    let mut right: Vec<i32> = Vec::with_capacity(n2);
     let mut i = lo;
     while i < mid {
         left.push(arr[i]);
@@ -44,7 +44,7 @@ fn merge(arr: &mut [f64], lo: usize, mid: usize, hi: usize) {
 }
 
 /// Internal merge sort implementation.
-fn _merge_sort(arr: &mut [f64], lo: usize, hi: usize) {
+fn _merge_sort(arr: &mut [i32], lo: usize, hi: usize) {
     let len = hi - lo;
     if len <= 1 {
         return;
@@ -55,8 +55,8 @@ fn _merge_sort(arr: &mut [f64], lo: usize, hi: usize) {
     merge(arr, lo, mid, hi);
 }
 
-/// Sorts the given slice using merge sort, returning a new `Vec<f64>`.
-pub fn merge_sort(input: &[f64]) -> Vec<f64> {
+/// Sorts the given slice using merge sort, returning a new `Vec<i32>`.
+pub fn merge_sort(input: &[i32]) -> Vec<i32> {
     let mut arr = input.to_vec();
     let len = arr.len();
     if len > 1 {

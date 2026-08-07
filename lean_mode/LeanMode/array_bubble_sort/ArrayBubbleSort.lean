@@ -13,16 +13,14 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace array_bubble_sort
 
-/- F64 replaced with Rat; f64_helpers inlined by autospec -/
-def RatClone.clone (x : Rat) : Result Rat := ok x
+/- I32 replaced with Int by autospec -/
+def IntClone.clone (x : Int) : Result Int := ok x
 
 @[reducible]
-def RatClone : core.clone.Clone Rat := {
-  clone := RatClone.clone
+def IntClone : core.clone.Clone Int := {
+  clone := IntClone.clone
 }
 
 /-- [array_bubble_sort::bubble_sort]: loop body 1:
@@ -30,22 +28,22 @@ def RatClone : core.clone.Clone Rat := {
     Visibility: public -/
 @[rust_loop_body]
 def bubble_sort_loop0_loop0.body
-  (len : Std.Usize) (i : Std.Usize) (arr : alloc.vec.Vec Rat) (swapped : Bool)
-  (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Bool × Std.Usize)
-    ((alloc.vec.Vec Rat) × Bool))
+  (len : Std.Usize) (i : Std.Usize) (arr : alloc.vec.Vec Int)
+  (swapped : Bool) (j : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Int) × Bool × Std.Usize)
+    ((alloc.vec.Vec Int) × Bool))
   := do
   let i1 ← j + 1#usize
   let i2 ← len - i
   if i1 < i2
   then
     let a ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) arr j
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) arr j
     let b ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) arr i1
-    let b1 := a > b
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) arr
+        i1
     let (arr1, swapped1) ←
-      if b1
+      if a > b
       then
         do
         let (s, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut arr)
@@ -61,9 +59,9 @@ def bubble_sort_loop0_loop0.body
     Visibility: public -/
 @[rust_loop]
 def bubble_sort_loop0_loop0
-  (arr : alloc.vec.Vec Rat) (len : Std.Usize) (i : Std.Usize) (swapped : Bool)
-  (j : Std.Usize) :
-  Result ((alloc.vec.Vec Rat) × Bool)
+  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize)
+  (swapped : Bool) (j : Std.Usize) :
+  Result ((alloc.vec.Vec Int) × Bool)
   := do
   loop
     (fun (arr1, swapped1, j1) => bubble_sort_loop0_loop0.body len i arr1
@@ -75,8 +73,9 @@ def bubble_sort_loop0_loop0
     Visibility: public -/
 @[rust_loop_body]
 def bubble_sort_loop0.body
-  (len : Std.Usize) (arr : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  (len : Std.Usize) (arr : alloc.vec.Vec Int) (i : Std.Usize) :
+  Result (ControlFlow ((alloc.vec.Vec Int) × Std.Usize) (alloc.vec.Vec
+    Int))
   := do
   if i < len
   then
@@ -92,8 +91,8 @@ def bubble_sort_loop0.body
     Visibility: public -/
 @[rust_loop]
 def bubble_sort_loop0
-  (arr : alloc.vec.Vec Rat) (len : Std.Usize) (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
+  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize) :
+  Result (alloc.vec.Vec Int)
   := do
   loop
     (fun (arr1, i1) => bubble_sort_loop0.body len arr1 i1)
@@ -102,8 +101,8 @@ def bubble_sort_loop0
 /-- [array_bubble_sort::bubble_sort]:
     Source: 'src/lib.rs', lines 4:0-29:1
     Visibility: public -/
-def bubble_sort (input : Slice Rat) : Result (alloc.vec.Vec Rat) := do
-  let arr ← alloc.slice.Slice.to_vec RatClone input
+def bubble_sort (input : Slice Int) : Result (alloc.vec.Vec Int) := do
+  let arr ← alloc.slice.Slice.to_vec IntClone input
   let len := alloc.vec.Vec.len arr
   if len <= 1#usize
   then ok arr

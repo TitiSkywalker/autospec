@@ -13,31 +13,28 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace array_quick_sort
 
-/- F64 replaced with Rat; f64_helpers inlined by autospec -/
-def RatClone.clone (x : Rat) : Result Rat := ok x
+/- I32 replaced with Int by autospec -/
+def IntClone.clone (x : Int) : Result Int := ok x
 
 @[reducible]
-def RatClone : core.clone.Clone Rat := {
-  clone := RatClone.clone
+def IntClone : core.clone.Clone Int := {
+  clone := IntClone.clone
 }
 
 /-- [array_quick_sort::partition]: loop body 1:
     Source: 'src/lib.rs', lines 1:0-30:9 -/
 @[rust_loop_body]
 def partition_loop0_loop0.body
-  (arr : Slice Rat) (pivot_val : Rat) (j : Std.Usize) :
+  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
   Result (ControlFlow Std.Usize Std.Usize)
   := do
   if j = 0#usize
   then ok (done j)
   else
     let val ← Slice.index_usize arr j
-    let b := val ≤ pivot_val
-    if b
+    if val <= pivot_val
     then ok (done j)
     else let j1 ← j - 1#usize
          ok (cont j1)
@@ -46,7 +43,9 @@ def partition_loop0_loop0.body
     Source: 'src/lib.rs', lines 1:0-30:9 -/
 @[rust_loop]
 def partition_loop0_loop0
-  (arr : Slice Rat) (pivot_val : Rat) (j : Std.Usize) : Result Std.Usize := do
+  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
+  Result Std.Usize
+  := do
   loop
     (fun j1 => partition_loop0_loop0.body arr pivot_val j1)
     j
@@ -55,15 +54,14 @@ def partition_loop0_loop0
     Source: 'src/lib.rs', lines 1:0-30:9 -/
 @[rust_loop_body]
 def partition_loop0_loop1.body
-  (arr : Slice Rat) (pivot_val : Rat) (j : Std.Usize) :
+  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
   Result (ControlFlow Std.Usize Std.Usize)
   := do
   if j = 0#usize
   then ok (done j)
   else
     let val ← Slice.index_usize arr j
-    let b := val ≤ pivot_val
-    if b
+    if val <= pivot_val
     then ok (done j)
     else let j1 ← j - 1#usize
          ok (cont j1)
@@ -72,7 +70,9 @@ def partition_loop0_loop1.body
     Source: 'src/lib.rs', lines 1:0-30:9 -/
 @[rust_loop]
 def partition_loop0_loop1
-  (arr : Slice Rat) (pivot_val : Rat) (j : Std.Usize) : Result Std.Usize := do
+  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
+  Result Std.Usize
+  := do
   loop
     (fun j1 => partition_loop0_loop1.body arr pivot_val j1)
     j
@@ -81,10 +81,10 @@ def partition_loop0_loop1
     Source: 'src/lib.rs', lines 1:0-42:5 -/
 @[rust_loop_body]
 def partition_loop0.body
-  (hi : Std.Usize) (pivot_val : Rat) (arr : Slice Rat) (i : Std.Usize)
+  (hi : Std.Usize) (pivot_val : Int) (arr : Slice Int) (i : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow ((Slice Rat) × Std.Usize × Std.Usize) ((Slice Rat) ×
-    Std.Usize))
+  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) ((Slice
+    Int) × Std.Usize))
   := do
   if i > hi
   then
@@ -97,8 +97,7 @@ def partition_loop0.body
       else
         let val_i ← Slice.index_usize arr i
         let val_j ← Slice.index_usize arr j1
-        let b := val_i = val_j
-        if b
+        if val_i = val_j
         then
           let i1 ← i + 1#usize
           let j2 ← j1 - 1#usize
@@ -108,8 +107,7 @@ def partition_loop0.body
           ok (cont (arr1, i, j1))
   else
     let val ← Slice.index_usize arr i
-    let b := val ≥ pivot_val
-    if b
+    if val >= pivot_val
     then
       let j1 ← partition_loop0_loop1 arr pivot_val j
       if j1 = 0#usize
@@ -120,8 +118,7 @@ def partition_loop0.body
         else
           let val_i ← Slice.index_usize arr i
           let val_j ← Slice.index_usize arr j1
-          let b1 := val_i = val_j
-          if b1
+          if val_i = val_j
           then
             let i1 ← i + 1#usize
             let j2 ← j1 - 1#usize
@@ -136,9 +133,9 @@ def partition_loop0.body
     Source: 'src/lib.rs', lines 1:0-42:5 -/
 @[rust_loop]
 def partition_loop0
-  (arr : Slice Rat) (hi : Std.Usize) (pivot_val : Rat) (i : Std.Usize)
+  (arr : Slice Int) (hi : Std.Usize) (pivot_val : Int) (i : Std.Usize)
   (j : Std.Usize) :
-  Result ((Slice Rat) × Std.Usize)
+  Result ((Slice Int) × Std.Usize)
   := do
   loop
     (fun (arr1, i1, j1) => partition_loop0.body hi pivot_val arr1 i1 j1)
@@ -147,8 +144,8 @@ def partition_loop0
 /-- [array_quick_sort::partition]:
     Source: 'src/lib.rs', lines 4:0-45:1 -/
 def partition
-  (arr : Slice Rat) (lo : Std.Usize) (hi : Std.Usize) :
-  Result (Std.Usize × (Slice Rat))
+  (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
+  Result (Std.Usize × (Slice Int))
   := do
   let pivot_val ← Slice.index_usize arr hi
   let j ← hi - 1#usize
@@ -161,8 +158,8 @@ mutual
 /-- [array_quick_sort::_quick_sort]: loop 0:
     Source: 'src/lib.rs', lines 49:4-61:5 -/
 partial def _quick_sort_loop
-  (arr : Slice Rat) (lo : Std.Usize) (hi : Std.Usize) :
-  Result (Slice Rat)
+  (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
+  Result (Slice Int)
   := do
   loop
     (fun (arr1, lo1, hi1) => _quick_sort_loop.body arr1 lo1 hi1)
@@ -172,8 +169,9 @@ partial def _quick_sort_loop
 /-- [array_quick_sort::_quick_sort]: loop body 0:
     Source: 'src/lib.rs', lines 49:4-61:5 -/
 partial def _quick_sort_loop.body
-  (arr : Slice Rat) (lo : Std.Usize) (hi : Std.Usize) :
-  Result (ControlFlow ((Slice Rat) × Std.Usize × Std.Usize) (Slice Rat))
+  (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
+  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) (Slice
+    Int))
   := do
   if lo < hi
   then
@@ -201,8 +199,8 @@ partial def _quick_sort_loop.body
 /-- [array_quick_sort::_quick_sort]:
     Source: 'src/lib.rs', lines 48:0-62:1 -/
 partial def _quick_sort
-  (arr : Slice Rat) (lo : Std.Usize) (hi : Std.Usize) :
-  Result (Slice Rat)
+  (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
+  Result (Slice Int)
   := do
   _quick_sort_loop arr lo hi
 
@@ -212,8 +210,8 @@ end
 /-- [array_quick_sort::quick_sort]:
     Source: 'src/lib.rs', lines 65:0-72:1
     Visibility: public -/
-def quick_sort (input : Slice Rat) : Result (alloc.vec.Vec Rat) := do
-  let arr ← alloc.slice.Slice.to_vec RatClone input
+def quick_sort (input : Slice Int) : Result (alloc.vec.Vec Int) := do
+  let arr ← alloc.slice.Slice.to_vec IntClone input
   let len := alloc.vec.Vec.len arr
   if len > 1#usize
   then

@@ -14,9 +14,9 @@ set_option linter.unusedVariables false
 
 /-- Correctness of merge sort: the output is sorted and is a permutation
     of the input. -/
-theorem merge_sort_correct (input : Slice Rat) (result : alloc.vec.Vec Rat)
+theorem merge_sort_correct (input : Slice Int) (result : alloc.vec.Vec Int)
     (h : merge_sort input = ok result) :
-    List.Pairwise (· ≤ ·) (alloc.vec.Vec.deref result : List Rat) ∧
-    (alloc.vec.Vec.deref result : List Rat).Perm (input : List Rat) :=
+    List.Pairwise (· ≤ ·) (alloc.vec.Vec.deref result : List Int) ∧
+    (alloc.vec.Vec.deref result : List Int).Perm (input : List Int) :=
 by
   sorry

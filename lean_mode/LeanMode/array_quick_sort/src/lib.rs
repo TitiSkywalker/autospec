@@ -1,7 +1,7 @@
-//! Pure quicksort — returns a new sorted `Vec<f64>`.
+//! Pure quicksort — returns a new sorted `Vec<i32>`.
 
 /// Partitions the array around a pivot element for quicksort.
-fn partition(arr: &mut [f64], lo: usize, hi: usize) -> usize {
+fn partition(arr: &mut [i32], lo: usize, hi: usize) -> usize {
     let pivot = hi;
     let pivot_val = arr[pivot];
     let mut i = lo;
@@ -45,7 +45,7 @@ fn partition(arr: &mut [f64], lo: usize, hi: usize) -> usize {
 }
 
 /// Internal quicksort implementation.
-fn _quick_sort(arr: &mut [f64], mut lo: usize, mut hi: usize) {
+fn _quick_sort(arr: &mut [i32], mut lo: usize, mut hi: usize) {
     while lo < hi {
         let pivot = partition(arr, lo, hi);
 
@@ -61,8 +61,8 @@ fn _quick_sort(arr: &mut [f64], mut lo: usize, mut hi: usize) {
     }
 }
 
-/// Sorts the given slice using quicksort, returning a new `Vec<f64>`.
-pub fn quick_sort(input: &[f64]) -> Vec<f64> {
+/// Sorts the given slice using quicksort, returning a new `Vec<i32>`.
+pub fn quick_sort(input: &[i32]) -> Vec<i32> {
     let mut arr = input.to_vec();
     let len = arr.len();
     if len > 1 {

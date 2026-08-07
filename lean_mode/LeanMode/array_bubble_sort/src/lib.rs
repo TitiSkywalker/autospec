@@ -1,7 +1,7 @@
-//! Pure bubble sort — returns a new sorted `Vec<f64>`.
+//! Pure bubble sort — returns a new sorted `Vec<i32>`.
 
-/// Sorts the given slice using bubble sort, returning a new `Vec<f64>`.
-pub fn bubble_sort(input: &[f64]) -> Vec<f64> {
+/// Sorts the given slice using bubble sort, returning a new `Vec<i32>`.
+pub fn bubble_sort(input: &[i32]) -> Vec<i32> {
     let mut arr = input.to_vec();
     let len = arr.len();
     if len <= 1 {

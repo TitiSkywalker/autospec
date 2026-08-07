@@ -81,6 +81,38 @@ def lean_f64_to_rat(content: str) -> str:
     return result
 
 
+def lean_i32_to_int(content: str) -> str:
+    """Replace Std.I32 with Int (unbounded integer, like F64→Rat).
+
+    ``Std.I32`` models 32-bit wrapping arithmetic; ``Int`` is Lean's
+    built-in unbounded integer type, which gives simpler verification
+    without bit-level overflow concerns.
+    """
+    if "Std.I32" not in content and "CloneI32" not in content:
+        return content
+
+    # Replace the type itself
+    content = content.replace("Std.I32", "Int")
+    # Replace the clone instance name
+    content = content.replace("core.clone.CloneI32", "IntClone")
+
+    if "def IntClone.clone" not in content:
+        int_clone = (
+            "/- I32 replaced with Int by autospec -/\n"
+            "def IntClone.clone (x : Int) : Result Int := ok x\n"
+            "\n"
+            "@[reducible]\n"
+            "def IntClone : core.clone.Clone Int := {\n"
+            "  clone := IntClone.clone\n"
+            "}\n"
+        )
+        content = re.sub(
+            r"(namespace \w+\n)", r"\1\n" + int_clone, content, count=1
+        )
+
+    return content
+
+
 def _fix_partial_mutual(text: str) -> str:
     """Replace ``partial_fixpoint`` with ``partial`` for tail-recursive
     functions inside ``mutual`` blocks, so the Lean 4.31 monotonicity
@@ -133,6 +165,7 @@ def write_lean_output(
             "set_option linter.style.nameCheck false",
         )
         text = lean_f64_to_rat(text)
+        text = lean_i32_to_int(text)
         text = inline_f64_helpers(text)
         text = _fix_partial_mutual(text)
         (output_path / f).write_text(text)

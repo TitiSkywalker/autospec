@@ -15,521 +15,164 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 
 /- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
 
 namespace array_bubble_sort
 
-/- Rat replaced with Rat; f64_helpers inlined by autospec -/
-
-/-- [array_bubble_sort::test_known_answer_basic]: loop body 0:
-    Source: 'src/lib.rs', lines 37:4-40:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_known_answer_basic_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_known_answer_basic]: loop 0:
-    Source: 'src/lib.rs', lines 37:4-40:5
-    Visibility: public -/
-@[rust_loop]
-def test_known_answer_basic_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_known_answer_basic_loop.body expected result tol iter1)
-    iter
+/- I32 replaced with Int by autospec -/
 
 /-- [array_bubble_sort::test_known_answer_basic]:
-    Source: 'src/lib.rs', lines 32:0-41:1
+    Source: 'src/lib.rs', lines 32:0-37:1
     Visibility: public -/
 def test_known_answer_basic : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_1 := (1 : Rat)
-  let _f64_const_10 := (10 : Rat)
-  let _f64_const_2 := (2 : Rat)
-  let _f64_const_3 := (3 : Rat)
-  let _f64_const_4 := (4 : Rat)
-  let _f64_const_5 := (5 : Rat)
-  let _f64_const_6 := (6 : Rat)
-  let _f64_const_7 := (7 : Rat)
-  let _f64_const_8 := (8 : Rat)
-  let _f64_const_9 := (9 : Rat)
   let y ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         _f64_const_10, _f64_const_8, _f64_const_4, _f64_const_3, _f64_const_1,
-         _f64_const_9, _f64_const_2, _f64_const_7, _f64_const_5, _f64_const_6
-         ] : Array Rat 10#usize))
+         10#i32, 8#i32, 4#i32, 3#i32, 1#i32, 9#i32, 2#i32, 7#i32, 5#i32, 6#i32
+         ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5,
-         _f64_const_6, _f64_const_7, _f64_const_8, _f64_const_9, _f64_const_10
-         ] : Array Rat 10#usize))
+         1#i32, 2#i32, 3#i32, 4#i32, 5#i32, 6#i32, 7#i32, 8#i32, 9#i32, 10#i32
+         ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_known_answer_basic_loop { start := 0#usize, «end» := i } ret1 result
-    _f64_const_0_001
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
-/-- [array_bubble_sort::test_known_answer_floats]: loop body 0:
-    Source: 'src/lib.rs', lines 49:4-52:5
+/-- [array_bubble_sort::test_known_answer_negatives]:
+    Source: 'src/lib.rs', lines 40:0-45:1
     Visibility: public -/
-@[rust_loop_body]
-def test_known_answer_floats_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_known_answer_floats]: loop 0:
-    Source: 'src/lib.rs', lines 49:4-52:5
-    Visibility: public -/
-@[rust_loop]
-def test_known_answer_floats_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_known_answer_floats_loop.body expected result tol iter1)
-    iter
-
-/-- [array_bubble_sort::test_known_answer_floats]:
-    Source: 'src/lib.rs', lines 44:0-53:1
-    Visibility: public -/
-def test_known_answer_floats : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_0_5 := (5/10 : Rat)
-  let _f64_const_1_2 := (12/10 : Rat)
-  let _f64_const_1_5 := (15/10 : Rat)
-  let _f64_const_2_2999999999999998 := (22999999999999998/10000000000000000 : Rat)
-  let _f64_const_3_1000000000000001 := (31000000000000001/10000000000000000 : Rat)
+def test_known_answer_negatives : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_1_5, _f64_const_2_2999999999999998, _f64_const_0_5,
-         _f64_const_3_1000000000000001, _f64_const_1_2
-         ] : Array Rat 5#usize))
+      (Array.make 10#usize [
+         (-5)#i32, 3#i32, (-1)#i32, 0#i32, 2#i32, (-4)#i32, 1#i32, (-2)#i32,
+         4#i32, (-3)#i32
+         ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_0_5, _f64_const_1_2, _f64_const_1_5,
-         _f64_const_2_2999999999999998, _f64_const_3_1000000000000001
-         ] : Array Rat 5#usize))
+      (Array.make 10#usize [
+         (-5)#i32, (-4)#i32, (-3)#i32, (-2)#i32, (-1)#i32, 0#i32, 1#i32, 2#i32,
+         3#i32, 4#i32
+         ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_known_answer_floats_loop { start := 0#usize, «end» := i } ret1 result
-    _f64_const_0_001
-
-/-- [array_bubble_sort::test_edge_case_empty]: loop body 0:
-    Source: 'src/lib.rs', lines 61:4-64:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_edge_case_empty_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_edge_case_empty]: loop 0:
-    Source: 'src/lib.rs', lines 61:4-64:5
-    Visibility: public -/
-@[rust_loop]
-def test_edge_case_empty_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_edge_case_empty_loop.body expected result tol iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 /-- [array_bubble_sort::test_edge_case_empty]:
-    Source: 'src/lib.rs', lines 56:0-65:1
+    Source: 'src/lib.rs', lines 48:0-53:1
     Visibility: public -/
 def test_edge_case_empty : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let s := alloc.vec.Vec.deref (alloc.vec.Vec.new Rat)
+  let s := alloc.vec.Vec.deref (alloc.vec.Vec.new Int)
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_edge_case_empty_loop { start := 0#usize, «end» := i }
-    (alloc.vec.Vec.new Rat) result _f64_const_0_001
-
-/-- [array_bubble_sort::test_edge_case_single_element]: loop body 0:
-    Source: 'src/lib.rs', lines 73:4-76:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_edge_case_single_element_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_edge_case_single_element]: loop 0:
-    Source: 'src/lib.rs', lines 73:4-76:5
-    Visibility: public -/
-@[rust_loop]
-def test_edge_case_single_element_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_edge_case_single_element_loop.body expected result tol
-      iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result
+      (alloc.vec.Vec.new Int)
+  massert b
 
 /-- [array_bubble_sort::test_edge_case_single_element]:
-    Source: 'src/lib.rs', lines 68:0-77:1
+    Source: 'src/lib.rs', lines 56:0-61:1
     Visibility: public -/
 def test_edge_case_single_element : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_42 := (42 : Rat)
   let y ←
-    lift (Std.Array.to_slice (Array.make 1#usize [ _f64_const_42 ] : Array Rat
+    lift (Std.Array.to_slice (Array.make 1#usize [ 42#i32 ] : Array Int
       1#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
-    lift (Std.Array.to_slice (Array.make 1#usize [ _f64_const_42 ] : Array Rat
+    lift (Std.Array.to_slice (Array.make 1#usize [ 42#i32 ] : Array Int
       1#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_edge_case_single_element_loop { start := 0#usize, «end» := i } ret1
-    result _f64_const_0_001
-
-/-- [array_bubble_sort::test_edge_case_pre_sorted]: loop body 0:
-    Source: 'src/lib.rs', lines 85:4-88:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_edge_case_pre_sorted_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_edge_case_pre_sorted]: loop 0:
-    Source: 'src/lib.rs', lines 85:4-88:5
-    Visibility: public -/
-@[rust_loop]
-def test_edge_case_pre_sorted_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_edge_case_pre_sorted_loop.body expected result tol
-      iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 /-- [array_bubble_sort::test_edge_case_pre_sorted]:
-    Source: 'src/lib.rs', lines 80:0-89:1
+    Source: 'src/lib.rs', lines 64:0-69:1
     Visibility: public -/
 def test_edge_case_pre_sorted : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_1 := (1 : Rat)
-  let _f64_const_2 := (2 : Rat)
-  let _f64_const_3 := (3 : Rat)
-  let _f64_const_4 := (4 : Rat)
-  let _f64_const_5 := (5 : Rat)
   let y ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5
-         ] : Array Rat 5#usize))
+      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      5#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5
-         ] : Array Rat 5#usize))
+      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      5#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_edge_case_pre_sorted_loop { start := 0#usize, «end» := i } ret1 result
-    _f64_const_0_001
-
-/-- [array_bubble_sort::test_edge_case_reverse_sorted]: loop body 0:
-    Source: 'src/lib.rs', lines 97:4-100:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_edge_case_reverse_sorted_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_edge_case_reverse_sorted]: loop 0:
-    Source: 'src/lib.rs', lines 97:4-100:5
-    Visibility: public -/
-@[rust_loop]
-def test_edge_case_reverse_sorted_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_edge_case_reverse_sorted_loop.body expected result tol
-      iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 /-- [array_bubble_sort::test_edge_case_reverse_sorted]:
-    Source: 'src/lib.rs', lines 92:0-101:1
+    Source: 'src/lib.rs', lines 72:0-77:1
     Visibility: public -/
 def test_edge_case_reverse_sorted : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_1 := (1 : Rat)
-  let _f64_const_2 := (2 : Rat)
-  let _f64_const_3 := (3 : Rat)
-  let _f64_const_4 := (4 : Rat)
-  let _f64_const_5 := (5 : Rat)
   let y ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_5, _f64_const_4, _f64_const_3, _f64_const_2, _f64_const_1
-         ] : Array Rat 5#usize))
+      (Array.make 5#usize [ 5#i32, 4#i32, 3#i32, 2#i32, 1#i32 ] : Array Int
+      5#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
-      (Array.make 5#usize [
-         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5
-         ] : Array Rat 5#usize))
+      (Array.make 5#usize [ 1#i32, 2#i32, 3#i32, 4#i32, 5#i32 ] : Array Int
+      5#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_edge_case_reverse_sorted_loop { start := 0#usize, «end» := i } ret1
-    result _f64_const_0_001
-
-/-- [array_bubble_sort::test_edge_case_all_same_elements]: loop body 0:
-    Source: 'src/lib.rs', lines 109:4-112:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_edge_case_all_same_elements_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_edge_case_all_same_elements]: loop 0:
-    Source: 'src/lib.rs', lines 109:4-112:5
-    Visibility: public -/
-@[rust_loop]
-def test_edge_case_all_same_elements_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_edge_case_all_same_elements_loop.body expected result
-      tol iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 /-- [array_bubble_sort::test_edge_case_all_same_elements]:
-    Source: 'src/lib.rs', lines 104:0-113:1
+    Source: 'src/lib.rs', lines 80:0-85:1
     Visibility: public -/
 def test_edge_case_all_same_elements : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_7 := (7 : Rat)
-  let a := Array.repeat 5#usize _f64_const_7
+  let a := Array.repeat 5#usize 7#i32
   let y ← lift (Std.Array.to_slice a)
   let ret := alloc.slice.Slice.into_vec y
-  let a1 := Array.repeat 5#usize _f64_const_7
+  let a1 := Array.repeat 5#usize 7#i32
   let y1 ← lift (Std.Array.to_slice a1)
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_edge_case_all_same_elements_loop { start := 0#usize, «end» := i } ret1
-    result _f64_const_0_001
-
-/-- [array_bubble_sort::test_known_answer_with_duplicates]: loop body 0:
-    Source: 'src/lib.rs', lines 121:4-124:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_known_answer_with_duplicates_loop.body
-  (expected : alloc.vec.Vec Rat) (result : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
-/-- [array_bubble_sort::test_known_answer_with_duplicates]: loop 0:
-    Source: 'src/lib.rs', lines 121:4-124:5
-    Visibility: public -/
-@[rust_loop]
-def test_known_answer_with_duplicates_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_known_answer_with_duplicates_loop.body expected result
-      tol iter1)
-    iter
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 /-- [array_bubble_sort::test_known_answer_with_duplicates]:
-    Source: 'src/lib.rs', lines 116:0-125:1
+    Source: 'src/lib.rs', lines 88:0-93:1
     Visibility: public -/
 def test_known_answer_with_duplicates : Result Unit := do
-  let _f64_const_0_001 := (1/1000 : Rat)
-  let _f64_const_1 := (1 : Rat)
-  let _f64_const_2 := (2 : Rat)
-  let _f64_const_3 := (3 : Rat)
-  let _f64_const_4 := (4 : Rat)
-  let _f64_const_5 := (5 : Rat)
-  let _f64_const_6 := (6 : Rat)
-  let _f64_const_9 := (9 : Rat)
   let y ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         _f64_const_3, _f64_const_1, _f64_const_4, _f64_const_1, _f64_const_5,
-         _f64_const_9, _f64_const_2, _f64_const_6, _f64_const_5, _f64_const_3
-         ] : Array Rat 10#usize))
+         3#i32, 1#i32, 4#i32, 1#i32, 5#i32, 9#i32, 2#i32, 6#i32, 5#i32, 3#i32
+         ] : Array Int 10#usize))
   let ret := alloc.slice.Slice.into_vec y
   let y1 ←
     lift (Std.Array.to_slice
       (Array.make 10#usize [
-         _f64_const_1, _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_3,
-         _f64_const_4, _f64_const_5, _f64_const_5, _f64_const_6, _f64_const_9
-         ] : Array Rat 10#usize))
+         1#i32, 1#i32, 2#i32, 3#i32, 3#i32, 4#i32, 5#i32, 5#i32, 6#i32, 9#i32
+         ] : Array Int 10#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   let s := alloc.vec.Vec.deref ret
   let result ← bubble_sort s
-  let i := alloc.vec.Vec.len result
-  test_known_answer_with_duplicates_loop { start := 0#usize, «end» := i }
-    ret1 result _f64_const_0_001
+  let b ←
+    alloc.vec.partial_eq.PartialEqVec.eq core.cmp.PartialEqI32 result ret1
+  massert b
 
 #eval test_edge_case_all_same_elements
 
@@ -543,7 +186,7 @@ def test_known_answer_with_duplicates : Result Unit := do
 
 #eval test_known_answer_basic
 
-#eval test_known_answer_floats
+#eval test_known_answer_negatives
 
 #eval test_known_answer_with_duplicates
 
