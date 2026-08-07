@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "kruskal"
+name = "graph_kruskal"
 version = "0.1.0"

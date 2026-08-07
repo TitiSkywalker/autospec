@@ -1,7 +1,7 @@
-import LeanMode.kruskal.Kruskal
+import LeanMode.graph_kruskal.GraphKruskal
 
 open Aeneas Aeneas.Std Result
-open kruskal
+open graph_kruskal
 
 set_option linter.unusedVariables false
 

@@ -1,7 +1,7 @@
-import LeanMode.prim.Prim
+import LeanMode.graph_prim.GraphPrim
 
 open Aeneas Aeneas.Std Result
-open prim
+open graph_prim
 
 set_option linter.unusedVariables false
 

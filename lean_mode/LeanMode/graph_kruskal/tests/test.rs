@@ -57,7 +57,7 @@ fn test_kruskal_basic_square() {
         (4, 1, 2.0),
         (1, 3, 2.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 3);
     assert_approx_eq(total_weight(&mst), 4.0, 0.001);
     assert!(contains_edge(&mst, 1, 2, 1.0));
@@ -74,7 +74,7 @@ fn test_kruskal_linear() {
         (2, 3, 2.0),
         (3, 4, 3.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 3);
     assert_approx_eq(total_weight(&mst), 6.0, 0.001);
 }
@@ -92,7 +92,7 @@ fn test_kruskal_k4() {
         (2, 4, 5.0),
         (3, 4, 6.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 3);
     assert_approx_eq(total_weight(&mst), 6.0, 0.001);
 }
@@ -113,7 +113,7 @@ fn test_kruskal_k5() {
         (3, 5, 9.0),
         (4, 5, 10.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 4);
     assert_approx_eq(total_weight(&mst), 10.0, 0.001);
 }
@@ -127,7 +127,7 @@ fn test_kruskal_k5() {
 fn test_empty_graph() {
     let nodes: [usize; 0] = [];
     let edges: [(usize, usize, f64); 0] = [];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 0);
 }
 
@@ -136,7 +136,7 @@ fn test_empty_graph() {
 fn test_single_node() {
     let nodes = [1];
     let edges: [(usize, usize, f64); 0] = [];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 0);
 }
 
@@ -145,7 +145,7 @@ fn test_single_node() {
 fn test_single_edge() {
     let nodes = [1, 2];
     let edges = [(1, 2, 5.0)];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 1);
     assert_approx_eq(total_weight(&mst), 5.0, 0.001);
 }
@@ -155,7 +155,7 @@ fn test_single_edge() {
 fn test_isolated_nodes() {
     let nodes = [1, 2, 3, 4];
     let edges: [(usize, usize, f64); 0] = [];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 0);
 }
 
@@ -167,7 +167,7 @@ fn test_duplicate_edges() {
         (1, 2, 5.0),
         (1, 2, 1.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 1);
     assert_approx_eq(total_weight(&mst), 1.0, 0.001);
 }
@@ -180,7 +180,7 @@ fn test_self_loop() {
         (1, 1, 0.5),
         (1, 2, 3.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 1);
     assert_approx_eq(total_weight(&mst), 3.0, 0.001);
 }
@@ -194,7 +194,7 @@ fn test_zero_weight() {
         (2, 3, 0.0),
         (1, 3, 1.0),
     ];
-    let mst = kruskal::kruskal(&nodes, &edges);
+    let mst = graph_kruskal::kruskal(&nodes, &edges);
     assert!(mst.len() == 2);
     assert_approx_eq(total_weight(&mst), 0.0, 0.001);
 }
