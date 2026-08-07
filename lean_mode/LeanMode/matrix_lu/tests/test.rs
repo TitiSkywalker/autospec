@@ -1,4 +1,4 @@
-use lu_decomposition::lu_decomposition;
+use matrix_lu::lu_decomposition;
 
 /// Helper — check approximate equality of two f64 values.
 fn assert_approx_eq(actual: f64, expected: f64, tol: f64) {

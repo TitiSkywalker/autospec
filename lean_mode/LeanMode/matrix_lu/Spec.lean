@@ -1,10 +1,10 @@
-import LeanMode.lu_decomposition.LuDecomposition
+import LeanMode.matrix_lu.MatrixLu
 import Mathlib.LinearAlgebra.Matrix.Determinant.Basic
 import Mathlib.Tactic
 
 open Aeneas Aeneas.Std Result
 open Matrix
-open lu_decomposition
+open matrix_lu
 
 set_option linter.unusedVariables false
 

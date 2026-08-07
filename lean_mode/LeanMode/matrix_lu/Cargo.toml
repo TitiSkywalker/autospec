@@ -1,5 +1,5 @@
 [package]
-name = "lu_decomposition"
+name = "matrix_lu"
 version = "0.1.0"
 edition = "2024"
 
