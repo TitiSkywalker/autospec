@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "quick_sort"
+name = "array_quick_sort"
 version = "0.1.0"

@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "merge_sort"
+name = "array_merge_sort"
 version = "0.1.0"

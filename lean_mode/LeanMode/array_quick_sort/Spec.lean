@@ -1,21 +1,21 @@
-import LeanMode.bubble_sort.BubbleSort
+import LeanMode.array_quick_sort.ArrayQuickSort
 import Mathlib.Data.List.Sort
 
 open Aeneas Aeneas.Std Result
-open bubble_sort
+open array_quick_sort
 open List
 
 set_option linter.unusedVariables false
 
 /-!
-# Specification: Bubble Sort
+# Specification: Quicksort
 
 -/
 
-/-- Correctness of bubble sort: the output is sorted and is a permutation
+/-- Correctness of quicksort: the output is sorted and is a permutation
     of the input. -/
-theorem bubble_sort_correct (input : Slice Rat) (result : alloc.vec.Vec Rat)
-    (h : bubble_sort input = ok result) :
+theorem quick_sort_correct (input : Slice Rat) (result : alloc.vec.Vec Rat)
+    (h : quick_sort input = ok result) :
     List.Pairwise (· ≤ ·) (alloc.vec.Vec.deref result : List Rat) ∧
     (alloc.vec.Vec.deref result : List Rat).Perm (input : List Rat) :=
 by
