@@ -6,11 +6,11 @@ from pathlib import Path
 
 # Import from sibling tools package
 import sys
+
 _tools_dir = str(Path(__file__).resolve().parent.parent / "tools")
 if _tools_dir not in sys.path:
     sys.path.insert(0, _tools_dir)
 from lean_inline import inline_f64_helpers  # noqa: E402
-
 
 
 def lean_f64_to_rat(content: str) -> str:
@@ -61,9 +61,18 @@ def lean_f64_to_rat(content: str) -> str:
     result = "\n".join(out)
 
     result = re.sub(r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result)
+    # ``is_nan`` / ``is_infinite`` are always false for Rat — replace with ``ok false``.
     result = re.sub(
-        r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_nan\s+(\S+)",
+        r"let \1 := false",
+        result,
     )
+    result = re.sub(
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_infinite\s+(\S+)",
+        r"let \1 := false",
+        result,
+    )
+    result = re.sub(r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result)
     result = result.replace("noncomputable section\n", "")
 
     if "def RatClone.clone" not in result:
@@ -107,14 +116,23 @@ def lean_integers_to_int(content: str) -> str:
     ``Std.Usize`` is **not** replaced — it is used for array indexing.
     """
     # Check for any integer-related tokens (types, literals, trait instances)
-    _INT_MARKERS = [t for t, _ in _INT_TYPES] + [
-        s for _, s in _INT_TYPES
-    ] + [
-        "PartialEqI8", "PartialEqI16", "PartialEqI32", "PartialEqI64",
-        "PartialEqI128", "PartialEqIsize",
-        "PartialEqU8", "PartialEqU16", "PartialEqU32", "PartialEqU64",
-        "PartialEqU128",
-    ]
+    _INT_MARKERS = (
+        [t for t, _ in _INT_TYPES]
+        + [s for _, s in _INT_TYPES]
+        + [
+            "PartialEqI8",
+            "PartialEqI16",
+            "PartialEqI32",
+            "PartialEqI64",
+            "PartialEqI128",
+            "PartialEqIsize",
+            "PartialEqU8",
+            "PartialEqU16",
+            "PartialEqU32",
+            "PartialEqU64",
+            "PartialEqU128",
+        ]
+    )
     if not any(m in content for m in _INT_MARKERS):
         return content
 
@@ -174,9 +192,7 @@ def lean_integers_to_int(content: str) -> str:
 
     if extras:
         block = "\n".join(extras)
-        content = re.sub(
-            r"(namespace \w+\n)", r"\1\n" + block, content, count=1
-        )
+        content = re.sub(r"(namespace \w+\n)", r"\1\n" + block, content, count=1)
 
     return content
 

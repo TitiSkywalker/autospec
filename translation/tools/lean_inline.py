@@ -106,6 +106,13 @@ def inline_f64_helpers(content: str) -> str:
             content,
             flags=re.MULTILINE,
         )
+    for name, op in _COMPARISON.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)f64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"\1\2ok (\3 {op} \4)",
+            content,
+            flags=re.MULTILINE,
+        )
     for name, (prefix, suffix) in _UNARY.items():
         content = re.sub(
             rf"(^|\n)(\s+)f64_helpers\.{name}\s+(\S+)[ \t]*$",
