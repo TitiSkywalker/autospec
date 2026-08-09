@@ -33,6 +33,7 @@ class Translator:
         charon_bin: str | Path | None = None,
         aeneas_bin: str | Path | None = None,
         verbose: bool = False,
+        target: str = "Rat",
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
@@ -42,6 +43,7 @@ class Translator:
             aeneas_bin or _root.parent / "aeneas" / "bin" / "aeneas"
         )
         self.verbose = verbose
+        self.target = target
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -85,20 +87,23 @@ class Translator:
         for name in sorted(impl_files):
             results.append(("impl", name, impl_defs))
 
-        # 2. Translate each test file in tests/
-        tests_dir = project_path / "tests"
-        if tests_dir.is_dir():
-            for test_file in sorted(tests_dir.glob("*.rs")):
-                test_defs = translate_test_file(
-                    self._translate_inner,
-                    project_path,
-                    output_path,
-                    test_file,
-                )
-                if test_defs is not None:
-                    results.append(
-                        ("test", f"Test_{test_file.stem}.lean", test_defs)
+        # 2. Translate each test file in tests/  (skip for Real: sqrt is
+        #    noncomputable so #eval cannot execute anyway)
+        if self.target != "Real":
+            tests_dir = project_path / "tests"
+            if tests_dir.is_dir():
+                for test_file in sorted(tests_dir.glob("*.rs")):
+                    test_defs = translate_test_file(
+                        self._translate_inner,
+                        project_path,
+                        output_path,
+                        test_file,
+                        target=self.target,
                     )
+                    if test_defs is not None:
+                        results.append(
+                            ("test", f"Test_{test_file.stem}.lean", test_defs)
+                        )
 
         # Summary
         for tag, filename, count in results:
@@ -152,7 +157,7 @@ class Translator:
             if aeneas_warnings is None:
                 return None
 
-            def_count, written = write_lean_output(workdir, output_path)
+            def_count, written = write_lean_output(workdir, output_path, target=self.target)
             phase("  output", f"{def_count} defs")
             if def_count == 0:
                 fail("output", "no definitions written")
@@ -177,8 +182,13 @@ if __name__ == "__main__":
     p.add_argument("-v", "--verbose", action="store_true", help="Print debug output")
     p.add_argument("--charon", default=None)
     p.add_argument("--aeneas", default=None)
+    p.add_argument(
+        "--target", default="Rat", choices=["Rat", "Real"],
+        help="Replace f64 with Rat (default) or ℝ (computable sqrt)",
+    )
     args = p.parse_args()
 
-    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas, verbose=args.verbose)
+    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas,
+                   verbose=args.verbose, target=args.target)
     ok = t.translate(args.project_dir, args.output_dir)
     raise SystemExit(0 if ok else 1)

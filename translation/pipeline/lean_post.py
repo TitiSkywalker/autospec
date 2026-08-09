@@ -1,4 +1,4 @@
-"""Post-process generated Lean files: F64→Rat, inline helpers, write output."""
+"""Post-process generated Lean files: F64→Rat/ℝ, inline helpers, write output."""
 
 import os
 import re
@@ -73,7 +73,19 @@ def lean_f64_to_rat(content: str) -> str:
         result,
     )
     result = re.sub(r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result)
-    result = result.replace("noncomputable section\n", "")
+    # When sqrt is present the code generator cannot compile the module
+    # (Rat has no computable sqrt).  Insert ``noncomputable section`` so
+    # that the code generator skips all definitions in the file.
+    if "std.f64.Rat.sqrt" in result:
+        result = result.replace("noncomputable section\n", "")
+        result = result.replace(
+            "set_option linter.style.nameCheck false\n",
+            "set_option linter.style.nameCheck false\n"
+            "noncomputable section\n",
+            count=1,
+        )
+    else:
+        result = result.replace("noncomputable section\n", "")
 
     if "def RatClone.clone" not in result:
         rat_clone = (
@@ -86,6 +98,130 @@ def lean_f64_to_rat(content: str) -> str:
             "}\n"
         )
         result = re.sub(r"(namespace \w+\n)", r"\1\n" + rat_clone, result, count=1)
+
+    return result
+
+
+def lean_f64_to_real(content: str) -> str:
+    """Replace F64 opaque type with ℝ (Real, computable including sqrt).
+
+    Unlike Rat, ``Real.sqrt`` is computable (via Cauchy sequences in
+    mathlib), so modules using ``sqrt`` do NOT need ``noncomputable``.
+    """
+    if "F64" not in content:
+        return content
+
+    content = content.replace("F64.Insts.CoreCloneClone.clone", "RealClone.clone")
+    content = content.replace("F64.Insts.CoreCloneClone", "RealClone")
+
+    lines = content.split("\n")
+    skip: set[int] = set()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("/-- [") or (
+            line.startswith("/-- Trait") and "Clone for f64" in line
+        ):
+            if any(
+                [
+                    "f64_helpers::" in line,
+                    "core::clone::impls" in line
+                    and "core::clone::Clone for f64" in line,
+                    "Trait implementation:" in line
+                    and "core::clone::Clone for f64" in line,
+                    "core::f64::" in line,
+                ]
+            ):
+                start = i
+                while i < len(lines) and not lines[i].rstrip().endswith("-/"):
+                    i += 1
+                i += 1
+                while i < len(lines) and lines[i].startswith("@["):
+                    i += 1
+                while i < len(lines) and lines[i].strip() != "":
+                    i += 1
+                if i < len(lines) and lines[i].strip() == "":
+                    i += 1
+                skip.update(range(start, i))
+                continue
+        i += 1
+
+    out = []
+    for i, line in enumerate(lines):
+        if i in skip:
+            continue
+        out.append(line.replace("F64", "ℝ"))
+    result = "\n".join(out)
+
+    result = re.sub(r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result)
+    # Real.sqrt requires Mathlib — add import after Aeneas
+    result = re.sub(
+        r"import Aeneas\n",
+        "import Aeneas\nimport Mathlib\n",
+        result,
+        count=1,
+    )
+    # Real.sqrt is noncomputable for C codegen (Cauchy sequences), so the
+    # code generator must skip definitions that transitively call it.
+    # Insert noncomputable section.
+    result = result.replace("noncomputable section\n", "")
+    result = result.replace(
+        "set_option linter.style.nameCheck false\n",
+        "set_option linter.style.nameCheck false\n"
+        "noncomputable section\n",
+        count=1,
+    )
+
+    # sqrt: replace axiom + call sites with Real.sqrt (computable for #eval)
+    if "std.f64.ℝ.sqrt" in result:
+        # Remove the axiom definition block (doc comment + attribute + axiom)
+        # and the preceding blank lines so no gap is left behind.
+        result = re.sub(
+            r"\n*/-- \[std::f64::\{f64\}::sqrt\]:.*?\n"
+            r"(?:.*?\n)*?"
+            r"@\[rust_fun \"std::f64::\{f64\}::sqrt\"\] "
+            r"(?:noncomputable )?axiom std\.f64\.ℝ\.sqrt : ℝ → Result ℝ\n",
+            "\n",
+            result,
+            flags=re.DOTALL,
+        )
+        # Replace call sites (let-binding)
+        result = re.sub(
+            r"\blet\s+(\w+)\s+←\s+std\.f64\.ℝ\.sqrt\s+(\S+)",
+            r"let \1 := Real.sqrt \2",
+            result,
+        )
+        # Replace tail-position calls  (use [ \t] not \s — \s eats \n)
+        result = re.sub(
+            r"(^|\n)([ \t]+)std\.f64\.ℝ\.sqrt[ \t]+(\S+)[ \t]*$",
+            r"\1\2ok (Real.sqrt \3)",
+            result,
+            flags=re.MULTILINE,
+        )
+
+    # ``is_nan`` / ``is_infinite`` are always false for ℝ.
+    result = re.sub(
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_nan\s+(\S+)",
+        r"let \1 := false",
+        result,
+    )
+    result = re.sub(
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_infinite\s+(\S+)",
+        r"let \1 := false",
+        result,
+    )
+
+    if "def RealClone.clone" not in result:
+        real_clone = (
+            "/- F64 replaced with ℝ by autospec -/\n"
+            "def RealClone.clone (x : ℝ) : Result ℝ := ok x\n"
+            "\n"
+            "@[reducible]\n"
+            "def RealClone : core.clone.Clone ℝ := {\n"
+            "  clone := RealClone.clone\n"
+            "}\n"
+        )
+        result = re.sub(r"(namespace \w+\n)", r"\1\n" + real_clone, result, count=1)
 
     return result
 
@@ -232,14 +368,21 @@ def write_lean_output(
     output_path: Path,
     *,
     label: str = "",
+    target: str = "Rat",
 ) -> tuple[int, list[str]]:
     """Post-process and copy Lean files from *workdir* to *output_path*.
 
-    Returns ``(def_count, written_filenames)``.
+    Parameters
+    ----------
+    target:
+        ``"Rat"`` (default) — replace f64 with Rat; sqrt is noncomputable.
+        ``"Real"`` — replace f64 with ℝ; sqrt is computable via Real.sqrt.
     """
     lean_files = sorted(f for f in os.listdir(str(workdir)) if f.endswith(".lean"))
     def_count = 0
     written: list[str] = []
+
+    _use_real = target == "Real"
 
     for f in lean_files:
         text = (workdir / f).read_text()
@@ -248,11 +391,18 @@ def write_lean_output(
             "set_option linter.unusedVariables false\n"
             "set_option linter.style.nameCheck false",
         )
-        text = lean_f64_to_rat(text)
+        if _use_real:
+            text = lean_f64_to_real(text)
+        else:
+            text = lean_f64_to_rat(text)
         text = lean_integers_to_int(text)
         text = inline_f64_helpers(text)
+        if _use_real:
+            # f64_helpers constants and helpers use ``Rat`` — fix type
+            text = re.sub(r"\bRat\b", "ℝ", text)
+            text = re.sub(r"\bRatClone\b", "RealClone", text)
         text = _fix_partial_mutual(text)
-        (output_path / f).write_text(text)
+        (output_path / f).write_text(text.rstrip("\n") + "\n")
         written.append(f)
         def_count += len(
             re.findall(r"^\s*(?:def|theorem|axiom)\s+\S+", text, re.MULTILINE)
