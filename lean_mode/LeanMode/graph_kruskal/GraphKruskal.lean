@@ -15,28 +15,17 @@ set_option maxRecDepth 2048
 
 namespace graph_kruskal
 
-/-- [graph_kruskal::find]: loop body 0:
-    Source: 'src/lib.rs', lines 9:4-11:5
-    Visibility: public -/
-@[rust_loop_body]
-def find_loop.body
-  (parent : Slice Std.Usize) (current : Std.Usize) :
-  Result (ControlFlow Std.Usize Std.Usize)
-  := do
-  let i ← Slice.index_usize parent current
-  if i != current
-  then ok (cont i)
-  else ok (done current)
-
 /-- [graph_kruskal::find]: loop 0:
     Source: 'src/lib.rs', lines 9:4-11:5
     Visibility: public -/
 @[rust_loop]
 def find_loop
   (parent : Slice Std.Usize) (current : Std.Usize) : Result Std.Usize := do
-  loop
-    (fun current1 => find_loop.body parent current1)
-    current
+  let i ← Slice.index_usize parent current
+  if i != current
+  then find_loop parent i
+  else ok current
+partial_fixpoint
 
 /-- [graph_kruskal::find]:
     Source: 'src/lib.rs', lines 7:0-13:1
@@ -58,25 +47,6 @@ def union
   then Slice.update parent x_root y_root
   else ok parent
 
-/-- [graph_kruskal::kruskal]: loop body 0:
-    Source: 'src/lib.rs', lines 39:4-44:5
-    Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop0.body
-  (nodes : Slice Std.Usize) (n_nodes : Std.Usize) (max_node : Std.Usize)
-  (i : Std.Usize) :
-  Result (ControlFlow (Std.Usize × Std.Usize) Std.Usize)
-  := do
-  if i < n_nodes
-  then
-    let i1 ← Slice.index_usize nodes i
-    let max_node1 ← if i1 > max_node
-                      then ok i1
-                      else ok max_node
-    let i2 ← i + 1#usize
-    ok (cont (max_node1, i2))
-  else ok (done max_node)
-
 /-- [graph_kruskal::kruskal]: loop 0:
     Source: 'src/lib.rs', lines 39:4-44:5
     Visibility: public -/
@@ -86,26 +56,16 @@ def kruskal_loop0
   (i : Std.Usize) :
   Result Std.Usize
   := do
-  loop
-    (fun (max_node1, i1) => kruskal_loop0.body nodes n_nodes max_node1 i1)
-    (max_node, i)
-
-/-- [graph_kruskal::kruskal]: loop body 1:
-    Source: 'src/lib.rs', lines 50:4-53:5
-    Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop1.body
-  (parent_size : Std.Usize) (parent : alloc.vec.Vec Std.Usize) (j : Std.Usize)
-  :
-  Result (ControlFlow ((alloc.vec.Vec Std.Usize) × Std.Usize) (alloc.vec.Vec
-    Std.Usize))
-  := do
-  if j < parent_size
+  if i < n_nodes
   then
-    let parent1 ← alloc.vec.Vec.push parent j
-    let j1 ← j + 1#usize
-    ok (cont (parent1, j1))
-  else ok (done parent)
+    let i1 ← Slice.index_usize nodes i
+    let max_node1 ← if i1 > max_node
+                      then ok i1
+                      else ok max_node
+    let i2 ← i + 1#usize
+    kruskal_loop0 nodes n_nodes max_node1 i2
+  else ok max_node
+partial_fixpoint
 
 /-- [graph_kruskal::kruskal]: loop 1:
     Source: 'src/lib.rs', lines 50:4-53:5
@@ -116,30 +76,13 @@ def kruskal_loop1
   :
   Result (alloc.vec.Vec Std.Usize)
   := do
-  loop
-    (fun (parent1, j1) => kruskal_loop1.body parent_size parent1 j1)
-    (parent, j)
-
-/-- [graph_kruskal::kruskal]: loop body 2:
-    Source: 'src/lib.rs', lines 55:4-58:5
-    Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop2.body
-  (nodes : Slice Std.Usize) (n_nodes : Std.Usize) (i : Std.Usize)
-  (parent : alloc.vec.Vec Std.Usize) :
-  Result (ControlFlow (Std.Usize × (alloc.vec.Vec Std.Usize)) (alloc.vec.Vec
-    Std.Usize))
-  := do
-  if i < n_nodes
+  if j < parent_size
   then
-    let i1 ← Slice.index_usize nodes i
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.Usize)
-        parent i1
-    let i2 ← i + 1#usize
-    let parent1 := index_mut_back i1
-    ok (cont (i2, parent1))
-  else ok (done parent)
+    let parent1 ← alloc.vec.Vec.push parent j
+    let j1 ← j + 1#usize
+    kruskal_loop1 parent_size parent1 j1
+  else ok parent
+partial_fixpoint
 
 /-- [graph_kruskal::kruskal]: loop 2:
     Source: 'src/lib.rs', lines 55:4-58:5
@@ -150,28 +93,17 @@ def kruskal_loop2
   (parent : alloc.vec.Vec Std.Usize) :
   Result (alloc.vec.Vec Std.Usize)
   := do
-  loop
-    (fun (i1, parent1) => kruskal_loop2.body nodes n_nodes i1 parent1)
-    (i, parent)
-
-/-- [graph_kruskal::kruskal]: loop body 3:
-    Source: 'src/lib.rs', lines 64:4-67:5
-    Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop3.body
-  (edges : Slice (Std.Usize × Std.Usize × Rat)) (edges_len : Std.Usize)
-  (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (k : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) ×
-    Std.Usize) (alloc.vec.Vec (Std.Usize × Std.Usize × Rat)))
-  := do
-  if k < edges_len
+  if i < n_nodes
   then
-    let t ← Slice.index_usize edges k
-    let sorted_edges1 ← alloc.vec.Vec.push sorted_edges t
-    let k1 ← k + 1#usize
-    ok (cont (sorted_edges1, k1))
-  else ok (done sorted_edges)
+    let i1 ← Slice.index_usize nodes i
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Std.Usize)
+        parent i1
+    let i2 ← i + 1#usize
+    let parent1 := index_mut_back i1
+    kruskal_loop2 nodes n_nodes i2 parent1
+  else ok parent
+partial_fixpoint
 
 /-- [graph_kruskal::kruskal]: loop 3:
     Source: 'src/lib.rs', lines 64:4-67:5
@@ -183,21 +115,24 @@ def kruskal_loop3
   (k : Std.Usize) :
   Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
   := do
-  loop
-    (fun (sorted_edges1, k1) => kruskal_loop3.body edges edges_len
-      sorted_edges1 k1)
-    (sorted_edges, k)
+  if k < edges_len
+  then
+    let t ← Slice.index_usize edges k
+    let sorted_edges1 ← alloc.vec.Vec.push sorted_edges t
+    let k1 ← k + 1#usize
+    kruskal_loop3 edges edges_len sorted_edges1 k1
+  else ok sorted_edges
+partial_fixpoint
 
-/-- [graph_kruskal::kruskal]: loop body 5:
+/-- [graph_kruskal::kruskal]: loop 5:
     Source: 'src/lib.rs', lines 72:8-82:9
     Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop4_loop0.body
-  (edges_len : Std.Usize) (k : Std.Usize)
+@[rust_loop]
+def kruskal_loop4_loop0
+  (edges_len : Std.Usize)
   (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (m : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) ×
-    Std.Usize) (alloc.vec.Vec (Std.Usize × Std.Usize × Rat)))
+  (k : Std.Usize) (m : Std.Usize) :
+  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
   := do
   let i ← m + 1#usize
   let i1 ← edges_len - k
@@ -227,41 +162,9 @@ def kruskal_loop4_loop0.body
             (Std.Usize × Std.Usize × Rat)) sorted_edges2 i
         ok (index_mut_back1 a)
       else ok sorted_edges
-    ok (cont (sorted_edges1, i))
-  else ok (done sorted_edges)
-
-/-- [graph_kruskal::kruskal]: loop 5:
-    Source: 'src/lib.rs', lines 72:8-82:9
-    Visibility: public -/
-@[rust_loop]
-def kruskal_loop4_loop0
-  (edges_len : Std.Usize)
-  (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (k : Std.Usize) (m : Std.Usize) :
-  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  := do
-  loop
-    (fun (sorted_edges1, m1) => kruskal_loop4_loop0.body edges_len k
-      sorted_edges1 m1)
-    (sorted_edges, m)
-
-/-- [graph_kruskal::kruskal]: loop body 4:
-    Source: 'src/lib.rs', lines 70:4-84:5
-    Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop4.body
-  (edges_len : Std.Usize)
-  (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (k : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) ×
-    Std.Usize) (alloc.vec.Vec (Std.Usize × Std.Usize × Rat)))
-  := do
-  if k < edges_len
-  then
-    let sorted_edges1 ← kruskal_loop4_loop0 edges_len sorted_edges k 0#usize
-    let k1 ← k + 1#usize
-    ok (cont (sorted_edges1, k1))
-  else ok (done sorted_edges)
+    kruskal_loop4_loop0 edges_len sorted_edges1 k i
+  else ok sorted_edges
+partial_fixpoint
 
 /-- [graph_kruskal::kruskal]: loop 4:
     Source: 'src/lib.rs', lines 70:4-84:5
@@ -273,22 +176,23 @@ def kruskal_loop4
   (k : Std.Usize) :
   Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
   := do
-  loop
-    (fun (sorted_edges1, k1) => kruskal_loop4.body edges_len sorted_edges1 k1)
-    (sorted_edges, k)
+  if k < edges_len
+  then
+    let sorted_edges1 ← kruskal_loop4_loop0 edges_len sorted_edges k 0#usize
+    let k1 ← k + 1#usize
+    kruskal_loop4 edges_len sorted_edges1 k1
+  else ok sorted_edges
+partial_fixpoint
 
-/-- [graph_kruskal::kruskal]: loop body 6:
+/-- [graph_kruskal::kruskal]: loop 6:
     Source: 'src/lib.rs', lines 89:4-98:5
     Visibility: public -/
-@[rust_loop_body]
-def kruskal_loop5.body
-  (edges_len : Std.Usize)
+@[rust_loop]
+def kruskal_loop5
+  (parent : alloc.vec.Vec Std.Usize) (edges_len : Std.Usize)
   (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (parent : alloc.vec.Vec Std.Usize) (k : Std.Usize)
-  (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) :
-  Result (ControlFlow ((alloc.vec.Vec Std.Usize) × Std.Usize × (alloc.vec.Vec
-    (Std.Usize × Std.Usize × Rat))) (alloc.vec.Vec (Std.Usize × Std.Usize ×
-    Rat)))
+  (k : Std.Usize) (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) :
+  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
   := do
   if k < edges_len
   then
@@ -310,23 +214,9 @@ def kruskal_loop5.body
         ok (parent2, mst2)
       else ok (parent, mst)
     let k1 ← k + 1#usize
-    ok (cont (parent1, k1, mst1))
-  else ok (done mst)
-
-/-- [graph_kruskal::kruskal]: loop 6:
-    Source: 'src/lib.rs', lines 89:4-98:5
-    Visibility: public -/
-@[rust_loop]
-def kruskal_loop5
-  (parent : alloc.vec.Vec Std.Usize) (edges_len : Std.Usize)
-  (sorted_edges : alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  (k : Std.Usize) (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) :
-  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  := do
-  loop
-    (fun (parent1, k1, mst1) => kruskal_loop5.body edges_len sorted_edges
-      parent1 k1 mst1)
-    (parent, k, mst)
+    kruskal_loop5 parent1 edges_len sorted_edges k1 mst1
+  else ok mst
+partial_fixpoint
 
 /-- [graph_kruskal::kruskal]:
     Source: 'src/lib.rs', lines 30:0-100:1

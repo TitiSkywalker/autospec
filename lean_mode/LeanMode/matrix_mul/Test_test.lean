@@ -18,19 +18,19 @@ namespace matrix_mul
 
 /- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
-/-- [matrix_mul::matmul_2x3_times_3x2]: loop body 0:
+/-- [matrix_mul::matmul_2x3_times_3x2]: loop 0:
     Source: 'src/lib.rs', lines 34:4-37:5
     Visibility: public -/
-@[rust_loop_body]
-def matmul_2x3_times_3x2_loop.body
-  (expected : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
+@[rust_loop]
+def matmul_2x3_times_3x2_loop
+  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
+  (c : alloc.vec.Vec Rat) (tol : Rat) :
+  Result Unit
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok ()
   | some i =>
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) c i
@@ -41,20 +41,8 @@ def matmul_2x3_times_3x2_loop.body
     let fl2 := |diff|
     let b := fl2 ≤ tol
     massert b
-    ok (cont iter1)
-
-/-- [matrix_mul::matmul_2x3_times_3x2]: loop 0:
-    Source: 'src/lib.rs', lines 34:4-37:5
-    Visibility: public -/
-@[rust_loop]
-def matmul_2x3_times_3x2_loop
-  (iter : core.ops.range.Range Std.Usize) (expected : alloc.vec.Vec Rat)
-  (c : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => matmul_2x3_times_3x2_loop.body expected c tol iter1)
-    iter
+    matmul_2x3_times_3x2_loop iter1 expected c tol
+partial_fixpoint
 
 /-- [matrix_mul::matmul_2x3_times_3x2]:
     Source: 'src/lib.rs', lines 22:0-38:1

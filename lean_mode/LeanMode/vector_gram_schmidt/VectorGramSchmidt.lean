@@ -15,14 +15,14 @@ set_option maxRecDepth 2048
 
 namespace vector_gram_schmidt
 
-/-- [vector_gram_schmidt::gram_schmidt_step]: loop body 0:
+/-- [vector_gram_schmidt::gram_schmidt_step]: loop 0:
     Source: 'src/lib.rs', lines 31:4-35:5
     Visibility: public -/
-@[rust_loop_body]
-def gram_schmidt_step_loop0.body
+@[rust_loop]
+def gram_schmidt_step_loop0
   (u : Slice Rat) (v : Slice Rat) (n : Std.Usize) (dot_uu : Rat) (dot_vu : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow (Rat × Rat × Std.Usize) (Rat × Rat))
+  Result (Rat × Rat)
   := do
   if i < n
   then
@@ -33,42 +33,9 @@ def gram_schmidt_step_loop0.body
     let fl3 := fl2 * fl
     let dot_vu1 := dot_vu + fl3
     let i1 ← i + 1#usize
-    ok (cont (dot_uu1, dot_vu1, i1))
-  else ok (done (dot_uu, dot_vu))
-
-/-- [vector_gram_schmidt::gram_schmidt_step]: loop 0:
-    Source: 'src/lib.rs', lines 31:4-35:5
-    Visibility: public -/
-@[rust_loop]
-def gram_schmidt_step_loop0
-  (u : Slice Rat) (v : Slice Rat) (n : Std.Usize) (dot_uu : Rat) (dot_vu : Rat)
-  (i : Std.Usize) :
-  Result (Rat × Rat)
-  := do
-  loop
-    (fun (dot_uu1, dot_vu1, i1) => gram_schmidt_step_loop0.body u v n dot_uu1
-      dot_vu1 i1)
-    (dot_uu, dot_vu, i)
-
-/-- [vector_gram_schmidt::gram_schmidt_step]: loop body 1:
-    Source: 'src/lib.rs', lines 43:4-46:5
-    Visibility: public -/
-@[rust_loop_body]
-def gram_schmidt_step_loop1.body
-  (u : Slice Rat) (v : Slice Rat) (n : Std.Usize) (factor : Rat)
-  (result : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let fl ← Slice.index_usize v i
-    let fl1 ← Slice.index_usize u i
-    let fl2 := factor * fl1
-    let fl3 := fl - fl2
-    let result1 ← alloc.vec.Vec.push result fl3
-    let i1 ← i + 1#usize
-    ok (cont (result1, i1))
-  else ok (done result)
+    gram_schmidt_step_loop0 u v n dot_uu1 dot_vu1 i1
+  else ok (dot_uu, dot_vu)
+partial_fixpoint
 
 /-- [vector_gram_schmidt::gram_schmidt_step]: loop 1:
     Source: 'src/lib.rs', lines 43:4-46:5
@@ -79,9 +46,17 @@ def gram_schmidt_step_loop1
   (result : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (result1, i1) => gram_schmidt_step_loop1.body u v n factor result1 i1)
-    (result, i)
+  if i < n
+  then
+    let fl ← Slice.index_usize v i
+    let fl1 ← Slice.index_usize u i
+    let fl2 := factor * fl1
+    let fl3 := fl - fl2
+    let result1 ← alloc.vec.Vec.push result fl3
+    let i1 ← i + 1#usize
+    gram_schmidt_step_loop1 u v n factor result1 i1
+  else ok result
+partial_fixpoint
 
 /-- [vector_gram_schmidt::gram_schmidt_step]:
     Source: 'src/lib.rs', lines 22:0-49:1

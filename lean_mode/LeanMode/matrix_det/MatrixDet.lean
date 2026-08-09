@@ -23,14 +23,14 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-/-- [matrix_det::det]: loop body 1:
+/-- [matrix_det::det]: loop 1:
     Source: 'src/lib.rs', lines 23:8-33:9
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop0.body
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (_f64_const_0 : Rat)
-  (max_row : Std.Usize) (max_val : Rat) (i : Std.Usize) :
-  Result (ControlFlow (Std.Usize × Rat × Std.Usize) (Std.Usize × Rat))
+@[rust_loop]
+def det_loop0_loop0
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (max_row : Std.Usize)
+  (max_val : Rat) (i : Std.Usize) (_f64_const_0 : Rat) :
+  Result (Std.Usize × Rat)
   := do
   if i < n
   then
@@ -48,31 +48,18 @@ def det_loop0_loop0.body
       then ok (i, v1)
       else ok (max_row, max_val)
     let i3 ← i + 1#usize
-    ok (cont (max_row1, max_val1, i3))
-  else ok (done (max_row, max_val))
+    det_loop0_loop0 n a k max_row1 max_val1 i3 _f64_const_0
+  else ok (max_row, max_val)
+partial_fixpoint
 
-/-- [matrix_det::det]: loop 1:
-    Source: 'src/lib.rs', lines 23:8-33:9
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop0
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (max_row : Std.Usize)
-  (max_val : Rat) (i : Std.Usize) (_f64_const_0 : Rat) :
-  Result (Std.Usize × Rat)
-  := do
-  loop
-    (fun (max_row1, max_val1, i1) => det_loop0_loop0.body n a k _f64_const_0
-      max_row1 max_val1 i1)
-    (max_row, max_val, i)
-
-/-- [matrix_det::det]: loop body 2:
+/-- [matrix_det::det]: loop 2:
     Source: 'src/lib.rs', lines 43:12-48:13
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop1.body
-  (n : Std.Usize) (k : Std.Usize) (max_row : Std.Usize) (a : alloc.vec.Vec Rat)
+@[rust_loop]
+def det_loop0_loop1
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (max_row : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -93,30 +80,18 @@ def det_loop0_loop1.body
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) a1 i5
     let j1 ← j + 1#usize
     let a2 := index_mut_back1 tmp
-    ok (cont (a2, j1))
-  else ok (done a)
+    det_loop0_loop1 n a2 k max_row j1
+  else ok a
+partial_fixpoint
 
-/-- [matrix_det::det]: loop 2:
-    Source: 'src/lib.rs', lines 43:12-48:13
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop1
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (max_row : Std.Usize)
-  (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (a1, j1) => det_loop0_loop1.body n k max_row a1 j1)
-    (a, j)
-
-/-- [matrix_det::det]: loop body 4:
+/-- [matrix_det::det]: loop 4:
     Source: 'src/lib.rs', lines 58:12-61:13
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop2_loop0.body
-  (n : Std.Usize) (k : Std.Usize) (i : Std.Usize) (factor : Rat)
-  (a : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def det_loop0_loop2_loop0
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
+  (factor : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -135,30 +110,18 @@ def det_loop0_loop2_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let a1 := index_mut_back fl3
-    ok (cont (a1, j1))
-  else ok (done a)
+    det_loop0_loop2_loop0 n a1 k i factor j1
+  else ok a
+partial_fixpoint
 
-/-- [matrix_det::det]: loop 4:
-    Source: 'src/lib.rs', lines 58:12-61:13
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop2_loop0
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
-  (factor : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (a1, j1) => det_loop0_loop2_loop0.body n k i factor a1 j1)
-    (a, j)
-
-/-- [matrix_det::det]: loop body 3:
+/-- [matrix_det::det]: loop 3:
     Source: 'src/lib.rs', lines 55:8-63:9
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop2.body
-  (n : Std.Usize) (k : Std.Usize) (pivot : Rat) (a : alloc.vec.Vec Rat)
+@[rust_loop]
+def det_loop0_loop2
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (pivot : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -170,30 +133,18 @@ def det_loop0_loop2.body
     let j ← k + 1#usize
     let a1 ← det_loop0_loop2_loop0 n a k i factor j
     let i3 ← i + 1#usize
-    ok (cont (a1, i3))
-  else ok (done a)
+    det_loop0_loop2 n a1 k pivot i3
+  else ok a
+partial_fixpoint
 
-/-- [matrix_det::det]: loop 3:
-    Source: 'src/lib.rs', lines 55:8-63:9
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop2
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (pivot : Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (a1, i1) => det_loop0_loop2.body n k pivot a1 i1)
-    (a, i)
-
-/-- [matrix_det::det]: loop body 6:
+/-- [matrix_det::det]: loop 6:
     Source: 'src/lib.rs', lines 58:12-61:13
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop3_loop0.body
-  (n : Std.Usize) (k : Std.Usize) (i : Std.Usize) (factor : Rat)
-  (a : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def det_loop0_loop3_loop0
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
+  (factor : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -212,30 +163,18 @@ def det_loop0_loop3_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let a1 := index_mut_back fl3
-    ok (cont (a1, j1))
-  else ok (done a)
+    det_loop0_loop3_loop0 n a1 k i factor j1
+  else ok a
+partial_fixpoint
 
-/-- [matrix_det::det]: loop 6:
-    Source: 'src/lib.rs', lines 58:12-61:13
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop3_loop0
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
-  (factor : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (a1, j1) => det_loop0_loop3_loop0.body n k i factor a1 j1)
-    (a, j)
-
-/-- [matrix_det::det]: loop body 5:
+/-- [matrix_det::det]: loop 5:
     Source: 'src/lib.rs', lines 55:8-63:9
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop3.body
-  (n : Std.Usize) (k : Std.Usize) (pivot : Rat) (a : alloc.vec.Vec Rat)
+@[rust_loop]
+def det_loop0_loop3
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (pivot : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -247,40 +186,9 @@ def det_loop0_loop3.body
     let j ← k + 1#usize
     let a1 ← det_loop0_loop3_loop0 n a k i factor j
     let i3 ← i + 1#usize
-    ok (cont (a1, i3))
-  else ok (done a)
-
-/-- [matrix_det::det]: loop 5:
-    Source: 'src/lib.rs', lines 55:8-63:9
-    Visibility: public -/
-@[rust_loop]
-def det_loop0_loop3
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (k : Std.Usize) (pivot : Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (a1, i1) => det_loop0_loop3.body n k pivot a1 i1)
-    (a, i)
-
-/-- [matrix_det::det]: loop body 7:
-    Source: 'src/lib.rs', lines 70:4-73:5
-    Visibility: public -/
-@[rust_loop_body]
-def det_loop0_loop4.body
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (det1 : Rat) (i : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
-  := do
-  if i < n
-  then
-    let i1 ← i * n
-    let i2 ← i1 + i
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) a i2
-    let det2 := det1 * fl
-    let i3 ← i + 1#usize
-    ok (cont (det2, i3))
-  else ok (done det1)
+    det_loop0_loop3 n a1 k pivot i3
+  else ok a
+partial_fixpoint
 
 /-- [matrix_det::det]: loop 7:
     Source: 'src/lib.rs', lines 70:4-73:5
@@ -290,18 +198,26 @@ def det_loop0_loop4
   (n : Std.Usize) (a : alloc.vec.Vec Rat) (det1 : Rat) (i : Std.Usize) :
   Result Rat
   := do
-  loop
-    (fun (det2, i1) => det_loop0_loop4.body n a det2 i1)
-    (det1, i)
+  if i < n
+  then
+    let i1 ← i * n
+    let i2 ← i1 + i
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) a i2
+    let det2 := det1 * fl
+    let i3 ← i + 1#usize
+    det_loop0_loop4 n a det2 i3
+  else ok det1
+partial_fixpoint
 
-/-- [matrix_det::det]: loop body 0:
+/-- [matrix_det::det]: loop 0:
     Source: 'src/lib.rs', lines 15:4-75:1
     Visibility: public -/
-@[rust_loop_body]
-def det_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (a : alloc.vec.Vec Rat) (sign : Rat)
-  (k : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Rat × Std.Usize) Rat)
+@[rust_loop]
+def det_loop0
+  (n : Std.Usize) (a : alloc.vec.Vec Rat) (sign : Rat) (k : Std.Usize)
+  (_f64_const_0 : Rat) :
+  Result Rat
   := do
   if k < n
   then
@@ -318,7 +234,7 @@ def det_loop0.body
       det_loop0_loop0 n a k k max_val1 i2 _f64_const_0
     let b1 := max_val2 = _f64_const_0
     if b1
-    then ok (done _f64_const_0)
+    then ok _f64_const_0
     else
       if max_row != k
       then
@@ -331,7 +247,7 @@ def det_loop0.body
         let i5 ← k + 1#usize
         let a2 ← det_loop0_loop2 n a1 k pivot i5
         let k1 ← k + 1#usize
-        ok (cont (a2, sign1, k1))
+        det_loop0 n a2 sign1 k1 _f64_const_0
       else
         let i3 ← k * n
         let i4 ← i3 + k
@@ -340,23 +256,9 @@ def det_loop0.body
         let i5 ← k + 1#usize
         let a1 ← det_loop0_loop3 n a k pivot i5
         let k1 ← k + 1#usize
-        ok (cont (a1, sign, k1))
-  else
-    let _f64_const_1 ← det_loop0_loop4 n a sign 0#usize
-    ok (done _f64_const_1)
-
-/-- [matrix_det::det]: loop 0:
-    Source: 'src/lib.rs', lines 15:4-75:1
-    Visibility: public -/
-@[rust_loop]
-def det_loop0
-  (n : Std.Usize) (a : alloc.vec.Vec Rat) (sign : Rat) (k : Std.Usize)
-  (_f64_const_0 : Rat) :
-  Result Rat
-  := do
-  loop
-    (fun (a1, sign1, k1) => det_loop0.body n _f64_const_0 a1 sign1 k1)
-    (a, sign, k)
+        det_loop0 n a1 sign k1 _f64_const_0
+  else det_loop0_loop4 n a sign 0#usize
+partial_fixpoint
 
 /-- [matrix_det::det]:
     Source: 'src/lib.rs', lines 7:0-75:1

@@ -32,23 +32,6 @@ def assert_approx_eq
   else let b1 := diff > tol
        massert (¬ b1)
 
-/-- [graph_prim::total_weight]: loop body 0:
-    Source: 'src/lib.rs', lines 115:4-118:5
-    Visibility: public -/
-@[rust_loop_body]
-def total_weight_loop.body
-  (edges : Slice (Std.Usize × Std.Usize × Rat)) (sum : Rat) (i : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
-  := do
-  let i1 := Slice.len edges
-  if i < i1
-  then
-    let (_, _, fl) ← Slice.index_usize edges i
-    let sum1 := sum + fl
-    let i2 ← i + 1#usize
-    ok (cont (sum1, i2))
-  else ok (done sum)
-
 /-- [graph_prim::total_weight]: loop 0:
     Source: 'src/lib.rs', lines 115:4-118:5
     Visibility: public -/
@@ -57,9 +40,15 @@ def total_weight_loop
   (edges : Slice (Std.Usize × Std.Usize × Rat)) (sum : Rat) (i : Std.Usize) :
   Result Rat
   := do
-  loop
-    (fun (sum1, i1) => total_weight_loop.body edges sum1 i1)
-    (sum, i)
+  let i1 := Slice.len edges
+  if i < i1
+  then
+    let (_, _, fl) ← Slice.index_usize edges i
+    let sum1 := sum + fl
+    let i2 ← i + 1#usize
+    total_weight_loop edges sum1 i2
+  else ok sum
+partial_fixpoint
 
 /-- [graph_prim::total_weight]:
     Source: 'src/lib.rs', lines 112:0-120:1

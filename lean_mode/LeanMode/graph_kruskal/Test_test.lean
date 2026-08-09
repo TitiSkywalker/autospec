@@ -32,23 +32,6 @@ def assert_approx_eq
   else let b1 := diff > tol
        massert (¬ b1)
 
-/-- [graph_kruskal::total_weight]: loop body 0:
-    Source: 'src/lib.rs', lines 118:4-121:5
-    Visibility: public -/
-@[rust_loop_body]
-def total_weight_loop.body
-  (edges : Slice (Std.Usize × Std.Usize × Rat)) (sum : Rat) (i : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
-  := do
-  let i1 := Slice.len edges
-  if i < i1
-  then
-    let (_, _, fl) ← Slice.index_usize edges i
-    let sum1 := sum + fl
-    let i2 ← i + 1#usize
-    ok (cont (sum1, i2))
-  else ok (done sum)
-
 /-- [graph_kruskal::total_weight]: loop 0:
     Source: 'src/lib.rs', lines 118:4-121:5
     Visibility: public -/
@@ -57,9 +40,15 @@ def total_weight_loop
   (edges : Slice (Std.Usize × Std.Usize × Rat)) (sum : Rat) (i : Std.Usize) :
   Result Rat
   := do
-  loop
-    (fun (sum1, i1) => total_weight_loop.body edges sum1 i1)
-    (sum, i)
+  let i1 := Slice.len edges
+  if i < i1
+  then
+    let (_, _, fl) ← Slice.index_usize edges i
+    let sum1 := sum + fl
+    let i2 ← i + 1#usize
+    total_weight_loop edges sum1 i2
+  else ok sum
+partial_fixpoint
 
 /-- [graph_kruskal::total_weight]:
     Source: 'src/lib.rs', lines 115:0-123:1
@@ -69,15 +58,15 @@ def total_weight
   let _f64_const_0 := (0 : Rat)
   total_weight_loop edges _f64_const_0 0#usize
 
-/-- [graph_kruskal::contains_edge]: loop body 0:
+/-- [graph_kruskal::contains_edge]: loop 0:
     Source: 'src/lib.rs', lines 1:0-142:1
     Visibility: public -/
-@[rust_loop_body]
-def contains_edge_loop.body
+@[rust_loop]
+def contains_edge_loop
   (edges : Slice (Std.Usize × Std.Usize × Rat)) (u : Std.Usize)
-  (v : Std.Usize) (w : Rat) (_f64_const_0 : Rat) (_f64_const_0_001 : Rat)
-  (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Bool)
+  (v : Std.Usize) (w : Rat) (i : Std.Usize) (_f64_const_0 : Rat)
+  (_f64_const_0_001 : Rat) :
+  Result Bool
   := do
   let i1 := Slice.len edges
   if i < i1
@@ -94,35 +83,25 @@ def contains_edge_loop.body
           let fl1 := _f64_const_0 - diff
           let b1 := fl1 ≤ _f64_const_0_001
           if b1
-          then ok (done true)
-          else let i4 ← i + 1#usize
-               ok (cont i4)
+          then ok true
+          else
+            let i4 ← i + 1#usize
+            contains_edge_loop edges u v w i4 _f64_const_0 _f64_const_0_001
         else
           let b1 := diff ≤ _f64_const_0_001
           if b1
-          then ok (done true)
-          else let i4 ← i + 1#usize
-               ok (cont i4)
-      else let i4 ← i + 1#usize
-           ok (cont i4)
-    else let i4 ← i + 1#usize
-         ok (cont i4)
-  else ok (done false)
-
-/-- [graph_kruskal::contains_edge]: loop 0:
-    Source: 'src/lib.rs', lines 1:0-142:1
-    Visibility: public -/
-@[rust_loop]
-def contains_edge_loop
-  (edges : Slice (Std.Usize × Std.Usize × Rat)) (u : Std.Usize)
-  (v : Std.Usize) (w : Rat) (i : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_001 : Rat) :
-  Result Bool
-  := do
-  loop
-    (fun i1 => contains_edge_loop.body edges u v w _f64_const_0
-      _f64_const_0_001 i1)
-    i
+          then ok true
+          else
+            let i4 ← i + 1#usize
+            contains_edge_loop edges u v w i4 _f64_const_0 _f64_const_0_001
+      else
+        let i4 ← i + 1#usize
+        contains_edge_loop edges u v w i4 _f64_const_0 _f64_const_0_001
+    else
+      let i4 ← i + 1#usize
+      contains_edge_loop edges u v w i4 _f64_const_0 _f64_const_0_001
+  else ok false
+partial_fixpoint
 
 /-- [graph_kruskal::contains_edge]:
     Source: 'src/lib.rs', lines 126:0-142:1

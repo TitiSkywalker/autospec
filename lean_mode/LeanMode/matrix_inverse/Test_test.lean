@@ -26,23 +26,6 @@ def assert_approx_eq
   let b := diff ≤ tol
   massert b
 
-/-- [matrix_inverse::matrix_mul]: loop body 0:
-    Source: 'src/lib.rs', lines 150:4-153:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (c : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let c1 ← alloc.vec.Vec.push c _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (c1, idx1))
-  else ok (done c)
-
 /-- [matrix_inverse::matrix_mul]: loop 0:
     Source: 'src/lib.rs', lines 150:4-153:5
     Visibility: public -/
@@ -52,18 +35,23 @@ def matrix_mul_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, idx1) => matrix_mul_loop0.body n _f64_const_0 c1 idx1)
-    (c, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let c1 ← alloc.vec.Vec.push c _f64_const_0
+    let idx1 ← idx + 1#usize
+    matrix_mul_loop0 n c1 idx1 _f64_const_0
+  else ok c
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_mul]: loop body 3:
+/-- [matrix_inverse::matrix_mul]: loop 3:
     Source: 'src/lib.rs', lines 160:12-163:13
     Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1_loop0_loop0.body
+@[rust_loop]
+def matrix_mul_loop1_loop0_loop0
   (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
   (j : Std.Usize) (sum : Rat) (k : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
+  Result Rat
   := do
   if k < n
   then
@@ -76,42 +64,9 @@ def matrix_mul_loop1_loop0_loop0.body
     let fl2 := fl * fl1
     let sum1 := sum + fl2
     let k1 ← k + 1#usize
-    ok (cont (sum1, k1))
-  else ok (done sum)
-
-/-- [matrix_inverse::matrix_mul]: loop 3:
-    Source: 'src/lib.rs', lines 160:12-163:13
-    Visibility: public -/
-@[rust_loop]
-def matrix_mul_loop1_loop0_loop0
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (j : Std.Usize) (sum : Rat) (k : Std.Usize) :
-  Result Rat
-  := do
-  loop
-    (fun (sum1, k1) => matrix_mul_loop1_loop0_loop0.body a b n i j sum1 k1)
-    (sum, k)
-
-/-- [matrix_inverse::matrix_mul]: loop body 2:
-    Source: 'src/lib.rs', lines 157:8-166:9
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1_loop0.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (_f64_const_0 : Rat) (c : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if j < n
-  then
-    let sum ← matrix_mul_loop1_loop0_loop0 a b n i j _f64_const_0 0#usize
-    let i1 ← i * n
-    let i2 ← i1 + j
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i2
-    let j1 ← j + 1#usize
-    let c1 := index_mut_back sum
-    ok (cont (c1, j1))
-  else ok (done c)
+    matrix_mul_loop1_loop0_loop0 a b n i j sum1 k1
+  else ok sum
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_mul]: loop 2:
     Source: 'src/lib.rs', lines 157:8-166:9
@@ -122,25 +77,18 @@ def matrix_mul_loop1_loop0
   (i : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, j1) => matrix_mul_loop1_loop0.body a b n i _f64_const_0 c1 j1)
-    (c, j)
-
-/-- [matrix_inverse::matrix_mul]: loop body 1:
-    Source: 'src/lib.rs', lines 155:4-168:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (_f64_const_0 : Rat)
-  (c : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
+  if j < n
   then
-    let c1 ← matrix_mul_loop1_loop0 a b n c i 0#usize _f64_const_0
-    let i1 ← i + 1#usize
-    ok (cont (c1, i1))
-  else ok (done c)
+    let sum ← matrix_mul_loop1_loop0_loop0 a b n i j _f64_const_0 0#usize
+    let i1 ← i * n
+    let i2 ← i1 + j
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i2
+    let j1 ← j + 1#usize
+    let c1 := index_mut_back sum
+    matrix_mul_loop1_loop0 a b n c1 i j1 _f64_const_0
+  else ok c
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_mul]: loop 1:
     Source: 'src/lib.rs', lines 155:4-168:5
@@ -151,9 +99,13 @@ def matrix_mul_loop1
   (i : Std.Usize) (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, i1) => matrix_mul_loop1.body a b n _f64_const_0 c1 i1)
-    (c, i)
+  if i < n
+  then
+    let c1 ← matrix_mul_loop1_loop0 a b n c i 0#usize _f64_const_0
+    let i1 ← i + 1#usize
+    matrix_mul_loop1 a b n c1 i1 _f64_const_0
+  else ok c
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_mul]:
     Source: 'src/lib.rs', lines 147:0-170:1
@@ -166,14 +118,14 @@ def matrix_mul
   let c ← matrix_mul_loop0 n (alloc.vec.Vec.new Rat) 0#usize _f64_const_0
   matrix_mul_loop1 a b n c 0#usize _f64_const_0
 
-/-- [matrix_inverse::assert_identity]: loop body 1:
+/-- [matrix_inverse::assert_identity]: loop 1:
     Source: 'src/lib.rs', lines 177:8-181:9
     Visibility: public -/
-@[rust_loop_body]
-def assert_identity_loop0_loop0.body
-  (m : Slice Rat) (n : Std.Usize) (tol : Rat) (i : Std.Usize)
-  (_f64_const_0 : Rat) (_f64_const_1 : Rat) (j : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
+@[rust_loop]
+def assert_identity_loop0_loop0
+  (m : Slice Rat) (n : Std.Usize) (tol : Rat) (i : Std.Usize) (j : Std.Usize)
+  (_f64_const_0 : Rat) (_f64_const_1 : Rat) :
+  Result Unit
   := do
   if j < n
   then
@@ -185,38 +137,9 @@ def assert_identity_loop0_loop0.body
     let fl ← Slice.index_usize m i2
     assert_approx_eq fl expected tol
     let j1 ← j + 1#usize
-    ok (cont j1)
-  else ok (done ())
-
-/-- [matrix_inverse::assert_identity]: loop 1:
-    Source: 'src/lib.rs', lines 177:8-181:9
-    Visibility: public -/
-@[rust_loop]
-def assert_identity_loop0_loop0
-  (m : Slice Rat) (n : Std.Usize) (tol : Rat) (i : Std.Usize) (j : Std.Usize)
-  (_f64_const_0 : Rat) (_f64_const_1 : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun j1 => assert_identity_loop0_loop0.body m n tol i _f64_const_0
-      _f64_const_1 j1)
-    j
-
-/-- [matrix_inverse::assert_identity]: loop body 0:
-    Source: 'src/lib.rs', lines 175:4-183:5
-    Visibility: public -/
-@[rust_loop_body]
-def assert_identity_loop0.body
-  (m : Slice Rat) (n : Std.Usize) (tol : Rat) (_f64_const_0 : Rat)
-  (_f64_const_1 : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
-  if i < n
-  then
-    assert_identity_loop0_loop0 m n tol i 0#usize _f64_const_0 _f64_const_1
-    let i1 ← i + 1#usize
-    ok (cont i1)
-  else ok (done ())
+    assert_identity_loop0_loop0 m n tol i j1 _f64_const_0 _f64_const_1
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_inverse::assert_identity]: loop 0:
     Source: 'src/lib.rs', lines 175:4-183:5
@@ -227,9 +150,13 @@ def assert_identity_loop0
   (_f64_const_0 : Rat) (_f64_const_1 : Rat) :
   Result Unit
   := do
-  loop
-    (fun i1 => assert_identity_loop0.body m n tol _f64_const_0 _f64_const_1 i1)
-    i
+  if i < n
+  then
+    assert_identity_loop0_loop0 m n tol i 0#usize _f64_const_0 _f64_const_1
+    let i1 ← i + 1#usize
+    assert_identity_loop0 m n tol i1 _f64_const_0 _f64_const_1
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_inverse::assert_identity]:
     Source: 'src/lib.rs', lines 173:0-184:1

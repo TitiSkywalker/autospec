@@ -26,24 +26,6 @@ def assert_approx_eq
   let b := diff ≤ tol
   massert b
 
-/-- [matrix_transpose::assert_matrix_eq]: loop body 0:
-    Source: 'src/lib.rs', lines 46:4-49:5
-    Visibility: public -/
-@[rust_loop_body]
-def assert_matrix_eq_loop.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (tol : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
-  let i1 ← n * n
-  if i < i1
-  then
-    let fl ← Slice.index_usize a i
-    let fl1 ← Slice.index_usize b i
-    assert_approx_eq fl fl1 tol
-    let i2 ← i + 1#usize
-    ok (cont i2)
-  else ok (done ())
-
 /-- [matrix_transpose::assert_matrix_eq]: loop 0:
     Source: 'src/lib.rs', lines 46:4-49:5
     Visibility: public -/
@@ -52,9 +34,16 @@ def assert_matrix_eq_loop
   (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (tol : Rat) (i : Std.Usize) :
   Result Unit
   := do
-  loop
-    (fun i1 => assert_matrix_eq_loop.body a b n tol i1)
-    i
+  let i1 ← n * n
+  if i < i1
+  then
+    let fl ← Slice.index_usize a i
+    let fl1 ← Slice.index_usize b i
+    assert_approx_eq fl fl1 tol
+    let i2 ← i + 1#usize
+    assert_matrix_eq_loop a b n tol i2
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_transpose::assert_matrix_eq]:
     Source: 'src/lib.rs', lines 44:0-50:1

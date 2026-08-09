@@ -30,15 +30,14 @@ def PartialEqInt : core.cmp.PartialEq Int Int := {
   eq := PartialEqInt.eq
 }
 
-/-- [array_bubble_sort::bubble_sort]: loop body 1:
+/-- [array_bubble_sort::bubble_sort]: loop 1:
     Source: 'src/lib.rs', lines 14:8-22:9
     Visibility: public -/
-@[rust_loop_body]
-def bubble_sort_loop0_loop0.body
-  (len : Std.Usize) (i : Std.Usize) (arr : alloc.vec.Vec Int)
+@[rust_loop]
+def bubble_sort_loop0_loop0
+  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize)
   (swapped : Bool) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Int) × Bool × Std.Usize)
-    ((alloc.vec.Vec Int) × Bool))
+  Result ((alloc.vec.Vec Int) × Bool)
   := do
   let i1 ← j + 1#usize
   let i2 ← len - i
@@ -58,40 +57,9 @@ def bubble_sort_loop0_loop0.body
         let arr2 := deref_mut_back s1
         ok (arr2, true)
       else ok (arr, swapped)
-    ok (cont (arr1, swapped1, i1))
-  else ok (done (arr, swapped))
-
-/-- [array_bubble_sort::bubble_sort]: loop 1:
-    Source: 'src/lib.rs', lines 14:8-22:9
-    Visibility: public -/
-@[rust_loop]
-def bubble_sort_loop0_loop0
-  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize)
-  (swapped : Bool) (j : Std.Usize) :
-  Result ((alloc.vec.Vec Int) × Bool)
-  := do
-  loop
-    (fun (arr1, swapped1, j1) => bubble_sort_loop0_loop0.body len i arr1
-      swapped1 j1)
-    (arr, swapped, j)
-
-/-- [array_bubble_sort::bubble_sort]: loop body 0:
-    Source: 'src/lib.rs', lines 1:0-27:5
-    Visibility: public -/
-@[rust_loop_body]
-def bubble_sort_loop0.body
-  (len : Std.Usize) (arr : alloc.vec.Vec Int) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Int) × Std.Usize) (alloc.vec.Vec
-    Int))
-  := do
-  if i < len
-  then
-    let (arr1, swapped) ← bubble_sort_loop0_loop0 arr len i false 0#usize
-    if swapped
-    then let i1 ← i + 1#usize
-         ok (cont (arr1, i1))
-    else ok (done arr1)
-  else ok (done arr)
+    bubble_sort_loop0_loop0 arr1 len i swapped1 i1
+  else ok (arr, swapped)
+partial_fixpoint
 
 /-- [array_bubble_sort::bubble_sort]: loop 0:
     Source: 'src/lib.rs', lines 1:0-27:5
@@ -101,9 +69,15 @@ def bubble_sort_loop0
   (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize) :
   Result (alloc.vec.Vec Int)
   := do
-  loop
-    (fun (arr1, i1) => bubble_sort_loop0.body len arr1 i1)
-    (arr, i)
+  if i < len
+  then
+    let (arr1, swapped) ← bubble_sort_loop0_loop0 arr len i false 0#usize
+    if swapped
+    then let i1 ← i + 1#usize
+         bubble_sort_loop0 arr1 len i1
+    else ok arr1
+  else ok arr
+partial_fixpoint
 
 /-- [array_bubble_sort::bubble_sort]:
     Source: 'src/lib.rs', lines 4:0-29:1

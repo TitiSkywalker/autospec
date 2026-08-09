@@ -30,14 +30,14 @@ def PartialEqInt : core.cmp.PartialEq Int Int := {
   eq := PartialEqInt.eq
 }
 
-/-- [array_selection_sort::selection_sort]: loop body 1:
+/-- [array_selection_sort::selection_sort]: loop 1:
     Source: 'src/lib.rs', lines 14:8-19:9
     Visibility: public -/
-@[rust_loop_body]
-def selection_sort_loop0_loop0.body
+@[rust_loop]
+def selection_sort_loop0_loop0
   (arr : alloc.vec.Vec Int) (len : Std.Usize) (min_idx : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow (Std.Usize × Std.Usize) Std.Usize)
+  Result Std.Usize
   := do
   if j < len
   then
@@ -50,30 +50,17 @@ def selection_sort_loop0_loop0.body
                      then ok j
                      else ok min_idx
     let j1 ← j + 1#usize
-    ok (cont (min_idx1, j1))
-  else ok (done min_idx)
+    selection_sort_loop0_loop0 arr len min_idx1 j1
+  else ok min_idx
+partial_fixpoint
 
-/-- [array_selection_sort::selection_sort]: loop 1:
-    Source: 'src/lib.rs', lines 14:8-19:9
-    Visibility: public -/
-@[rust_loop]
-def selection_sort_loop0_loop0
-  (arr : alloc.vec.Vec Int) (len : Std.Usize) (min_idx : Std.Usize)
-  (j : Std.Usize) :
-  Result Std.Usize
-  := do
-  loop
-    (fun (min_idx1, j1) => selection_sort_loop0_loop0.body arr len min_idx1 j1)
-    (min_idx, j)
-
-/-- [array_selection_sort::selection_sort]: loop body 0:
+/-- [array_selection_sort::selection_sort]: loop 0:
     Source: 'src/lib.rs', lines 11:4-26:5
     Visibility: public -/
-@[rust_loop_body]
-def selection_sort_loop0.body
-  (len : Std.Usize) (arr : alloc.vec.Vec Int) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Int) × Std.Usize) (alloc.vec.Vec
-    Int))
+@[rust_loop]
+def selection_sort_loop0
+  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize) :
+  Result (alloc.vec.Vec Int)
   := do
   let i1 ← len - 1#usize
   if i < i1
@@ -100,20 +87,9 @@ def selection_sort_loop0.body
         ok (index_mut_back1 tmp)
       else ok arr
     let i2 ← i + 1#usize
-    ok (cont (arr1, i2))
-  else ok (done arr)
-
-/-- [array_selection_sort::selection_sort]: loop 0:
-    Source: 'src/lib.rs', lines 11:4-26:5
-    Visibility: public -/
-@[rust_loop]
-def selection_sort_loop0
-  (arr : alloc.vec.Vec Int) (len : Std.Usize) (i : Std.Usize) :
-  Result (alloc.vec.Vec Int)
-  := do
-  loop
-    (fun (arr1, i1) => selection_sort_loop0.body len arr1 i1)
-    (arr, i)
+    selection_sort_loop0 arr1 len i2
+  else ok arr
+partial_fixpoint
 
 /-- [array_selection_sort::selection_sort]:
     Source: 'src/lib.rs', lines 4:0-28:1

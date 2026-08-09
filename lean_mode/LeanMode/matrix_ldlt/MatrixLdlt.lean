@@ -29,14 +29,14 @@ def RatClone : core.clone.Clone Rat := {
 structure Ldlt where
   ld : alloc.vec.Vec Rat
 
-/-- [matrix_ldlt::ldlt_decomposition]: loop body 2:
+/-- [matrix_ldlt::ldlt_decomposition]: loop 2:
     Source: 'src/lib.rs', lines 53:12-56:13
     Visibility: public -/
-@[rust_loop_body]
-def ldlt_decomposition_loop0_loop0_loop0.body
-  (n : Std.Usize) (j : Std.Usize) (k : Std.Usize) (factor : Rat)
-  (ld : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def ldlt_decomposition_loop0_loop0_loop0
+  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (k : Std.Usize)
+  (factor : Rat) (i : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -54,30 +54,17 @@ def ldlt_decomposition_loop0_loop0_loop0.body
     let fl3 := fl - fl2
     let i5 ← i + 1#usize
     let ld1 := index_mut_back fl3
-    ok (cont (ld1, i5))
-  else ok (done ld)
+    ldlt_decomposition_loop0_loop0_loop0 n ld1 j k factor i5
+  else ok ld
+partial_fixpoint
 
-/-- [matrix_ldlt::ldlt_decomposition]: loop 2:
-    Source: 'src/lib.rs', lines 53:12-56:13
-    Visibility: public -/
-@[rust_loop]
-def ldlt_decomposition_loop0_loop0_loop0
-  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (k : Std.Usize)
-  (factor : Rat) (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (ld1, i1) => ldlt_decomposition_loop0_loop0_loop0.body n j k factor
-      ld1 i1)
-    (ld, i)
-
-/-- [matrix_ldlt::ldlt_decomposition]: loop body 1:
+/-- [matrix_ldlt::ldlt_decomposition]: loop 1:
     Source: 'src/lib.rs', lines 48:8-58:9
     Visibility: public -/
-@[rust_loop_body]
-def ldlt_decomposition_loop0_loop0.body
-  (n : Std.Usize) (j : Std.Usize) (ld : alloc.vec.Vec Rat) (k : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def ldlt_decomposition_loop0_loop0
+  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (k : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if k < j
   then
@@ -92,29 +79,18 @@ def ldlt_decomposition_loop0_loop0.body
     let factor := dk * ljk
     let ld1 ← ldlt_decomposition_loop0_loop0_loop0 n ld j k factor j
     let k1 ← k + 1#usize
-    ok (cont (ld1, k1))
-  else ok (done ld)
+    ldlt_decomposition_loop0_loop0 n ld1 j k1
+  else ok ld
+partial_fixpoint
 
-/-- [matrix_ldlt::ldlt_decomposition]: loop 1:
-    Source: 'src/lib.rs', lines 48:8-58:9
-    Visibility: public -/
-@[rust_loop]
-def ldlt_decomposition_loop0_loop0
-  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (k : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (ld1, k1) => ldlt_decomposition_loop0_loop0.body n j ld1 k1)
-    (ld, k)
-
-/-- [matrix_ldlt::ldlt_decomposition]: loop body 3:
+/-- [matrix_ldlt::ldlt_decomposition]: loop 3:
     Source: 'src/lib.rs', lines 66:8-69:9
     Visibility: public -/
-@[rust_loop_body]
-def ldlt_decomposition_loop0_loop1.body
-  (n : Std.Usize) (j : Std.Usize) (diag : Rat) (ld : alloc.vec.Vec Rat)
+@[rust_loop]
+def ldlt_decomposition_loop0_loop1
+  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (diag : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -128,41 +104,9 @@ def ldlt_decomposition_loop0_loop1.body
     let fl1 := fl / diag
     let i4 ← i + 1#usize
     let ld1 := index_mut_back fl1
-    ok (cont (ld1, i4))
-  else ok (done ld)
-
-/-- [matrix_ldlt::ldlt_decomposition]: loop 3:
-    Source: 'src/lib.rs', lines 66:8-69:9
-    Visibility: public -/
-@[rust_loop]
-def ldlt_decomposition_loop0_loop1
-  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (diag : Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (ld1, i1) => ldlt_decomposition_loop0_loop1.body n j diag ld1 i1)
-    (ld, i)
-
-/-- [matrix_ldlt::ldlt_decomposition]: loop body 4:
-    Source: 'src/lib.rs', lines 73:8-76:9
-    Visibility: public -/
-@[rust_loop_body]
-def ldlt_decomposition_loop0_loop2.body
-  (n : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat) (ld : alloc.vec.Vec Rat)
-  (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < j
-  then
-    let i1 ← i * n
-    let i2 ← i1 + j
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
-    let i3 ← i + 1#usize
-    let ld1 := index_mut_back _f64_const_0
-    ok (cont (ld1, i3))
-  else ok (done ld)
+    ldlt_decomposition_loop0_loop1 n ld1 j diag i4
+  else ok ld
+partial_fixpoint
 
 /-- [matrix_ldlt::ldlt_decomposition]: loop 4:
     Source: 'src/lib.rs', lines 73:8-76:9
@@ -173,19 +117,26 @@ def ldlt_decomposition_loop0_loop2
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (ld1, i1) => ldlt_decomposition_loop0_loop2.body n j _f64_const_0 ld1
-      i1)
-    (ld, i)
+  if i < j
+  then
+    let i1 ← i * n
+    let i2 ← i1 + j
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
+    let i3 ← i + 1#usize
+    let ld1 := index_mut_back _f64_const_0
+    ldlt_decomposition_loop0_loop2 n ld1 j i3 _f64_const_0
+  else ok ld
+partial_fixpoint
 
-/-- [matrix_ldlt::ldlt_decomposition]: loop body 0:
+/-- [matrix_ldlt::ldlt_decomposition]: loop 0:
     Source: 'src/lib.rs', lines 42:4-79:5
     Visibility: public -/
-@[rust_loop_body]
-def ldlt_decomposition_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (ld : alloc.vec.Vec Rat) (j : Std.Usize)
+@[rust_loop]
+def ldlt_decomposition_loop0
+  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (_f64_const_0 : Rat)
   :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -199,21 +150,9 @@ def ldlt_decomposition_loop0.body
     let ld2 ← ldlt_decomposition_loop0_loop1 n ld1 j diag i2
     let ld3 ← ldlt_decomposition_loop0_loop2 n ld2 j 0#usize _f64_const_0
     let j1 ← j + 1#usize
-    ok (cont (ld3, j1))
-  else ok (done ld)
-
-/-- [matrix_ldlt::ldlt_decomposition]: loop 0:
-    Source: 'src/lib.rs', lines 42:4-79:5
-    Visibility: public -/
-@[rust_loop]
-def ldlt_decomposition_loop0
-  (n : Std.Usize) (ld : alloc.vec.Vec Rat) (j : Std.Usize) (_f64_const_0 : Rat)
-  :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (ld1, j1) => ldlt_decomposition_loop0.body n _f64_const_0 ld1 j1)
-    (ld, j)
+    ldlt_decomposition_loop0 n ld3 j1 _f64_const_0
+  else ok ld
+partial_fixpoint
 
 /-- [matrix_ldlt::ldlt_decomposition]:
     Source: 'src/lib.rs', lines 33:0-82:1

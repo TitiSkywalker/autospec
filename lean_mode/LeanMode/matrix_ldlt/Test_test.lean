@@ -28,23 +28,6 @@ def assert_approx_eq
   let b := diff ≤ tol
   massert b
 
-/-- [matrix_ldlt::matrix_mul]: loop body 0:
-    Source: 'src/lib.rs', lines 95:4-98:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (c : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let c1 ← alloc.vec.Vec.push c _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (c1, idx1))
-  else ok (done c)
-
 /-- [matrix_ldlt::matrix_mul]: loop 0:
     Source: 'src/lib.rs', lines 95:4-98:5
     Visibility: public -/
@@ -54,18 +37,23 @@ def matrix_mul_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, idx1) => matrix_mul_loop0.body n _f64_const_0 c1 idx1)
-    (c, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let c1 ← alloc.vec.Vec.push c _f64_const_0
+    let idx1 ← idx + 1#usize
+    matrix_mul_loop0 n c1 idx1 _f64_const_0
+  else ok c
+partial_fixpoint
 
-/-- [matrix_ldlt::matrix_mul]: loop body 3:
+/-- [matrix_ldlt::matrix_mul]: loop 3:
     Source: 'src/lib.rs', lines 105:12-108:13
     Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1_loop0_loop0.body
+@[rust_loop]
+def matrix_mul_loop1_loop0_loop0
   (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
   (j : Std.Usize) (sum : Rat) (k : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
+  Result Rat
   := do
   if k < n
   then
@@ -78,42 +66,9 @@ def matrix_mul_loop1_loop0_loop0.body
     let fl2 := fl * fl1
     let sum1 := sum + fl2
     let k1 ← k + 1#usize
-    ok (cont (sum1, k1))
-  else ok (done sum)
-
-/-- [matrix_ldlt::matrix_mul]: loop 3:
-    Source: 'src/lib.rs', lines 105:12-108:13
-    Visibility: public -/
-@[rust_loop]
-def matrix_mul_loop1_loop0_loop0
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (j : Std.Usize) (sum : Rat) (k : Std.Usize) :
-  Result Rat
-  := do
-  loop
-    (fun (sum1, k1) => matrix_mul_loop1_loop0_loop0.body a b n i j sum1 k1)
-    (sum, k)
-
-/-- [matrix_ldlt::matrix_mul]: loop body 2:
-    Source: 'src/lib.rs', lines 102:8-111:9
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1_loop0.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (_f64_const_0 : Rat) (c : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if j < n
-  then
-    let sum ← matrix_mul_loop1_loop0_loop0 a b n i j _f64_const_0 0#usize
-    let i1 ← i * n
-    let i2 ← i1 + j
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i2
-    let j1 ← j + 1#usize
-    let c1 := index_mut_back sum
-    ok (cont (c1, j1))
-  else ok (done c)
+    matrix_mul_loop1_loop0_loop0 a b n i j sum1 k1
+  else ok sum
+partial_fixpoint
 
 /-- [matrix_ldlt::matrix_mul]: loop 2:
     Source: 'src/lib.rs', lines 102:8-111:9
@@ -124,25 +79,18 @@ def matrix_mul_loop1_loop0
   (i : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, j1) => matrix_mul_loop1_loop0.body a b n i _f64_const_0 c1 j1)
-    (c, j)
-
-/-- [matrix_ldlt::matrix_mul]: loop body 1:
-    Source: 'src/lib.rs', lines 100:4-113:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_mul_loop1.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (_f64_const_0 : Rat)
-  (c : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
+  if j < n
   then
-    let c1 ← matrix_mul_loop1_loop0 a b n c i 0#usize _f64_const_0
-    let i1 ← i + 1#usize
-    ok (cont (c1, i1))
-  else ok (done c)
+    let sum ← matrix_mul_loop1_loop0_loop0 a b n i j _f64_const_0 0#usize
+    let i1 ← i * n
+    let i2 ← i1 + j
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i2
+    let j1 ← j + 1#usize
+    let c1 := index_mut_back sum
+    matrix_mul_loop1_loop0 a b n c1 i j1 _f64_const_0
+  else ok c
+partial_fixpoint
 
 /-- [matrix_ldlt::matrix_mul]: loop 1:
     Source: 'src/lib.rs', lines 100:4-113:5
@@ -153,9 +101,13 @@ def matrix_mul_loop1
   (i : Std.Usize) (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (c1, i1) => matrix_mul_loop1.body a b n _f64_const_0 c1 i1)
-    (c, i)
+  if i < n
+  then
+    let c1 ← matrix_mul_loop1_loop0 a b n c i 0#usize _f64_const_0
+    let i1 ← i + 1#usize
+    matrix_mul_loop1 a b n c1 i1 _f64_const_0
+  else ok c
+partial_fixpoint
 
 /-- [matrix_ldlt::matrix_mul]:
     Source: 'src/lib.rs', lines 92:0-115:1
@@ -168,23 +120,6 @@ def matrix_mul
   let c ← matrix_mul_loop0 n (alloc.vec.Vec.new Rat) 0#usize _f64_const_0
   matrix_mul_loop1 a b n c 0#usize _f64_const_0
 
-/-- [matrix_ldlt::matrix_transpose]: loop body 0:
-    Source: 'src/lib.rs', lines 121:4-124:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_transpose_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (t : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let t1 ← alloc.vec.Vec.push t _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (t1, idx1))
-  else ok (done t)
-
 /-- [matrix_ldlt::matrix_transpose]: loop 0:
     Source: 'src/lib.rs', lines 121:4-124:5
     Visibility: public -/
@@ -194,18 +129,23 @@ def matrix_transpose_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (t1, idx1) => matrix_transpose_loop0.body n _f64_const_0 t1 idx1)
-    (t, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let t1 ← alloc.vec.Vec.push t _f64_const_0
+    let idx1 ← idx + 1#usize
+    matrix_transpose_loop0 n t1 idx1 _f64_const_0
+  else ok t
+partial_fixpoint
 
-/-- [matrix_ldlt::matrix_transpose]: loop body 2:
+/-- [matrix_ldlt::matrix_transpose]: loop 2:
     Source: 'src/lib.rs', lines 128:8-131:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_transpose_loop1_loop0.body
-  (a : Slice Rat) (n : Std.Usize) (i : Std.Usize) (t : alloc.vec.Vec Rat)
+@[rust_loop]
+def matrix_transpose_loop1_loop0
+  (a : Slice Rat) (n : Std.Usize) (t : alloc.vec.Vec Rat) (i : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -218,36 +158,9 @@ def matrix_transpose_loop1_loop0.body
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) t i4
     let j1 ← j + 1#usize
     let t1 := index_mut_back fl
-    ok (cont (t1, j1))
-  else ok (done t)
-
-/-- [matrix_ldlt::matrix_transpose]: loop 2:
-    Source: 'src/lib.rs', lines 128:8-131:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_transpose_loop1_loop0
-  (a : Slice Rat) (n : Std.Usize) (t : alloc.vec.Vec Rat) (i : Std.Usize)
-  (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (t1, j1) => matrix_transpose_loop1_loop0.body a n i t1 j1)
-    (t, j)
-
-/-- [matrix_ldlt::matrix_transpose]: loop body 1:
-    Source: 'src/lib.rs', lines 126:4-133:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_transpose_loop1.body
-  (a : Slice Rat) (n : Std.Usize) (t : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let t1 ← matrix_transpose_loop1_loop0 a n t i 0#usize
-    let i1 ← i + 1#usize
-    ok (cont (t1, i1))
-  else ok (done t)
+    matrix_transpose_loop1_loop0 a n t1 i j1
+  else ok t
+partial_fixpoint
 
 /-- [matrix_ldlt::matrix_transpose]: loop 1:
     Source: 'src/lib.rs', lines 126:4-133:5
@@ -257,9 +170,13 @@ def matrix_transpose_loop1
   (a : Slice Rat) (n : Std.Usize) (t : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (t1, i1) => matrix_transpose_loop1.body a n t1 i1)
-    (t, i)
+  if i < n
+  then
+    let t1 ← matrix_transpose_loop1_loop0 a n t i 0#usize
+    let i1 ← i + 1#usize
+    matrix_transpose_loop1 a n t1 i1
+  else ok t
+partial_fixpoint
 
 /-- [matrix_ldlt::matrix_transpose]:
     Source: 'src/lib.rs', lines 118:0-135:1
@@ -271,23 +188,6 @@ def matrix_transpose
     matrix_transpose_loop0 n (alloc.vec.Vec.new Rat) 0#usize _f64_const_0
   matrix_transpose_loop1 a n t 0#usize
 
-/-- [matrix_ldlt::extract_l]: loop body 0:
-    Source: 'src/lib.rs', lines 142:4-145:5
-    Visibility: public -/
-@[rust_loop_body]
-def extract_l_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (l : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let l1 ← alloc.vec.Vec.push l _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (l1, idx1))
-  else ok (done l)
-
 /-- [matrix_ldlt::extract_l]: loop 0:
     Source: 'src/lib.rs', lines 142:4-145:5
     Visibility: public -/
@@ -297,18 +197,23 @@ def extract_l_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (l1, idx1) => extract_l_loop0.body n _f64_const_0 l1 idx1)
-    (l, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let l1 ← alloc.vec.Vec.push l _f64_const_0
+    let idx1 ← idx + 1#usize
+    extract_l_loop0 n l1 idx1 _f64_const_0
+  else ok l
+partial_fixpoint
 
-/-- [matrix_ldlt::extract_l]: loop body 2:
+/-- [matrix_ldlt::extract_l]: loop 2:
     Source: 'src/lib.rs', lines 150:8-153:9
     Visibility: public -/
-@[rust_loop_body]
-def extract_l_loop1_loop0.body
-  (ld : Slice Rat) (n : Std.Usize) (i : Std.Usize) (l : alloc.vec.Vec Rat)
+@[rust_loop]
+def extract_l_loop1_loop0
+  (ld : Slice Rat) (n : Std.Usize) (l : alloc.vec.Vec Rat) (i : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if j < i
   then
@@ -320,42 +225,9 @@ def extract_l_loop1_loop0.body
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) l i3
     let j1 ← j + 1#usize
     let l1 := index_mut_back fl
-    ok (cont (l1, j1))
-  else ok (done l)
-
-/-- [matrix_ldlt::extract_l]: loop 2:
-    Source: 'src/lib.rs', lines 150:8-153:9
-    Visibility: public -/
-@[rust_loop]
-def extract_l_loop1_loop0
-  (ld : Slice Rat) (n : Std.Usize) (l : alloc.vec.Vec Rat) (i : Std.Usize)
-  (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (l1, j1) => extract_l_loop1_loop0.body ld n i l1 j1)
-    (l, j)
-
-/-- [matrix_ldlt::extract_l]: loop body 1:
-    Source: 'src/lib.rs', lines 147:4-155:5
-    Visibility: public -/
-@[rust_loop_body]
-def extract_l_loop1.body
-  (ld : Slice Rat) (n : Std.Usize) (_f64_const_1 : Rat) (l : alloc.vec.Vec Rat)
-  (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let i1 ← i * n
-    let i2 ← i1 + i
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) l i2
-    let l1 := index_mut_back _f64_const_1
-    let l2 ← extract_l_loop1_loop0 ld n l1 i 0#usize
-    let i3 ← i + 1#usize
-    ok (cont (l2, i3))
-  else ok (done l)
+    extract_l_loop1_loop0 ld n l1 i j1
+  else ok l
+partial_fixpoint
 
 /-- [matrix_ldlt::extract_l]: loop 1:
     Source: 'src/lib.rs', lines 147:4-155:5
@@ -366,9 +238,18 @@ def extract_l_loop1
   (_f64_const_1 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (l1, i1) => extract_l_loop1.body ld n _f64_const_1 l1 i1)
-    (l, i)
+  if i < n
+  then
+    let i1 ← i * n
+    let i2 ← i1 + i
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) l i2
+    let l1 := index_mut_back _f64_const_1
+    let l2 ← extract_l_loop1_loop0 ld n l1 i 0#usize
+    let i3 ← i + 1#usize
+    extract_l_loop1 ld n l2 i3 _f64_const_1
+  else ok l
+partial_fixpoint
 
 /-- [matrix_ldlt::extract_l]:
     Source: 'src/lib.rs', lines 139:0-157:1
@@ -380,23 +261,6 @@ def extract_l
   let l ← extract_l_loop0 n (alloc.vec.Vec.new Rat) 0#usize _f64_const_0
   extract_l_loop1 ld n l 0#usize _f64_const_1
 
-/-- [matrix_ldlt::extract_d]: loop body 0:
-    Source: 'src/lib.rs', lines 163:4-166:5
-    Visibility: public -/
-@[rust_loop_body]
-def extract_d_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (d : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let d1 ← alloc.vec.Vec.push d _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (d1, idx1))
-  else ok (done d)
-
 /-- [matrix_ldlt::extract_d]: loop 0:
     Source: 'src/lib.rs', lines 163:4-166:5
     Visibility: public -/
@@ -406,17 +270,22 @@ def extract_d_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (d1, idx1) => extract_d_loop0.body n _f64_const_0 d1 idx1)
-    (d, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let d1 ← alloc.vec.Vec.push d _f64_const_0
+    let idx1 ← idx + 1#usize
+    extract_d_loop0 n d1 idx1 _f64_const_0
+  else ok d
+partial_fixpoint
 
-/-- [matrix_ldlt::extract_d]: loop body 1:
+/-- [matrix_ldlt::extract_d]: loop 1:
     Source: 'src/lib.rs', lines 168:4-171:5
     Visibility: public -/
-@[rust_loop_body]
-def extract_d_loop1.body
+@[rust_loop]
+def extract_d_loop1
   (ld : Slice Rat) (n : Std.Usize) (d : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -428,20 +297,9 @@ def extract_d_loop1.body
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) d i3
     let i4 ← i + 1#usize
     let d1 := index_mut_back fl
-    ok (cont (d1, i4))
-  else ok (done d)
-
-/-- [matrix_ldlt::extract_d]: loop 1:
-    Source: 'src/lib.rs', lines 168:4-171:5
-    Visibility: public -/
-@[rust_loop]
-def extract_d_loop1
-  (ld : Slice Rat) (n : Std.Usize) (d : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (d1, i1) => extract_d_loop1.body ld n d1 i1)
-    (d, i)
+    extract_d_loop1 ld n d1 i4
+  else ok d
+partial_fixpoint
 
 /-- [matrix_ldlt::extract_d]:
     Source: 'src/lib.rs', lines 160:0-173:1
@@ -452,26 +310,6 @@ def extract_d
   let d ← extract_d_loop0 n (alloc.vec.Vec.new Rat) 0#usize _f64_const_0
   extract_d_loop1 ld n d 0#usize
 
-/-- [matrix_ldlt::verify_ldlt]: loop body 0:
-    Source: 'src/lib.rs', lines 183:4-186:5
-    Visibility: public -/
-@[rust_loop_body]
-def verify_ldlt_loop.body
-  (a : Slice Rat) (n : Std.Usize) (tol : Rat) (ldl : alloc.vec.Vec Rat)
-  (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
-  let i1 ← n * n
-  if i < i1
-  then
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ldl i
-    let fl1 ← Slice.index_usize a i
-    assert_approx_eq fl fl1 tol
-    let i2 ← i + 1#usize
-    ok (cont i2)
-  else ok (done ())
-
 /-- [matrix_ldlt::verify_ldlt]: loop 0:
     Source: 'src/lib.rs', lines 183:4-186:5
     Visibility: public -/
@@ -481,9 +319,17 @@ def verify_ldlt_loop
   (i : Std.Usize) :
   Result Unit
   := do
-  loop
-    (fun i1 => verify_ldlt_loop.body a n tol ldl i1)
-    i
+  let i1 ← n * n
+  if i < i1
+  then
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ldl i
+    let fl1 ← Slice.index_usize a i
+    assert_approx_eq fl fl1 tol
+    let i2 ← i + 1#usize
+    verify_ldlt_loop a n tol ldl i2
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_ldlt::verify_ldlt]:
     Source: 'src/lib.rs', lines 176:0-187:1
@@ -927,26 +773,6 @@ def test_ldlt_4x4_indefinite : Result Unit := do
   let s2 := alloc.vec.Vec.deref result.ld
   verify_ldlt s1 s2 4#usize _f64_const_0_0000000010000000000000001
 
-/-- [matrix_ldlt::test_ldlt_structure]: loop body 1:
-    Source: 'src/lib.rs', lines 406:8-409:9
-    Visibility: public -/
-@[rust_loop_body]
-def test_ldlt_structure_loop0_loop0.body
-  (ld : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) (j : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
-  if j < 3#usize
-  then
-    let i1 ← i * 3#usize
-    let i2 ← i1 + j
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
-    assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
-    let j1 ← j + 1#usize
-    ok (cont j1)
-  else ok (done ())
-
 /-- [matrix_ldlt::test_ldlt_structure]: loop 1:
     Source: 'src/lib.rs', lines 406:8-409:9
     Visibility: public -/
@@ -956,28 +782,18 @@ def test_ldlt_structure_loop0_loop0
   (_f64_const_0_0000000010000000000000001 : Rat) :
   Result Unit
   := do
-  loop
-    (fun j1 => test_ldlt_structure_loop0_loop0.body ld i _f64_const_0
-      _f64_const_0_0000000010000000000000001 j1)
-    j
-
-/-- [matrix_ldlt::test_ldlt_structure]: loop body 0:
-    Source: 'src/lib.rs', lines 404:4-411:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_ldlt_structure_loop0.body
-  (ld : alloc.vec.Vec Rat) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
-  if i < 3#usize
+  if j < 3#usize
   then
-    let j ← i + 1#usize
-    test_ldlt_structure_loop0_loop0 ld i j _f64_const_0
+    let i1 ← i * 3#usize
+    let i2 ← i1 + j
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
+    assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+    let j1 ← j + 1#usize
+    test_ldlt_structure_loop0_loop0 ld i j1 _f64_const_0
       _f64_const_0_0000000010000000000000001
-    let i1 ← i + 1#usize
-    ok (cont i1)
-  else ok (done ())
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_ldlt::test_ldlt_structure]: loop 0:
     Source: 'src/lib.rs', lines 404:4-411:5
@@ -988,30 +804,16 @@ def test_ldlt_structure_loop0
   (_f64_const_0_0000000010000000000000001 : Rat) :
   Result Unit
   := do
-  loop
-    (fun i1 => test_ldlt_structure_loop0.body ld _f64_const_0
-      _f64_const_0_0000000010000000000000001 i1)
-    i
-
-/-- [matrix_ldlt::test_ldlt_structure]: loop body 2:
-    Source: 'src/lib.rs', lines 416:4-419:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_ldlt_structure_loop1.body
-  (l : alloc.vec.Vec Rat) (_f64_const_1 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
   if i < 3#usize
   then
-    let i1 ← i * 3#usize
-    let i2 ← i1 + i
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) l i2
-    assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
-    let i3 ← i + 1#usize
-    ok (cont i3)
-  else ok (done ())
+    let j ← i + 1#usize
+    test_ldlt_structure_loop0_loop0 ld i j _f64_const_0
+      _f64_const_0_0000000010000000000000001
+    let i1 ← i + 1#usize
+    test_ldlt_structure_loop0 ld i1 _f64_const_0
+      _f64_const_0_0000000010000000000000001
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_ldlt::test_ldlt_structure]: loop 2:
     Source: 'src/lib.rs', lines 416:4-419:5
@@ -1022,29 +824,18 @@ def test_ldlt_structure_loop1
   (_f64_const_0_0000000010000000000000001 : Rat) :
   Result Unit
   := do
-  loop
-    (fun i1 => test_ldlt_structure_loop1.body l _f64_const_1
-      _f64_const_0_0000000010000000000000001 i1)
-    i
-
-/-- [matrix_ldlt::test_ldlt_structure]: loop body 3:
-    Source: 'src/lib.rs', lines 423:4-426:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_ldlt_structure_loop2.body
-  (ld : alloc.vec.Vec Rat) (_f64_const_0 : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
   if i < 3#usize
   then
     let i1 ← i * 3#usize
     let i2 ← i1 + i
     let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
-    massert (fl != _f64_const_0)
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) l i2
+    assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
     let i3 ← i + 1#usize
-    ok (cont i3)
-  else ok (done ())
+    test_ldlt_structure_loop1 l i3 _f64_const_1
+      _f64_const_0_0000000010000000000000001
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_ldlt::test_ldlt_structure]: loop 3:
     Source: 'src/lib.rs', lines 423:4-426:5
@@ -1054,9 +845,17 @@ def test_ldlt_structure_loop2
   (ld : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_0 : Rat) :
   Result Unit
   := do
-  loop
-    (fun i1 => test_ldlt_structure_loop2.body ld _f64_const_0 i1)
-    i
+  if i < 3#usize
+  then
+    let i1 ← i * 3#usize
+    let i2 ← i1 + i
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
+    massert (fl != _f64_const_0)
+    let i3 ← i + 1#usize
+    test_ldlt_structure_loop2 ld i3 _f64_const_0
+  else ok ()
+partial_fixpoint
 
 /-- [matrix_ldlt::test_ldlt_structure]:
     Source: 'src/lib.rs', lines 392:0-427:1

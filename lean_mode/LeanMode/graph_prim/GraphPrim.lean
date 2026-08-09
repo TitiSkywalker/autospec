@@ -15,25 +15,6 @@ set_option maxRecDepth 2048
 
 namespace graph_prim
 
-/-- [graph_prim::prim]: loop body 0:
-    Source: 'src/lib.rs', lines 22:4-27:5
-    Visibility: public -/
-@[rust_loop_body]
-def prim_loop0.body
-  (nodes : Slice Std.Usize) (n_nodes : Std.Usize) (max_node : Std.Usize)
-  (i : Std.Usize) :
-  Result (ControlFlow (Std.Usize × Std.Usize) Std.Usize)
-  := do
-  if i < n_nodes
-  then
-    let i1 ← Slice.index_usize nodes i
-    let max_node1 ← if i1 > max_node
-                      then ok i1
-                      else ok max_node
-    let i2 ← i + 1#usize
-    ok (cont (max_node1, i2))
-  else ok (done max_node)
-
 /-- [graph_prim::prim]: loop 0:
     Source: 'src/lib.rs', lines 22:4-27:5
     Visibility: public -/
@@ -43,24 +24,16 @@ def prim_loop0
   (i : Std.Usize) :
   Result Std.Usize
   := do
-  loop
-    (fun (max_node1, i1) => prim_loop0.body nodes n_nodes max_node1 i1)
-    (max_node, i)
-
-/-- [graph_prim::prim]: loop body 1:
-    Source: 'src/lib.rs', lines 33:4-36:5
-    Visibility: public -/
-@[rust_loop_body]
-def prim_loop1.body
-  (vis_size : Std.Usize) (visited : alloc.vec.Vec Bool) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Bool) × Std.Usize) (alloc.vec.Vec Bool))
-  := do
-  if j < vis_size
+  if i < n_nodes
   then
-    let visited1 ← alloc.vec.Vec.push visited false
-    let j1 ← j + 1#usize
-    ok (cont (visited1, j1))
-  else ok (done visited)
+    let i1 ← Slice.index_usize nodes i
+    let max_node1 ← if i1 > max_node
+                      then ok i1
+                      else ok max_node
+    let i2 ← i + 1#usize
+    prim_loop0 nodes n_nodes max_node1 i2
+  else ok max_node
+partial_fixpoint
 
 /-- [graph_prim::prim]: loop 1:
     Source: 'src/lib.rs', lines 33:4-36:5
@@ -70,20 +43,23 @@ def prim_loop1
   (vis_size : Std.Usize) (visited : alloc.vec.Vec Bool) (j : Std.Usize) :
   Result (alloc.vec.Vec Bool)
   := do
-  loop
-    (fun (visited1, j1) => prim_loop1.body vis_size visited1 j1)
-    (visited, j)
+  if j < vis_size
+  then
+    let visited1 ← alloc.vec.Vec.push visited false
+    let j1 ← j + 1#usize
+    prim_loop1 vis_size visited1 j1
+  else ok visited
+partial_fixpoint
 
-/-- [graph_prim::prim]: loop body 3:
+/-- [graph_prim::prim]: loop 3:
     Source: 'src/lib.rs', lines 1:0-83:9
     Visibility: public -/
-@[rust_loop_body]
-def prim_loop2_loop0.body
+@[rust_loop]
+def prim_loop2_loop0
   (edges : Slice (Std.Usize × Std.Usize × Rat))
   (visited : alloc.vec.Vec Bool) (edges_len : Std.Usize) (found : Bool)
   (min_u : Std.Usize) (min_v : Std.Usize) (min_w : Rat) (k : Std.Usize) :
-  Result (ControlFlow (Bool × Std.Usize × Std.Usize × Rat × Std.Usize)
-    (Bool × Std.Usize × Std.Usize × Rat))
+  Result (Bool × Std.Usize × Std.Usize × Rat)
   := do
   if k < edges_len
   then
@@ -149,35 +125,20 @@ def prim_loop2_loop0.body
             ok (true, i1, i2, fl1)
           else ok (found, min_u, min_v, min_w)
     let k1 ← k + 1#usize
-    ok (cont (found1, min_u1, min_v1, min_w1, k1))
-  else ok (done (found, min_u, min_v, min_w))
+    prim_loop2_loop0 edges visited edges_len found1 min_u1 min_v1 min_w1 k1
+  else ok (found, min_u, min_v, min_w)
+partial_fixpoint
 
-/-- [graph_prim::prim]: loop 3:
-    Source: 'src/lib.rs', lines 1:0-83:9
-    Visibility: public -/
-@[rust_loop]
-def prim_loop2_loop0
-  (edges : Slice (Std.Usize × Std.Usize × Rat))
-  (visited : alloc.vec.Vec Bool) (edges_len : Std.Usize) (found : Bool)
-  (min_u : Std.Usize) (min_v : Std.Usize) (min_w : Rat) (k : Std.Usize) :
-  Result (Bool × Std.Usize × Std.Usize × Rat)
-  := do
-  loop
-    (fun (found1, min_u1, min_v1, min_w1, k1) => prim_loop2_loop0.body edges
-      visited edges_len found1 min_u1 min_v1 min_w1 k1)
-    (found, min_u, min_v, min_w, k)
-
-/-- [graph_prim::prim]: loop body 2:
+/-- [graph_prim::prim]: loop 2:
     Source: 'src/lib.rs', lines 1:0-94:5
     Visibility: public -/
-@[rust_loop_body]
-def prim_loop2.body
+@[rust_loop]
+def prim_loop2
   (edges : Slice (Std.Usize × Std.Usize × Rat)) (n_nodes : Std.Usize)
-  (edges_len : Std.Usize) (_f64_const_0 : Rat) (visited : alloc.vec.Vec Bool)
-  (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) (count : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Bool) × (alloc.vec.Vec (Std.Usize ×
-    Std.Usize × Rat)) × Std.Usize) (alloc.vec.Vec (Std.Usize × Std.Usize ×
-    Rat)))
+  (visited : alloc.vec.Vec Bool)
+  (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) (edges_len : Std.Usize)
+  (count : Std.Usize) (_f64_const_0 : Rat) :
+  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
   := do
   let i ← count + 1#usize
   if i < n_nodes
@@ -197,24 +158,9 @@ def prim_loop2.body
         ok (visited2, mst2, count)
       else ok (visited, mst, n_nodes)
     let count2 ← count1 + 1#usize
-    ok (cont (visited1, mst1, count2))
-  else ok (done mst)
-
-/-- [graph_prim::prim]: loop 2:
-    Source: 'src/lib.rs', lines 1:0-94:5
-    Visibility: public -/
-@[rust_loop]
-def prim_loop2
-  (edges : Slice (Std.Usize × Std.Usize × Rat)) (n_nodes : Std.Usize)
-  (visited : alloc.vec.Vec Bool)
-  (mst : alloc.vec.Vec (Std.Usize × Std.Usize × Rat)) (edges_len : Std.Usize)
-  (count : Std.Usize) (_f64_const_0 : Rat) :
-  Result (alloc.vec.Vec (Std.Usize × Std.Usize × Rat))
-  := do
-  loop
-    (fun (visited1, mst1, count1) => prim_loop2.body edges n_nodes edges_len
-      _f64_const_0 visited1 mst1 count1)
-    (visited, mst, count)
+    prim_loop2 edges n_nodes visited1 mst1 edges_len count2 _f64_const_0
+  else ok mst
+partial_fixpoint
 
 /-- [graph_prim::prim]:
     Source: 'src/lib.rs', lines 13:0-97:1

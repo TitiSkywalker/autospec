@@ -26,24 +26,6 @@ def assert_approx_eq
   let b := diff ≤ tol
   massert b
 
-/-- [vector_gram_schmidt::dot_product]: loop body 0:
-    Source: 'src/lib.rs', lines 62:4-65:5
-    Visibility: public -/
-@[rust_loop_body]
-def dot_product_loop.body
-  (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (sum : Rat) (i : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize) Rat)
-  := do
-  if i < n
-  then
-    let fl ← Slice.index_usize a i
-    let fl1 ← Slice.index_usize b i
-    let fl2 := fl * fl1
-    let sum1 := sum + fl2
-    let i1 ← i + 1#usize
-    ok (cont (sum1, i1))
-  else ok (done sum)
-
 /-- [vector_gram_schmidt::dot_product]: loop 0:
     Source: 'src/lib.rs', lines 62:4-65:5
     Visibility: public -/
@@ -52,9 +34,16 @@ def dot_product_loop
   (a : Slice Rat) (b : Slice Rat) (n : Std.Usize) (sum : Rat) (i : Std.Usize) :
   Result Rat
   := do
-  loop
-    (fun (sum1, i1) => dot_product_loop.body a b n sum1 i1)
-    (sum, i)
+  if i < n
+  then
+    let fl ← Slice.index_usize a i
+    let fl1 ← Slice.index_usize b i
+    let fl2 := fl * fl1
+    let sum1 := sum + fl2
+    let i1 ← i + 1#usize
+    dot_product_loop a b n sum1 i1
+  else ok sum
+partial_fixpoint
 
 /-- [vector_gram_schmidt::dot_product]:
     Source: 'src/lib.rs', lines 59:0-67:1
@@ -75,14 +64,14 @@ def verify_orthogonal
   let dot ← dot_product result u n
   assert_approx_eq dot _f64_const_0 tol
 
-/-- [vector_gram_schmidt::verify_gs_step]: loop body 0:
+/-- [vector_gram_schmidt::verify_gs_step]: loop 0:
     Source: 'src/lib.rs', lines 81:4-85:5
     Visibility: public -/
-@[rust_loop_body]
-def verify_gs_step_loop.body
+@[rust_loop]
+def verify_gs_step_loop
   (result : Slice Rat) (u : Slice Rat) (v : Slice Rat) (n : Std.Usize)
   (tol : Rat) (factor : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
+  Result Unit
   := do
   if i < n
   then
@@ -93,21 +82,9 @@ def verify_gs_step_loop.body
     let fl3 ← Slice.index_usize result i
     assert_approx_eq fl3 expected tol
     let i1 ← i + 1#usize
-    ok (cont i1)
-  else ok (done ())
-
-/-- [vector_gram_schmidt::verify_gs_step]: loop 0:
-    Source: 'src/lib.rs', lines 81:4-85:5
-    Visibility: public -/
-@[rust_loop]
-def verify_gs_step_loop
-  (result : Slice Rat) (u : Slice Rat) (v : Slice Rat) (n : Std.Usize)
-  (tol : Rat) (factor : Rat) (i : Std.Usize) :
-  Result Unit
-  := do
-  loop
-    (fun i1 => verify_gs_step_loop.body result u v n tol factor i1)
-    i
+    verify_gs_step_loop result u v n tol factor i1
+  else ok ()
+partial_fixpoint
 
 /-- [vector_gram_schmidt::verify_gs_step]:
     Source: 'src/lib.rs', lines 76:0-86:1
@@ -348,26 +325,6 @@ def test_gs_4d_orthogonality : Result Unit := do
         ]))
   verify_gs_step s4 s5 s6 4#usize _f64_const_0_0000000010000000000000001
 
-/-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]: loop body 0:
-    Source: 'src/lib.rs', lines 180:4-183:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_gs_difference_parallel_to_u_loop0.body
-  (v : Array Rat 3#usize) (result : alloc.vec.Vec Rat)
-  (diff : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < 3#usize
-  then
-    let fl ← Array.index_usize v i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
-    let fl2 := fl - fl1
-    let diff1 ← alloc.vec.Vec.push diff fl2
-    let i1 ← i + 1#usize
-    ok (cont (diff1, i1))
-  else ok (done diff)
-
 /-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]: loop 0:
     Source: 'src/lib.rs', lines 180:4-183:5
     Visibility: public -/
@@ -377,30 +334,17 @@ def test_gs_difference_parallel_to_u_loop0
   (diff : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (diff1, i1) => test_gs_difference_parallel_to_u_loop0.body v result
-      diff1 i1)
-    (diff, i)
-
-/-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]: loop body 1:
-    Source: 'src/lib.rs', lines 187:4-190:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_gs_difference_parallel_to_u_loop1.body
-  (u : Array Rat 3#usize) (diff : alloc.vec.Vec Rat) (factor : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) (i : Std.Usize) :
-  Result (ControlFlow Std.Usize Unit)
-  := do
   if i < 3#usize
   then
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) diff i
-    let fl1 ← Array.index_usize u i
-    let fl2 := fl / fl1
-    assert_approx_eq fl2 factor _f64_const_0_0000000010000000000000001
+    let fl ← Array.index_usize v i
+    let fl1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
+    let fl2 := fl - fl1
+    let diff1 ← alloc.vec.Vec.push diff fl2
     let i1 ← i + 1#usize
-    ok (cont i1)
-  else ok (done ())
+    test_gs_difference_parallel_to_u_loop0 v result diff1 i1
+  else ok diff
+partial_fixpoint
 
 /-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]: loop 1:
     Source: 'src/lib.rs', lines 187:4-190:5
@@ -411,10 +355,18 @@ def test_gs_difference_parallel_to_u_loop1
   (i : Std.Usize) (_f64_const_0_0000000010000000000000001 : Rat) :
   Result Unit
   := do
-  loop
-    (fun i1 => test_gs_difference_parallel_to_u_loop1.body u diff factor
-      _f64_const_0_0000000010000000000000001 i1)
-    i
+  if i < 3#usize
+  then
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) diff i
+    let fl1 ← Array.index_usize u i
+    let fl2 := fl / fl1
+    assert_approx_eq fl2 factor _f64_const_0_0000000010000000000000001
+    let i1 ← i + 1#usize
+    test_gs_difference_parallel_to_u_loop1 u diff factor i1
+      _f64_const_0_0000000010000000000000001
+  else ok ()
+partial_fixpoint
 
 /-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]:
     Source: 'src/lib.rs', lines 173:0-192:1

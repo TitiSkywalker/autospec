@@ -30,22 +30,6 @@ structure LU where
   lu : alloc.vec.Vec Rat
   perm : alloc.vec.Vec Std.Usize
 
-/-- [matrix_lu::lu_decomposition]: loop body 0:
-    Source: 'src/lib.rs', lines 44:4-47:5
-    Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop0.body
-  (n : Std.Usize) (perm : alloc.vec.Vec Std.Usize) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Std.Usize) × Std.Usize) (alloc.vec.Vec
-    Std.Usize))
-  := do
-  if i < n
-  then
-    let perm1 ← alloc.vec.Vec.push perm i
-    let i1 ← i + 1#usize
-    ok (cont (perm1, i1))
-  else ok (done perm)
-
 /-- [matrix_lu::lu_decomposition]: loop 0:
     Source: 'src/lib.rs', lines 44:4-47:5
     Visibility: public -/
@@ -54,18 +38,22 @@ def lu_decomposition_loop0
   (n : Std.Usize) (perm : alloc.vec.Vec Std.Usize) (i : Std.Usize) :
   Result (alloc.vec.Vec Std.Usize)
   := do
-  loop
-    (fun (perm1, i1) => lu_decomposition_loop0.body n perm1 i1)
-    (perm, i)
+  if i < n
+  then
+    let perm1 ← alloc.vec.Vec.push perm i
+    let i1 ← i + 1#usize
+    lu_decomposition_loop0 n perm1 i1
+  else ok perm
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop body 2:
+/-- [matrix_lu::lu_decomposition]: loop 2:
     Source: 'src/lib.rs', lines 61:8-71:9
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop0.body
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (_f64_const_0 : Rat)
-  (max_abs : Rat) (piv : Std.Usize) (i : Std.Usize) :
-  Result (ControlFlow (Rat × Std.Usize × Std.Usize) Std.Usize)
+@[rust_loop]
+def lu_decomposition_loop1_loop0
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (max_abs : Rat)
+  (piv : Std.Usize) (i : Std.Usize) (_f64_const_0 : Rat) :
+  Result Std.Usize
   := do
   if i < n
   then
@@ -82,31 +70,18 @@ def lu_decomposition_loop1_loop0.body
                              then ok (abs_val1, i)
                              else ok (max_abs, piv)
     let i3 ← i + 1#usize
-    ok (cont (max_abs1, piv1, i3))
-  else ok (done piv)
+    lu_decomposition_loop1_loop0 n lu k max_abs1 piv1 i3 _f64_const_0
+  else ok piv
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 2:
-    Source: 'src/lib.rs', lines 61:8-71:9
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop0
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (max_abs : Rat)
-  (piv : Std.Usize) (i : Std.Usize) (_f64_const_0 : Rat) :
-  Result Std.Usize
-  := do
-  loop
-    (fun (max_abs1, piv1, i1) => lu_decomposition_loop1_loop0.body n lu k
-      _f64_const_0 max_abs1 piv1 i1)
-    (max_abs, piv, i)
-
-/-- [matrix_lu::lu_decomposition]: loop body 3:
+/-- [matrix_lu::lu_decomposition]: loop 3:
     Source: 'src/lib.rs', lines 86:12-91:13
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop1.body
-  (n : Std.Usize) (k : Std.Usize) (piv : Std.Usize) (lu : alloc.vec.Vec Rat)
+@[rust_loop]
+def lu_decomposition_loop1_loop1
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (piv : Std.Usize)
   (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -128,30 +103,18 @@ def lu_decomposition_loop1_loop1.body
         i5
     let j1 ← j + 1#usize
     let lu2 := index_mut_back1 tmp
-    ok (cont (lu2, j1))
-  else ok (done lu)
+    lu_decomposition_loop1_loop1 n lu2 k piv j1
+  else ok lu
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 3:
-    Source: 'src/lib.rs', lines 86:12-91:13
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop1
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (piv : Std.Usize)
-  (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (lu1, j1) => lu_decomposition_loop1_loop1.body n k piv lu1 j1)
-    (lu, j)
-
-/-- [matrix_lu::lu_decomposition]: loop body 5:
+/-- [matrix_lu::lu_decomposition]: loop 5:
     Source: 'src/lib.rs', lines 103:12-106:13
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop2_loop0.body
-  (n : Std.Usize) (k : Std.Usize) (i : Std.Usize) (mult : Rat)
-  (lu : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def lu_decomposition_loop1_loop2_loop0
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
+  (mult : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -170,31 +133,18 @@ def lu_decomposition_loop1_loop2_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let lu1 := index_mut_back fl3
-    ok (cont (lu1, j1))
-  else ok (done lu)
+    lu_decomposition_loop1_loop2_loop0 n lu1 k i mult j1
+  else ok lu
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 5:
-    Source: 'src/lib.rs', lines 103:12-106:13
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop2_loop0
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
-  (mult : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (lu1, j1) => lu_decomposition_loop1_loop2_loop0.body n k i mult lu1
-      j1)
-    (lu, j)
-
-/-- [matrix_lu::lu_decomposition]: loop body 4:
+/-- [matrix_lu::lu_decomposition]: loop 4:
     Source: 'src/lib.rs', lines 98:8-108:9
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop2.body
-  (n : Std.Usize) (k : Std.Usize) (diag : Rat) (lu : alloc.vec.Vec Rat)
+@[rust_loop]
+def lu_decomposition_loop1_loop2
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (diag : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -210,30 +160,18 @@ def lu_decomposition_loop1_loop2.body
     let lu1 := index_mut_back mult
     let lu2 ← lu_decomposition_loop1_loop2_loop0 n lu1 k i mult j
     let i4 ← i + 1#usize
-    ok (cont (lu2, i4))
-  else ok (done lu)
+    lu_decomposition_loop1_loop2 n lu2 k diag i4
+  else ok lu
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 4:
-    Source: 'src/lib.rs', lines 98:8-108:9
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop2
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (diag : Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (lu1, i1) => lu_decomposition_loop1_loop2.body n k diag lu1 i1)
-    (lu, i)
-
-/-- [matrix_lu::lu_decomposition]: loop body 7:
+/-- [matrix_lu::lu_decomposition]: loop 7:
     Source: 'src/lib.rs', lines 103:12-106:13
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop3_loop0.body
-  (n : Std.Usize) (k : Std.Usize) (i : Std.Usize) (mult : Rat)
-  (lu : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def lu_decomposition_loop1_loop3_loop0
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
+  (mult : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -252,31 +190,18 @@ def lu_decomposition_loop1_loop3_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let lu1 := index_mut_back fl3
-    ok (cont (lu1, j1))
-  else ok (done lu)
+    lu_decomposition_loop1_loop3_loop0 n lu1 k i mult j1
+  else ok lu
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 7:
-    Source: 'src/lib.rs', lines 103:12-106:13
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop3_loop0
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (i : Std.Usize)
-  (mult : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (lu1, j1) => lu_decomposition_loop1_loop3_loop0.body n k i mult lu1
-      j1)
-    (lu, j)
-
-/-- [matrix_lu::lu_decomposition]: loop body 6:
+/-- [matrix_lu::lu_decomposition]: loop 6:
     Source: 'src/lib.rs', lines 98:8-108:9
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1_loop3.body
-  (n : Std.Usize) (k : Std.Usize) (diag : Rat) (lu : alloc.vec.Vec Rat)
+@[rust_loop]
+def lu_decomposition_loop1_loop3
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (diag : Rat)
   (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -292,31 +217,18 @@ def lu_decomposition_loop1_loop3.body
     let lu1 := index_mut_back mult
     let lu2 ← lu_decomposition_loop1_loop3_loop0 n lu1 k i mult j
     let i4 ← i + 1#usize
-    ok (cont (lu2, i4))
-  else ok (done lu)
+    lu_decomposition_loop1_loop3 n lu2 k diag i4
+  else ok lu
+partial_fixpoint
 
-/-- [matrix_lu::lu_decomposition]: loop 6:
-    Source: 'src/lib.rs', lines 98:8-108:9
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1_loop3
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (k : Std.Usize) (diag : Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (lu1, i1) => lu_decomposition_loop1_loop3.body n k diag lu1 i1)
-    (lu, i)
-
-/-- [matrix_lu::lu_decomposition]: loop body 1:
+/-- [matrix_lu::lu_decomposition]: loop 1:
     Source: 'src/lib.rs', lines 50:4-111:5
     Visibility: public -/
-@[rust_loop_body]
-def lu_decomposition_loop1.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (lu : alloc.vec.Vec Rat)
-  (perm : alloc.vec.Vec Std.Usize) (k : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × (alloc.vec.Vec Std.Usize) ×
-    Std.Usize) ((alloc.vec.Vec Rat) × (alloc.vec.Vec Std.Usize)))
+@[rust_loop]
+def lu_decomposition_loop1
+  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (perm : alloc.vec.Vec Std.Usize)
+  (k : Std.Usize) (_f64_const_0 : Rat) :
+  Result ((alloc.vec.Vec Rat) × (alloc.vec.Vec Std.Usize))
   := do
   if k < n
   then
@@ -355,27 +267,14 @@ def lu_decomposition_loop1.body
       let i6 ← k + 1#usize
       let lu2 ← lu_decomposition_loop1_loop2 n lu1 k diag i6
       let k1 ← k + 1#usize
-      ok (cont (lu2, perm2, k1))
+      lu_decomposition_loop1 n lu2 perm2 k1 _f64_const_0
     else
       let i5 ← k + 1#usize
       let lu1 ← lu_decomposition_loop1_loop3 n lu k diag i5
       let k1 ← k + 1#usize
-      ok (cont (lu1, perm, k1))
-  else ok (done (lu, perm))
-
-/-- [matrix_lu::lu_decomposition]: loop 1:
-    Source: 'src/lib.rs', lines 50:4-111:5
-    Visibility: public -/
-@[rust_loop]
-def lu_decomposition_loop1
-  (n : Std.Usize) (lu : alloc.vec.Vec Rat) (perm : alloc.vec.Vec Std.Usize)
-  (k : Std.Usize) (_f64_const_0 : Rat) :
-  Result ((alloc.vec.Vec Rat) × (alloc.vec.Vec Std.Usize))
-  := do
-  loop
-    (fun (lu1, perm1, k1) => lu_decomposition_loop1.body n _f64_const_0 lu1
-      perm1 k1)
-    (lu, perm, k)
+      lu_decomposition_loop1 n lu1 perm k1 _f64_const_0
+  else ok (lu, perm)
+partial_fixpoint
 
 /-- [matrix_lu::lu_decomposition]:
     Source: 'src/lib.rs', lines 30:0-114:1

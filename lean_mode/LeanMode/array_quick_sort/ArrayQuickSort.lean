@@ -30,22 +30,6 @@ def PartialEqInt : core.cmp.PartialEq Int Int := {
   eq := PartialEqInt.eq
 }
 
-/-- [array_quick_sort::partition]: loop body 1:
-    Source: 'src/lib.rs', lines 1:0-30:9 -/
-@[rust_loop_body]
-def partition_loop0_loop0.body
-  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
-  Result (ControlFlow Std.Usize Std.Usize)
-  := do
-  if j = 0#usize
-  then ok (done j)
-  else
-    let val ← Slice.index_usize arr j
-    if val <= pivot_val
-    then ok (done j)
-    else let j1 ← j - 1#usize
-         ok (cont j1)
-
 /-- [array_quick_sort::partition]: loop 1:
     Source: 'src/lib.rs', lines 1:0-30:9 -/
 @[rust_loop]
@@ -53,25 +37,15 @@ def partition_loop0_loop0
   (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
   Result Std.Usize
   := do
-  loop
-    (fun j1 => partition_loop0_loop0.body arr pivot_val j1)
-    j
-
-/-- [array_quick_sort::partition]: loop body 2:
-    Source: 'src/lib.rs', lines 1:0-30:9 -/
-@[rust_loop_body]
-def partition_loop0_loop1.body
-  (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
-  Result (ControlFlow Std.Usize Std.Usize)
-  := do
   if j = 0#usize
-  then ok (done j)
+  then ok j
   else
     let val ← Slice.index_usize arr j
     if val <= pivot_val
-    then ok (done j)
+    then ok j
     else let j1 ← j - 1#usize
-         ok (cont j1)
+         partition_loop0_loop0 arr pivot_val j1
+partial_fixpoint
 
 /-- [array_quick_sort::partition]: loop 2:
     Source: 'src/lib.rs', lines 1:0-30:9 -/
@@ -80,61 +54,15 @@ def partition_loop0_loop1
   (arr : Slice Int) (pivot_val : Int) (j : Std.Usize) :
   Result Std.Usize
   := do
-  loop
-    (fun j1 => partition_loop0_loop1.body arr pivot_val j1)
-    j
-
-/-- [array_quick_sort::partition]: loop body 0:
-    Source: 'src/lib.rs', lines 1:0-42:5 -/
-@[rust_loop_body]
-def partition_loop0.body
-  (hi : Std.Usize) (pivot_val : Int) (arr : Slice Int) (i : Std.Usize)
-  (j : Std.Usize) :
-  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) ((Slice
-    Int) × Std.Usize))
-  := do
-  if i > hi
-  then
-    let j1 ← partition_loop0_loop0 arr pivot_val j
-    if j1 = 0#usize
-    then ok (done (arr, i))
-    else
-      if i >= j1
-      then ok (done (arr, i))
-      else
-        let val_i ← Slice.index_usize arr i
-        let val_j ← Slice.index_usize arr j1
-        if val_i = val_j
-        then
-          let i1 ← i + 1#usize
-          let j2 ← j1 - 1#usize
-          ok (cont (arr, i1, j2))
-        else
-          let arr1 ← core.slice.Slice.swap arr i j1
-          ok (cont (arr1, i, j1))
+  if j = 0#usize
+  then ok j
   else
-    let val ← Slice.index_usize arr i
-    if val >= pivot_val
-    then
-      let j1 ← partition_loop0_loop1 arr pivot_val j
-      if j1 = 0#usize
-      then ok (done (arr, i))
-      else
-        if i >= j1
-        then ok (done (arr, i))
-        else
-          let val_i ← Slice.index_usize arr i
-          let val_j ← Slice.index_usize arr j1
-          if val_i = val_j
-          then
-            let i1 ← i + 1#usize
-            let j2 ← j1 - 1#usize
-            ok (cont (arr, i1, j2))
-          else
-            let arr1 ← core.slice.Slice.swap arr i j1
-            ok (cont (arr1, i, j1))
-    else let i1 ← i + 1#usize
-         ok (cont (arr, i1, j))
+    let val ← Slice.index_usize arr j
+    if val <= pivot_val
+    then ok j
+    else let j1 ← j - 1#usize
+         partition_loop0_loop1 arr pivot_val j1
+partial_fixpoint
 
 /-- [array_quick_sort::partition]: loop 0:
     Source: 'src/lib.rs', lines 1:0-42:5 -/
@@ -144,9 +72,49 @@ def partition_loop0
   (j : Std.Usize) :
   Result ((Slice Int) × Std.Usize)
   := do
-  loop
-    (fun (arr1, i1, j1) => partition_loop0.body hi pivot_val arr1 i1 j1)
-    (arr, i, j)
+  if i > hi
+  then
+    let j1 ← partition_loop0_loop0 arr pivot_val j
+    if j1 = 0#usize
+    then ok (arr, i)
+    else
+      if i >= j1
+      then ok (arr, i)
+      else
+        let val_i ← Slice.index_usize arr i
+        let val_j ← Slice.index_usize arr j1
+        if val_i = val_j
+        then
+          let i1 ← i + 1#usize
+          let j2 ← j1 - 1#usize
+          partition_loop0 arr hi pivot_val i1 j2
+        else
+          let arr1 ← core.slice.Slice.swap arr i j1
+          partition_loop0 arr1 hi pivot_val i j1
+  else
+    let val ← Slice.index_usize arr i
+    if val >= pivot_val
+    then
+      let j1 ← partition_loop0_loop1 arr pivot_val j
+      if j1 = 0#usize
+      then ok (arr, i)
+      else
+        if i >= j1
+        then ok (arr, i)
+        else
+          let val_i ← Slice.index_usize arr i
+          let val_j ← Slice.index_usize arr j1
+          if val_i = val_j
+          then
+            let i1 ← i + 1#usize
+            let j2 ← j1 - 1#usize
+            partition_loop0 arr hi pivot_val i1 j2
+          else
+            let arr1 ← core.slice.Slice.swap arr i j1
+            partition_loop0 arr1 hi pivot_val i j1
+    else let i1 ← i + 1#usize
+         partition_loop0 arr hi pivot_val i1 j
+partial_fixpoint
 
 /-- [array_quick_sort::partition]:
     Source: 'src/lib.rs', lines 4:0-45:1 -/
@@ -168,18 +136,6 @@ partial def _quick_sort_loop
   (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
   Result (Slice Int)
   := do
-  loop
-    (fun (arr1, lo1, hi1) => _quick_sort_loop.body arr1 lo1 hi1)
-    (arr, lo, hi)
-
-
-/-- [array_quick_sort::_quick_sort]: loop body 0:
-    Source: 'src/lib.rs', lines 49:4-61:5 -/
-partial def _quick_sort_loop.body
-  (arr : Slice Int) (lo : Std.Usize) (hi : Std.Usize) :
-  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) (Slice
-    Int))
-  := do
   if lo < hi
   then
     let (pivot, arr1) ← partition arr lo hi
@@ -194,13 +150,13 @@ partial def _quick_sort_loop.body
              _quick_sort arr1 lo i2
         else ok arr1
       let lo1 ← pivot + 1#usize
-      ok (cont (arr2, lo1, hi))
+      _quick_sort_loop arr2 lo1 hi
     else
       let i2 ← pivot + 1#usize
       let arr2 ← _quick_sort arr1 i2 hi
       let hi1 ← pivot - 1#usize
-      ok (cont (arr2, lo, hi1))
-  else ok (done arr)
+      _quick_sort_loop arr2 lo hi1
+  else ok arr
 
 
 /-- [array_quick_sort::_quick_sort]:

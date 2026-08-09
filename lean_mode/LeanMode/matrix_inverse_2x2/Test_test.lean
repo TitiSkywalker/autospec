@@ -16,28 +16,6 @@ set_option maxRecDepth 2048
 
 namespace matrix_inverse_2x2
 
-/-- [matrix_inverse_2x2::assert_vec4_approx_eq]: loop body 0:
-    Source: 'src/lib.rs', lines 20:4-23:5
-    Visibility: public -/
-@[rust_loop_body]
-def assert_vec4_approx_eq_loop.body
-  (actual : Slice Rat) (expected : Slice Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ← Slice.index_usize actual i
-    let fl1 ← Slice.index_usize expected i
-    let diff := fl - fl1
-    let fl2 := |diff|
-    let b := fl2 ≤ tol
-    massert b
-    ok (cont iter1)
-
 /-- [matrix_inverse_2x2::assert_vec4_approx_eq]: loop 0:
     Source: 'src/lib.rs', lines 20:4-23:5
     Visibility: public -/
@@ -47,9 +25,19 @@ def assert_vec4_approx_eq_loop
   (expected : Slice Rat) (tol : Rat) :
   Result Unit
   := do
-  loop
-    (fun iter1 => assert_vec4_approx_eq_loop.body actual expected tol iter1)
-    iter
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ()
+  | some i =>
+    let fl ← Slice.index_usize actual i
+    let fl1 ← Slice.index_usize expected i
+    let diff := fl - fl1
+    let fl2 := |diff|
+    let b := fl2 ≤ tol
+    massert b
+    assert_vec4_approx_eq_loop iter1 actual expected tol
+partial_fixpoint
 
 /-- [matrix_inverse_2x2::assert_vec4_approx_eq]:
     Source: 'src/lib.rs', lines 19:0-24:1

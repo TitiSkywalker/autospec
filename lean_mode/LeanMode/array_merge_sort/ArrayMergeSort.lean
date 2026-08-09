@@ -30,23 +30,6 @@ def PartialEqInt : core.cmp.PartialEq Int Int := {
   eq := PartialEqInt.eq
 }
 
-/-- [array_merge_sort::merge]: loop body 0:
-    Source: 'src/lib.rs', lines 10:4-13:5 -/
-@[rust_loop_body]
-def merge_loop0.body
-  (arr : Slice Int) (mid : Std.Usize) (left : alloc.vec.Vec Int)
-  (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Int) × Std.Usize) (alloc.vec.Vec
-    Int))
-  := do
-  if i < mid
-  then
-    let i1 ← Slice.index_usize arr i
-    let left1 ← alloc.vec.Vec.push left i1
-    let i2 ← i + 1#usize
-    ok (cont (left1, i2))
-  else ok (done left)
-
 /-- [array_merge_sort::merge]: loop 0:
     Source: 'src/lib.rs', lines 10:4-13:5 -/
 @[rust_loop]
@@ -55,26 +38,14 @@ def merge_loop0
   (i : Std.Usize) :
   Result (alloc.vec.Vec Int)
   := do
-  loop
-    (fun (left1, i1) => merge_loop0.body arr mid left1 i1)
-    (left, i)
-
-/-- [array_merge_sort::merge]: loop body 1:
-    Source: 'src/lib.rs', lines 15:4-18:5 -/
-@[rust_loop_body]
-def merge_loop1.body
-  (arr : Slice Int) (hi : Std.Usize) (right : alloc.vec.Vec Int)
-  (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Int) × Std.Usize) (alloc.vec.Vec
-    Int))
-  := do
-  if i < hi
+  if i < mid
   then
     let i1 ← Slice.index_usize arr i
-    let right1 ← alloc.vec.Vec.push right i1
+    let left1 ← alloc.vec.Vec.push left i1
     let i2 ← i + 1#usize
-    ok (cont (right1, i2))
-  else ok (done right)
+    merge_loop0 arr mid left1 i2
+  else ok left
+partial_fixpoint
 
 /-- [array_merge_sort::merge]: loop 1:
     Source: 'src/lib.rs', lines 15:4-18:5 -/
@@ -84,19 +55,23 @@ def merge_loop1
   (i : Std.Usize) :
   Result (alloc.vec.Vec Int)
   := do
-  loop
-    (fun (right1, i1) => merge_loop1.body arr hi right1 i1)
-    (right, i)
+  if i < hi
+  then
+    let i1 ← Slice.index_usize arr i
+    let right1 ← alloc.vec.Vec.push right i1
+    let i2 ← i + 1#usize
+    merge_loop1 arr hi right1 i2
+  else ok right
+partial_fixpoint
 
-/-- [array_merge_sort::merge]: loop body 2:
+/-- [array_merge_sort::merge]: loop 2:
     Source: 'src/lib.rs', lines 1:0-33:5 -/
-@[rust_loop_body]
-def merge_loop2.body
-  (n1 : Std.Usize) (n2 : Std.Usize) (left : alloc.vec.Vec Int)
-  (right : alloc.vec.Vec Int) (arr : Slice Int) (i : Std.Usize)
-  (j : Std.Usize) (k : Std.Usize) :
-  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize × Std.Usize)
-    ((Slice Int) × Std.Usize × Std.Usize × Std.Usize))
+@[rust_loop]
+def merge_loop2
+  (arr : Slice Int) (n1 : Std.Usize) (n2 : Std.Usize)
+  (left : alloc.vec.Vec Int) (right : alloc.vec.Vec Int)
+  (i : Std.Usize) (j : Std.Usize) (k : Std.Usize) :
+  Result ((Slice Int) × Std.Usize × Std.Usize × Std.Usize)
   := do
   if i < n1
   then
@@ -121,42 +96,10 @@ def merge_loop2.body
           let j2 ← j + 1#usize
           ok (s, i, j2)
       let k1 ← k + 1#usize
-      ok (cont (arr1, i1, j1, k1))
-    else ok (done (arr, i, j, k))
-  else ok (done (arr, i, j, k))
-
-/-- [array_merge_sort::merge]: loop 2:
-    Source: 'src/lib.rs', lines 1:0-33:5 -/
-@[rust_loop]
-def merge_loop2
-  (arr : Slice Int) (n1 : Std.Usize) (n2 : Std.Usize)
-  (left : alloc.vec.Vec Int) (right : alloc.vec.Vec Int)
-  (i : Std.Usize) (j : Std.Usize) (k : Std.Usize) :
-  Result ((Slice Int) × Std.Usize × Std.Usize × Std.Usize)
-  := do
-  loop
-    (fun (arr1, i1, j1, k1) => merge_loop2.body n1 n2 left right arr1 i1 j1 k1)
-    (arr, i, j, k)
-
-/-- [array_merge_sort::merge]: loop body 3:
-    Source: 'src/lib.rs', lines 34:4-38:5 -/
-@[rust_loop_body]
-def merge_loop3.body
-  (n1 : Std.Usize) (left : alloc.vec.Vec Int) (arr : Slice Int)
-  (i : Std.Usize) (k : Std.Usize) :
-  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) ((Slice
-    Int) × Std.Usize))
-  := do
-  if i < n1
-  then
-    let i1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) left
-        i
-    let s ← Slice.update arr k i1
-    let i2 ← i + 1#usize
-    let k1 ← k + 1#usize
-    ok (cont (s, i2, k1))
-  else ok (done (arr, k))
+      merge_loop2 arr1 n1 n2 left right i1 j1 k1
+    else ok (arr, i, j, k)
+  else ok (arr, i, j, k)
+partial_fixpoint
 
 /-- [array_merge_sort::merge]: loop 3:
     Source: 'src/lib.rs', lines 34:4-38:5 -/
@@ -166,29 +109,17 @@ def merge_loop3
   (i : Std.Usize) (k : Std.Usize) :
   Result ((Slice Int) × Std.Usize)
   := do
-  loop
-    (fun (arr1, i1, k1) => merge_loop3.body n1 left arr1 i1 k1)
-    (arr, i, k)
-
-/-- [array_merge_sort::merge]: loop body 4:
-    Source: 'src/lib.rs', lines 39:4-43:5 -/
-@[rust_loop_body]
-def merge_loop4.body
-  (n2 : Std.Usize) (right : alloc.vec.Vec Int) (arr : Slice Int)
-  (j : Std.Usize) (k : Std.Usize) :
-  Result (ControlFlow ((Slice Int) × Std.Usize × Std.Usize) (Slice
-    Int))
-  := do
-  if j < n2
+  if i < n1
   then
-    let i ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) right
-        j
-    let s ← Slice.update arr k i
-    let j1 ← j + 1#usize
+    let i1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) left
+        i
+    let s ← Slice.update arr k i1
+    let i2 ← i + 1#usize
     let k1 ← k + 1#usize
-    ok (cont (s, j1, k1))
-  else ok (done arr)
+    merge_loop3 s n1 left i2 k1
+  else ok (arr, k)
+partial_fixpoint
 
 /-- [array_merge_sort::merge]: loop 4:
     Source: 'src/lib.rs', lines 39:4-43:5 -/
@@ -198,9 +129,17 @@ def merge_loop4
   (j : Std.Usize) (k : Std.Usize) :
   Result (Slice Int)
   := do
-  loop
-    (fun (arr1, j1, k1) => merge_loop4.body n2 right arr1 j1 k1)
-    (arr, j, k)
+  if j < n2
+  then
+    let i ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) right
+        j
+    let s ← Slice.update arr k i
+    let j1 ← j + 1#usize
+    let k1 ← k + 1#usize
+    merge_loop4 s n2 right j1 k1
+  else ok arr
+partial_fixpoint
 
 /-- [array_merge_sort::merge]:
     Source: 'src/lib.rs', lines 4:0-44:1 -/

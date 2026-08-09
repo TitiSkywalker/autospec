@@ -23,20 +23,20 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-/-- [tensor_convolution_1d::conv1d]: loop body 1:
+/-- [tensor_convolution_1d::conv1d]: loop 1:
     Source: 'src/lib.rs', lines 1:0-20:9
     Visibility: public -/
-@[rust_loop_body]
-def conv1d_loop0_loop0.body
-  (input : Slice Rat) (kernel : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
+@[rust_loop]
+def conv1d_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (input : Slice Rat)
+  (kernel : Slice Rat) (n : Std.Usize) (out : alloc.vec.Vec Rat)
+  (i : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done out)
+  | none => ok out
   | some j =>
     if i >= j
     then
@@ -51,43 +51,10 @@ def conv1d_loop0_loop0.body
             out i
         let fl4 := fl3 + fl2
         let out1 := index_mut_back fl4
-        ok (cont (iter1, out1))
-      else ok (cont (iter1, out))
-    else ok (cont (iter1, out))
-
-/-- [tensor_convolution_1d::conv1d]: loop 1:
-    Source: 'src/lib.rs', lines 1:0-20:9
-    Visibility: public -/
-@[rust_loop]
-def conv1d_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (input : Slice Rat)
-  (kernel : Slice Rat) (n : Std.Usize) (out : alloc.vec.Vec Rat)
-  (i : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (iter1, out1) => conv1d_loop0_loop0.body input kernel n i iter1 out1)
-    (iter, out)
-
-/-- [tensor_convolution_1d::conv1d]: loop body 0:
-    Source: 'src/lib.rs', lines 1:0-21:5
-    Visibility: public -/
-@[rust_loop_body]
-def conv1d_loop0.body
-  (input : Slice Rat) (kernel : Slice Rat) (n : Std.Usize) (k : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done out)
-  | some i =>
-    let out1 ←
-      conv1d_loop0_loop0 { start := 0#usize, «end» := k } input kernel n out
-        i
-    ok (cont (iter1, out1))
+        conv1d_loop0_loop0 iter1 input kernel n out1 i
+      else conv1d_loop0_loop0 iter1 input kernel n out i
+    else conv1d_loop0_loop0 iter1 input kernel n out i
+partial_fixpoint
 
 /-- [tensor_convolution_1d::conv1d]: loop 0:
     Source: 'src/lib.rs', lines 1:0-21:5
@@ -99,9 +66,16 @@ def conv1d_loop0
   (out : alloc.vec.Vec Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, out1) => conv1d_loop0.body input kernel n k iter1 out1)
-    (iter, out)
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let out1 ←
+      conv1d_loop0_loop0 { start := 0#usize, «end» := k } input kernel n out
+        i
+    conv1d_loop0 iter1 input kernel n k out1
+partial_fixpoint
 
 /-- [tensor_convolution_1d::conv1d]:
     Source: 'src/lib.rs', lines 7:0-23:1

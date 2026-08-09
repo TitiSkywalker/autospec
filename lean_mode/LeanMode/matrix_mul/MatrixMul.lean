@@ -23,21 +23,20 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-/-- [matrix_mul::matmul]: loop body 2:
+/-- [matrix_mul::matmul]: loop 2:
     Source: 'src/lib.rs', lines 9:12-11:13
     Visibility: public -/
-@[rust_loop_body]
-def matmul_loop0_loop0_loop0.body
-  (a : Slice Rat) (b : Slice Rat) (k : Std.Usize) (n : Std.Usize)
-  (row : Std.Usize) (col : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (c : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
+@[rust_loop]
+def matmul_loop0_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
+  (k : Std.Usize) (n : Std.Usize) (c : alloc.vec.Vec Rat) (row : Std.Usize)
+  (col : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done c)
+  | none => ok c
   | some t =>
     let i ← row * k
     let i1 ← i + t
@@ -52,42 +51,8 @@ def matmul_loop0_loop0_loop0.body
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Rat) c i5
     let fl4 := fl3 + fl2
     let c1 := index_mut_back fl4
-    ok (cont (iter1, c1))
-
-/-- [matrix_mul::matmul]: loop 2:
-    Source: 'src/lib.rs', lines 9:12-11:13
-    Visibility: public -/
-@[rust_loop]
-def matmul_loop0_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (a : Slice Rat) (b : Slice Rat)
-  (k : Std.Usize) (n : Std.Usize) (c : alloc.vec.Vec Rat) (row : Std.Usize)
-  (col : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (iter1, c1) => matmul_loop0_loop0_loop0.body a b k n row col iter1 c1)
-    (iter, c)
-
-/-- [matrix_mul::matmul]: loop body 1:
-    Source: 'src/lib.rs', lines 8:8-12:9
-    Visibility: public -/
-@[rust_loop_body]
-def matmul_loop0_loop0.body
-  (a : Slice Rat) (b : Slice Rat) (k : Std.Usize) (n : Std.Usize)
-  (row : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (c : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done c)
-  | some col =>
-    let c1 ←
-      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } a b k n c row
-        col
-    ok (cont (iter1, c1))
+    matmul_loop0_loop0_loop0 iter1 a b k n c1 row col
+partial_fixpoint
 
 /-- [matrix_mul::matmul]: loop 1:
     Source: 'src/lib.rs', lines 8:8-12:9
@@ -98,28 +63,16 @@ def matmul_loop0_loop0
   (k : Std.Usize) (n : Std.Usize) (c : alloc.vec.Vec Rat) (row : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, c1) => matmul_loop0_loop0.body a b k n row iter1 c1)
-    (iter, c)
-
-/-- [matrix_mul::matmul]: loop body 0:
-    Source: 'src/lib.rs', lines 7:4-13:5
-    Visibility: public -/
-@[rust_loop_body]
-def matmul_loop0.body
-  (a : Slice Rat) (b : Slice Rat) (k : Std.Usize) (n : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done c)
-  | some row =>
+  | none => ok c
+  | some col =>
     let c1 ←
-      matmul_loop0_loop0 { start := 0#usize, «end» := n } a b k n c row
-    ok (cont (iter1, c1))
+      matmul_loop0_loop0_loop0 { start := 0#usize, «end» := k } a b k n c row
+        col
+    matmul_loop0_loop0 iter1 a b k n c1 row
+partial_fixpoint
 
 /-- [matrix_mul::matmul]: loop 0:
     Source: 'src/lib.rs', lines 7:4-13:5
@@ -130,9 +83,15 @@ def matmul_loop0
   (k : Std.Usize) (n : Std.Usize) (c : alloc.vec.Vec Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, c1) => matmul_loop0.body a b k n iter1 c1)
-    (iter, c)
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok c
+  | some row =>
+    let c1 ←
+      matmul_loop0_loop0 { start := 0#usize, «end» := n } a b k n c row
+    matmul_loop0 iter1 a b k n c1
+partial_fixpoint
 
 /-- [matrix_mul::matmul]:
     Source: 'src/lib.rs', lines 5:0-15:1

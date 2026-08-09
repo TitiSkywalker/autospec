@@ -18,32 +18,6 @@ namespace tensor_convolution_1d
 
 /- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
-/-- [tensor_convolution_1d::test_identity]: loop body 0:
-    Source: 'src/lib.rs', lines 33:4-35:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_identity_loop.body
-  (out : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let fl2 := fl - fl1
-    let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
-    massert b
-    ok (cont iter1)
-
 /-- [tensor_convolution_1d::test_identity]: loop 0:
     Source: 'src/lib.rs', lines 33:4-35:5
     Visibility: public -/
@@ -54,10 +28,23 @@ def test_identity_loop
   :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_identity_loop.body out expected
-      _f64_const_0_0000000010000000000000001 iter1)
-    iter
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ()
+  | some i =>
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
+    let fl1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
+        i
+    let fl2 := fl - fl1
+    let fl3 := |fl2|
+    let b := fl3 < _f64_const_0_0000000010000000000000001
+    massert b
+    test_identity_loop iter1 out expected
+      _f64_const_0_0000000010000000000000001
+partial_fixpoint
 
 /-- [tensor_convolution_1d::test_identity]:
     Source: 'src/lib.rs', lines 25:0-36:1
@@ -96,32 +83,6 @@ def test_identity : Result Unit := do
   test_identity_loop { start := 0#usize, «end» := i } out ret2
     _f64_const_0_0000000010000000000000001
 
-/-- [tensor_convolution_1d::test_moving_average]: loop body 0:
-    Source: 'src/lib.rs', lines 44:4-46:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_moving_average_loop.body
-  (out : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let fl2 := fl - fl1
-    let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
-    massert b
-    ok (cont iter1)
-
 /-- [tensor_convolution_1d::test_moving_average]: loop 0:
     Source: 'src/lib.rs', lines 44:4-46:5
     Visibility: public -/
@@ -132,10 +93,23 @@ def test_moving_average_loop
   :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_moving_average_loop.body out expected
-      _f64_const_0_0000000010000000000000001 iter1)
-    iter
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ()
+  | some i =>
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
+    let fl1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
+        i
+    let fl2 := fl - fl1
+    let fl3 := |fl2|
+    let b := fl3 < _f64_const_0_0000000010000000000000001
+    massert b
+    test_moving_average_loop iter1 out expected
+      _f64_const_0_0000000010000000000000001
+partial_fixpoint
 
 /-- [tensor_convolution_1d::test_moving_average]:
     Source: 'src/lib.rs', lines 38:0-47:1
@@ -177,32 +151,6 @@ def test_moving_average : Result Unit := do
   test_moving_average_loop { start := 0#usize, «end» := i } out ret2
     _f64_const_0_0000000010000000000000001
 
-/-- [tensor_convolution_1d::test_derivative]: loop body 0:
-    Source: 'src/lib.rs', lines 56:4-58:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_derivative_loop.body
-  (out : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
-    let fl1 ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
-        i
-    let fl2 := fl - fl1
-    let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
-    massert b
-    ok (cont iter1)
-
 /-- [tensor_convolution_1d::test_derivative]: loop 0:
     Source: 'src/lib.rs', lines 56:4-58:5
     Visibility: public -/
@@ -213,10 +161,23 @@ def test_derivative_loop
   :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_derivative_loop.body out expected
-      _f64_const_0_0000000010000000000000001 iter1)
-    iter
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ()
+  | some i =>
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out i
+    let fl1 ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
+        i
+    let fl2 := fl - fl1
+    let fl3 := |fl2|
+    let b := fl3 < _f64_const_0_0000000010000000000000001
+    massert b
+    test_derivative_loop iter1 out expected
+      _f64_const_0_0000000010000000000000001
+partial_fixpoint
 
 /-- [tensor_convolution_1d::test_derivative]:
     Source: 'src/lib.rs', lines 49:0-59:1

@@ -15,23 +15,6 @@ set_option maxRecDepth 2048
 
 namespace matrix_transpose
 
-/-- [matrix_transpose::transpose]: loop body 0:
-    Source: 'src/lib.rs', lines 19:4-22:5
-    Visibility: public -/
-@[rust_loop_body]
-def transpose_loop0.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (result : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let result1 ← alloc.vec.Vec.push result _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (result1, idx1))
-  else ok (done result)
-
 /-- [matrix_transpose::transpose]: loop 0:
     Source: 'src/lib.rs', lines 19:4-22:5
     Visibility: public -/
@@ -41,18 +24,23 @@ def transpose_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (result1, idx1) => transpose_loop0.body n _f64_const_0 result1 idx1)
-    (result, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let result1 ← alloc.vec.Vec.push result _f64_const_0
+    let idx1 ← idx + 1#usize
+    transpose_loop0 n result1 idx1 _f64_const_0
+  else ok result
+partial_fixpoint
 
-/-- [matrix_transpose::transpose]: loop body 2:
+/-- [matrix_transpose::transpose]: loop 2:
     Source: 'src/lib.rs', lines 27:8-30:9
     Visibility: public -/
-@[rust_loop_body]
-def transpose_loop1_loop0.body
-  (matrix : Slice Rat) (n : Std.Usize) (i : Std.Usize)
-  (result : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def transpose_loop1_loop0
+  (matrix : Slice Rat) (n : Std.Usize) (result : alloc.vec.Vec Rat)
+  (i : Std.Usize) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -66,37 +54,9 @@ def transpose_loop1_loop0.body
         result i4
     let j1 ← j + 1#usize
     let result1 := index_mut_back fl
-    ok (cont (result1, j1))
-  else ok (done result)
-
-/-- [matrix_transpose::transpose]: loop 2:
-    Source: 'src/lib.rs', lines 27:8-30:9
-    Visibility: public -/
-@[rust_loop]
-def transpose_loop1_loop0
-  (matrix : Slice Rat) (n : Std.Usize) (result : alloc.vec.Vec Rat)
-  (i : Std.Usize) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (result1, j1) => transpose_loop1_loop0.body matrix n i result1 j1)
-    (result, j)
-
-/-- [matrix_transpose::transpose]: loop body 1:
-    Source: 'src/lib.rs', lines 25:4-32:5
-    Visibility: public -/
-@[rust_loop_body]
-def transpose_loop1.body
-  (matrix : Slice Rat) (n : Std.Usize) (result : alloc.vec.Vec Rat)
-  (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let result1 ← transpose_loop1_loop0 matrix n result i 0#usize
-    let i1 ← i + 1#usize
-    ok (cont (result1, i1))
-  else ok (done result)
+    transpose_loop1_loop0 matrix n result1 i j1
+  else ok result
+partial_fixpoint
 
 /-- [matrix_transpose::transpose]: loop 1:
     Source: 'src/lib.rs', lines 25:4-32:5
@@ -107,9 +67,13 @@ def transpose_loop1
   (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (result1, i1) => transpose_loop1.body matrix n result1 i1)
-    (result, i)
+  if i < n
+  then
+    let result1 ← transpose_loop1_loop0 matrix n result i 0#usize
+    let i1 ← i + 1#usize
+    transpose_loop1 matrix n result1 i1
+  else ok result
+partial_fixpoint
 
 /-- [matrix_transpose::transpose]:
     Source: 'src/lib.rs', lines 12:0-35:1

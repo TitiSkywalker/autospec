@@ -15,22 +15,6 @@ set_option maxRecDepth 2048
 
 namespace matrix_inverse
 
-/-- [matrix_inverse::matrix_inverse]: loop body 0:
-    Source: 'src/lib.rs', lines 28:4-31:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop0.body
-  (aug_size : Std.Usize) (_f64_const_0 : Rat) (aug : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if idx < aug_size
-  then
-    let aug1 ← alloc.vec.Vec.push aug _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (aug1, idx1))
-  else ok (done aug)
-
 /-- [matrix_inverse::matrix_inverse]: loop 0:
     Source: 'src/lib.rs', lines 28:4-31:5
     Visibility: public -/
@@ -40,19 +24,22 @@ def matrix_inverse_loop0
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (aug1, idx1) => matrix_inverse_loop0.body aug_size _f64_const_0 aug1
-      idx1)
-    (aug, idx)
+  if idx < aug_size
+  then
+    let aug1 ← alloc.vec.Vec.push aug _f64_const_0
+    let idx1 ← idx + 1#usize
+    matrix_inverse_loop0 aug_size aug1 idx1 _f64_const_0
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop body 2:
+/-- [matrix_inverse::matrix_inverse]: loop 2:
     Source: 'src/lib.rs', lines 37:8-40:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop1_loop0.body
-  (matrix : Slice Rat) (n : Std.Usize) (total_cols : Std.Usize) (i : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop1_loop0
+  (matrix : Slice Rat) (n : Std.Usize) (total_cols : Std.Usize)
+  (aug : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -66,38 +53,9 @@ def matrix_inverse_loop1_loop0.body
         i4
     let j1 ← j + 1#usize
     let aug1 := index_mut_back fl
-    ok (cont (aug1, j1))
-  else ok (done aug)
-
-/-- [matrix_inverse::matrix_inverse]: loop 2:
-    Source: 'src/lib.rs', lines 37:8-40:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop1_loop0
-  (matrix : Slice Rat) (n : Std.Usize) (total_cols : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop1_loop0.body matrix n total_cols i
-      aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 1:
-    Source: 'src/lib.rs', lines 35:4-42:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop1.body
-  (matrix : Slice Rat) (n : Std.Usize) (total_cols : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let aug1 ← matrix_inverse_loop1_loop0 matrix n total_cols aug i 0#usize
-    let i1 ← i + 1#usize
-    ok (cont (aug1, i1))
-  else ok (done aug)
+    matrix_inverse_loop1_loop0 matrix n total_cols aug1 i j1
+  else ok aug
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_inverse]: loop 1:
     Source: 'src/lib.rs', lines 35:4-42:5
@@ -108,18 +66,22 @@ def matrix_inverse_loop1
   (aug : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (aug1, i1) => matrix_inverse_loop1.body matrix n total_cols aug1 i1)
-    (aug, i)
+  if i < n
+  then
+    let aug1 ← matrix_inverse_loop1_loop0 matrix n total_cols aug i 0#usize
+    let i1 ← i + 1#usize
+    matrix_inverse_loop1 matrix n total_cols aug1 i1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop body 3:
+/-- [matrix_inverse::matrix_inverse]: loop 3:
     Source: 'src/lib.rs', lines 46:4-49:5
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop2.body
-  (n : Std.Usize) (total_cols : Std.Usize) (_f64_const_1 : Rat)
-  (aug : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop2
+  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
+  (i : Std.Usize) (_f64_const_1 : Rat) :
+  Result (alloc.vec.Vec Rat)
   := do
   if i < n
   then
@@ -131,32 +93,19 @@ def matrix_inverse_loop2.body
         i3
     let i4 ← i + 1#usize
     let aug1 := index_mut_back _f64_const_1
-    ok (cont (aug1, i4))
-  else ok (done aug)
+    matrix_inverse_loop2 n total_cols aug1 i4 _f64_const_1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 3:
-    Source: 'src/lib.rs', lines 46:4-49:5
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop2
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (i : Std.Usize) (_f64_const_1 : Rat) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, i1) => matrix_inverse_loop2.body n total_cols _f64_const_1 aug1
-      i1)
-    (aug, i)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 5:
+/-- [matrix_inverse::matrix_inverse]: loop 5:
     Source: 'src/lib.rs', lines 64:8-74:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop0.body
+@[rust_loop]
+def matrix_inverse_loop3_loop0
   (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (col : Std.Usize) (_f64_const_0 : Rat) (pivot_row : Std.Usize)
-  (max_val : Rat) (row : Std.Usize) :
-  Result (ControlFlow (Std.Usize × Rat × Std.Usize) (Std.Usize × Rat))
+  (col : Std.Usize) (pivot_row : Std.Usize) (max_val : Rat) (row : Std.Usize)
+  (_f64_const_0 : Rat) :
+  Result (Std.Usize × Rat)
   := do
   if row < n
   then
@@ -174,32 +123,19 @@ def matrix_inverse_loop3_loop0.body
       then ok (row, val1)
       else ok (pivot_row, max_val)
     let row1 ← row + 1#usize
-    ok (cont (pivot_row1, max_val1, row1))
-  else ok (done (pivot_row, max_val))
+    matrix_inverse_loop3_loop0 n total_cols aug col pivot_row1 max_val1 row1
+      _f64_const_0
+  else ok (pivot_row, max_val)
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 5:
-    Source: 'src/lib.rs', lines 64:8-74:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop0
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (col : Std.Usize) (pivot_row : Std.Usize) (max_val : Rat) (row : Std.Usize)
-  (_f64_const_0 : Rat) :
-  Result (Std.Usize × Rat)
-  := do
-  loop
-    (fun (pivot_row1, max_val1, row1) => matrix_inverse_loop3_loop0.body n
-      total_cols aug col _f64_const_0 pivot_row1 max_val1 row1)
-    (pivot_row, max_val, row)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 6:
+/-- [matrix_inverse::matrix_inverse]: loop 6:
     Source: 'src/lib.rs', lines 82:12-87:13
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop1.body
-  (total_cols : Std.Usize) (col : Std.Usize) (pivot_row : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop1
+  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
+  (pivot_row : Std.Usize) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < total_cols
   then
@@ -222,31 +158,18 @@ def matrix_inverse_loop3_loop1.body
         i5
     let j1 ← j + 1#usize
     let aug2 := index_mut_back1 tmp
-    ok (cont (aug2, j1))
-  else ok (done aug)
+    matrix_inverse_loop3_loop1 total_cols aug2 col pivot_row j1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 6:
-    Source: 'src/lib.rs', lines 82:12-87:13
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop1
-  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
-  (pivot_row : Std.Usize) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop3_loop1.body total_cols col pivot_row
-      aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 7:
+/-- [matrix_inverse::matrix_inverse]: loop 7:
     Source: 'src/lib.rs', lines 93:8-96:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop2.body
-  (total_cols : Std.Usize) (col : Std.Usize) (pivot : Rat)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop2
+  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
+  (pivot : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < total_cols
   then
@@ -261,31 +184,18 @@ def matrix_inverse_loop3_loop2.body
     let fl1 := fl / pivot
     let j1 ← j + 1#usize
     let aug1 := index_mut_back fl1
-    ok (cont (aug1, j1))
-  else ok (done aug)
+    matrix_inverse_loop3_loop2 total_cols aug1 col pivot j1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 7:
-    Source: 'src/lib.rs', lines 93:8-96:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop2
-  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
-  (pivot : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop3_loop2.body total_cols col pivot
-      aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 9:
+/-- [matrix_inverse::matrix_inverse]: loop 9:
     Source: 'src/lib.rs', lines 104:16-108:17
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop3_loop0.body
-  (total_cols : Std.Usize) (col : Std.Usize) (row : Std.Usize) (factor : Rat)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop3_loop0
+  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
+  (row : Std.Usize) (factor : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < total_cols
   then
@@ -305,31 +215,18 @@ def matrix_inverse_loop3_loop3_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let aug1 := index_mut_back fl3
-    ok (cont (aug1, j1))
-  else ok (done aug)
+    matrix_inverse_loop3_loop3_loop0 total_cols aug1 col row factor j1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 9:
-    Source: 'src/lib.rs', lines 104:16-108:17
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop3_loop0
-  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
-  (row : Std.Usize) (factor : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop3_loop3_loop0.body total_cols col row
-      factor aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 8:
+/-- [matrix_inverse::matrix_inverse]: loop 8:
     Source: 'src/lib.rs', lines 100:8-111:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop3.body
-  (n : Std.Usize) (total_cols : Std.Usize) (col : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (row : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop3
+  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
+  (col : Std.Usize) (row : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if row < n
   then
@@ -342,33 +239,21 @@ def matrix_inverse_loop3_loop3.body
       let aug1 ←
         matrix_inverse_loop3_loop3_loop0 total_cols aug col row factor 0#usize
       let row1 ← row + 1#usize
-      ok (cont (aug1, row1))
-    else let row1 ← row + 1#usize
-         ok (cont (aug, row1))
-  else ok (done aug)
+      matrix_inverse_loop3_loop3 n total_cols aug1 col row1
+    else
+      let row1 ← row + 1#usize
+      matrix_inverse_loop3_loop3 n total_cols aug col row1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 8:
-    Source: 'src/lib.rs', lines 100:8-111:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop3
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (col : Std.Usize) (row : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, row1) => matrix_inverse_loop3_loop3.body n total_cols col aug1
-      row1)
-    (aug, row)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 10:
+/-- [matrix_inverse::matrix_inverse]: loop 10:
     Source: 'src/lib.rs', lines 93:8-96:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop4.body
-  (total_cols : Std.Usize) (col : Std.Usize) (pivot : Rat)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop4
+  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
+  (pivot : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < total_cols
   then
@@ -383,31 +268,18 @@ def matrix_inverse_loop3_loop4.body
     let fl1 := fl / pivot
     let j1 ← j + 1#usize
     let aug1 := index_mut_back fl1
-    ok (cont (aug1, j1))
-  else ok (done aug)
+    matrix_inverse_loop3_loop4 total_cols aug1 col pivot j1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 10:
-    Source: 'src/lib.rs', lines 93:8-96:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop4
-  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
-  (pivot : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop3_loop4.body total_cols col pivot
-      aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 12:
+/-- [matrix_inverse::matrix_inverse]: loop 12:
     Source: 'src/lib.rs', lines 104:16-108:17
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop5_loop0.body
-  (total_cols : Std.Usize) (col : Std.Usize) (row : Std.Usize) (factor : Rat)
-  (aug : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop5_loop0
+  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
+  (row : Std.Usize) (factor : Rat) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < total_cols
   then
@@ -427,31 +299,18 @@ def matrix_inverse_loop3_loop5_loop0.body
     let fl3 := fl - fl2
     let j1 ← j + 1#usize
     let aug1 := index_mut_back fl3
-    ok (cont (aug1, j1))
-  else ok (done aug)
+    matrix_inverse_loop3_loop5_loop0 total_cols aug1 col row factor j1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 12:
-    Source: 'src/lib.rs', lines 104:16-108:17
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop5_loop0
-  (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat) (col : Std.Usize)
-  (row : Std.Usize) (factor : Rat) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, j1) => matrix_inverse_loop3_loop5_loop0.body total_cols col row
-      factor aug1 j1)
-    (aug, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 11:
+/-- [matrix_inverse::matrix_inverse]: loop 11:
     Source: 'src/lib.rs', lines 100:8-111:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3_loop5.body
-  (n : Std.Usize) (total_cols : Std.Usize) (col : Std.Usize)
-  (aug : alloc.vec.Vec Rat) (row : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3_loop5
+  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
+  (col : Std.Usize) (row : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if row < n
   then
@@ -464,33 +323,21 @@ def matrix_inverse_loop3_loop5.body
       let aug1 ←
         matrix_inverse_loop3_loop5_loop0 total_cols aug col row factor 0#usize
       let row1 ← row + 1#usize
-      ok (cont (aug1, row1))
-    else let row1 ← row + 1#usize
-         ok (cont (aug, row1))
-  else ok (done aug)
+      matrix_inverse_loop3_loop5 n total_cols aug1 col row1
+    else
+      let row1 ← row + 1#usize
+      matrix_inverse_loop3_loop5 n total_cols aug col row1
+  else ok aug
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop 11:
-    Source: 'src/lib.rs', lines 100:8-111:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3_loop5
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (col : Std.Usize) (row : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, row1) => matrix_inverse_loop3_loop5.body n total_cols col aug1
-      row1)
-    (aug, row)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 4:
+/-- [matrix_inverse::matrix_inverse]: loop 4:
     Source: 'src/lib.rs', lines 55:4-114:5
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop3.body
-  (n : Std.Usize) (total_cols : Std.Usize) (_f64_const_0 : Rat)
-  (aug : alloc.vec.Vec Rat) (col : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+@[rust_loop]
+def matrix_inverse_loop3
+  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
+  (col : Std.Usize) (_f64_const_0 : Rat) :
+  Result (alloc.vec.Vec Rat)
   := do
   if col < n
   then
@@ -518,7 +365,7 @@ def matrix_inverse_loop3.body
       let aug2 ← matrix_inverse_loop3_loop2 total_cols aug1 col pivot 0#usize
       let aug3 ← matrix_inverse_loop3_loop3 n total_cols aug2 col 0#usize
       let col1 ← col + 1#usize
-      ok (cont (aug3, col1))
+      matrix_inverse_loop3 n total_cols aug3 col1 _f64_const_0
     else
       let i2 ← col * total_cols
       let i3 ← i2 + col
@@ -527,39 +374,9 @@ def matrix_inverse_loop3.body
       let aug1 ← matrix_inverse_loop3_loop4 total_cols aug col pivot 0#usize
       let aug2 ← matrix_inverse_loop3_loop5 n total_cols aug1 col 0#usize
       let col1 ← col + 1#usize
-      ok (cont (aug2, col1))
-  else ok (done aug)
-
-/-- [matrix_inverse::matrix_inverse]: loop 4:
-    Source: 'src/lib.rs', lines 55:4-114:5
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop3
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (col : Std.Usize) (_f64_const_0 : Rat) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (aug1, col1) => matrix_inverse_loop3.body n total_cols _f64_const_0
-      aug1 col1)
-    (aug, col)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 13:
-    Source: 'src/lib.rs', lines 121:4-124:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop4.body
-  (n : Std.Usize) (_f64_const_0 : Rat) (result : alloc.vec.Vec Rat)
-  (idx : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  let i ← n * n
-  if idx < i
-  then
-    let result1 ← alloc.vec.Vec.push result _f64_const_0
-    let idx1 ← idx + 1#usize
-    ok (cont (result1, idx1))
-  else ok (done result)
+      matrix_inverse_loop3 n total_cols aug2 col1 _f64_const_0
+  else ok aug
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_inverse]: loop 13:
     Source: 'src/lib.rs', lines 121:4-124:5
@@ -570,19 +387,23 @@ def matrix_inverse_loop4
   (_f64_const_0 : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (result1, idx1) => matrix_inverse_loop4.body n _f64_const_0 result1
-      idx1)
-    (result, idx)
+  let i ← n * n
+  if idx < i
+  then
+    let result1 ← alloc.vec.Vec.push result _f64_const_0
+    let idx1 ← idx + 1#usize
+    matrix_inverse_loop4 n result1 idx1 _f64_const_0
+  else ok result
+partial_fixpoint
 
-/-- [matrix_inverse::matrix_inverse]: loop body 15:
+/-- [matrix_inverse::matrix_inverse]: loop 15:
     Source: 'src/lib.rs', lines 129:8-132:9
     Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop5_loop0.body
+@[rust_loop]
+def matrix_inverse_loop5_loop0
   (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (i : Std.Usize) (result : alloc.vec.Vec Rat) (j : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
+  (result : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   if j < n
   then
@@ -598,39 +419,9 @@ def matrix_inverse_loop5_loop0.body
         result i5
     let j1 ← j + 1#usize
     let result1 := index_mut_back fl
-    ok (cont (result1, j1))
-  else ok (done result)
-
-/-- [matrix_inverse::matrix_inverse]: loop 15:
-    Source: 'src/lib.rs', lines 129:8-132:9
-    Visibility: public -/
-@[rust_loop]
-def matrix_inverse_loop5_loop0
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (result1, j1) => matrix_inverse_loop5_loop0.body n total_cols aug i
-      result1 j1)
-    (result, j)
-
-/-- [matrix_inverse::matrix_inverse]: loop body 14:
-    Source: 'src/lib.rs', lines 127:4-134:5
-    Visibility: public -/
-@[rust_loop_body]
-def matrix_inverse_loop5.body
-  (n : Std.Usize) (total_cols : Std.Usize) (aug : alloc.vec.Vec Rat)
-  (result : alloc.vec.Vec Rat) (i : Std.Usize) :
-  Result (ControlFlow ((alloc.vec.Vec Rat) × Std.Usize) (alloc.vec.Vec Rat))
-  := do
-  if i < n
-  then
-    let result1 ←
-      matrix_inverse_loop5_loop0 n total_cols aug result i 0#usize
-    let i1 ← i + 1#usize
-    ok (cont (result1, i1))
-  else ok (done result)
+    matrix_inverse_loop5_loop0 n total_cols aug result1 i j1
+  else ok result
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_inverse]: loop 14:
     Source: 'src/lib.rs', lines 127:4-134:5
@@ -641,10 +432,14 @@ def matrix_inverse_loop5
   (result : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (result1, i1) => matrix_inverse_loop5.body n total_cols aug result1
-      i1)
-    (result, i)
+  if i < n
+  then
+    let result1 ←
+      matrix_inverse_loop5_loop0 n total_cols aug result i 0#usize
+    let i1 ← i + 1#usize
+    matrix_inverse_loop5 n total_cols aug result1 i1
+  else ok result
+partial_fixpoint
 
 /-- [matrix_inverse::matrix_inverse]:
     Source: 'src/lib.rs', lines 17:0-137:1

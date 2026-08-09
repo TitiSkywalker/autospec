@@ -17,23 +17,6 @@ set_option maxRecDepth 2048
 
 namespace vector_norm
 
-/-- [vector_norm::vector_norm]: loop body 0:
-    Source: 'src/lib.rs', lines 7:4-10:5
-    Visibility: public -/
-@[rust_loop_body]
-def vector_norm_loop.body
-  (v : Slice ℝ) (n : Std.Usize) (sum_sq : ℝ) (i : Std.Usize) :
-  Result (ControlFlow (ℝ × Std.Usize) ℝ)
-  := do
-  if i < n
-  then
-    let fl ← Slice.index_usize v i
-    let fl1 := fl * fl
-    let sum_sq1 := sum_sq + fl1
-    let i1 ← i + 1#usize
-    ok (cont (sum_sq1, i1))
-  else ok (done sum_sq)
-
 /-- [vector_norm::vector_norm]: loop 0:
     Source: 'src/lib.rs', lines 7:4-10:5
     Visibility: public -/
@@ -42,9 +25,15 @@ def vector_norm_loop
   (v : Slice ℝ) (n : Std.Usize) (sum_sq : ℝ) (i : Std.Usize) :
   Result ℝ
   := do
-  loop
-    (fun (sum_sq1, i1) => vector_norm_loop.body v n sum_sq1 i1)
-    (sum_sq, i)
+  if i < n
+  then
+    let fl ← Slice.index_usize v i
+    let fl1 := fl * fl
+    let sum_sq1 := sum_sq + fl1
+    let i1 ← i + 1#usize
+    vector_norm_loop v n sum_sq1 i1
+  else ok sum_sq
+partial_fixpoint
 
 /-- [vector_norm::vector_norm]:
     Source: 'src/lib.rs', lines 4:0-12:1

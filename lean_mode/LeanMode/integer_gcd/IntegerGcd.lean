@@ -15,27 +15,16 @@ set_option maxRecDepth 2048
 
 namespace integer_gcd
 
-/-- [integer_gcd::compute_gcd]: loop body 0:
-    Source: 'src/lib.rs', lines 5:4-9:5
-    Visibility: public -/
-@[rust_loop_body]
-def compute_gcd_loop.body
-  (a : Int) (b : Int) :
-  Result (ControlFlow (Int × Int) Int)
-  := do
-  if b != 0
-  then let b1 := a % b
-       ok (cont (b, b1))
-  else ok (done a)
-
 /-- [integer_gcd::compute_gcd]: loop 0:
     Source: 'src/lib.rs', lines 5:4-9:5
     Visibility: public -/
 @[rust_loop]
 def compute_gcd_loop (a : Int) (b : Int) : Result Int := do
-  loop
-    (fun (a1, b1) => compute_gcd_loop.body a1 b1)
-    (a, b)
+  if b != 0
+  then let b1 := a % b
+       compute_gcd_loop b b1
+  else ok a
+partial_fixpoint
 
 /-- [integer_gcd::compute_gcd]:
     Source: 'src/lib.rs', lines 4:0-11:1

@@ -34,7 +34,7 @@ class Translator:
         aeneas_bin: str | Path | None = None,
         verbose: bool = False,
         target: str = "Rat",
-        loops_to_rec: bool = False,
+        loops_to_rec: bool = True,
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
@@ -223,8 +223,9 @@ if __name__ == "__main__":
     )
     p.add_argument(
         "--loops-to-rec",
-        action="store_true",
-        help="Pass -loops-to-rec to aeneas: translate loops to recursive functions",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Pass -loops-to-rec to aeneas (default: True). Use --no-loops-to-rec for loop combinator.",
     )
     args = p.parse_args()
 

@@ -23,22 +23,20 @@ def RatClone : core.clone.Clone Rat := {
   clone := RatClone.clone
 }
 
-/-- [matrix_kronecker::kron]: loop body 3:
+/-- [matrix_kronecker::kron]: loop 3:
     Source: 'src/lib.rs', lines 23:16-28:17
     Visibility: public -/
-@[rust_loop_body]
-def kron_loop0_loop0_loop0_loop0.body
-  (b : Slice Rat) (b_rows : Std.Usize) (b_cols : Std.Usize)
-  (out_cols : Std.Usize) (i : Std.Usize) (j : Std.Usize) (a_val : Rat)
-  (k : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
+@[rust_loop]
+def kron_loop0_loop0_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (b : Slice Rat) (b_rows : Std.Usize)
+  (b_cols : Std.Usize) (out_cols : Std.Usize) (out : alloc.vec.Vec Rat)
+  (i : Std.Usize) (j : Std.Usize) (a_val : Rat) (k : Std.Usize) :
+  Result (alloc.vec.Vec Rat)
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done out)
+  | none => ok out
   | some l =>
     let i1 ← k * b_cols
     let i2 ← i1 + l
@@ -54,43 +52,9 @@ def kron_loop0_loop0_loop0_loop0.body
         i6
     let fl := a_val * b_val
     let out1 := index_mut_back fl
-    ok (cont (iter1, out1))
-
-/-- [matrix_kronecker::kron]: loop 3:
-    Source: 'src/lib.rs', lines 23:16-28:17
-    Visibility: public -/
-@[rust_loop]
-def kron_loop0_loop0_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (b : Slice Rat) (b_rows : Std.Usize)
-  (b_cols : Std.Usize) (out_cols : Std.Usize) (out : alloc.vec.Vec Rat)
-  (i : Std.Usize) (j : Std.Usize) (a_val : Rat) (k : Std.Usize) :
-  Result (alloc.vec.Vec Rat)
-  := do
-  loop
-    (fun (iter1, out1) => kron_loop0_loop0_loop0_loop0.body b b_rows b_cols
-      out_cols i j a_val k iter1 out1)
-    (iter, out)
-
-/-- [matrix_kronecker::kron]: loop body 2:
-    Source: 'src/lib.rs', lines 22:12-29:13
-    Visibility: public -/
-@[rust_loop_body]
-def kron_loop0_loop0_loop0.body
-  (b : Slice Rat) (b_rows : Std.Usize) (b_cols : Std.Usize)
-  (out_cols : Std.Usize) (i : Std.Usize) (j : Std.Usize) (a_val : Rat)
-  (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done out)
-  | some k =>
-    let out1 ←
-      kron_loop0_loop0_loop0_loop0 { start := 0#usize, «end» := b_cols } b
-        b_rows b_cols out_cols out i j a_val k
-    ok (cont (iter1, out1))
+    kron_loop0_loop0_loop0_loop0 iter1 b b_rows b_cols out_cols out1 i j a_val
+      k
+partial_fixpoint
 
 /-- [matrix_kronecker::kron]: loop 2:
     Source: 'src/lib.rs', lines 22:12-29:13
@@ -102,34 +66,16 @@ def kron_loop0_loop0_loop0
   (i : Std.Usize) (j : Std.Usize) (a_val : Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, out1) => kron_loop0_loop0_loop0.body b b_rows b_cols out_cols
-      i j a_val iter1 out1)
-    (iter, out)
-
-/-- [matrix_kronecker::kron]: loop body 1:
-    Source: 'src/lib.rs', lines 20:8-30:9
-    Visibility: public -/
-@[rust_loop_body]
-def kron_loop0_loop0.body
-  (a : Slice Rat) (a_cols : Std.Usize) (b : Slice Rat) (b_rows : Std.Usize)
-  (b_cols : Std.Usize) (out_cols : Std.Usize) (i : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done out)
-  | some j =>
-    let i1 ← i * a_cols
-    let i2 ← i1 + j
-    let a_val ← Slice.index_usize a i2
+  | none => ok out
+  | some k =>
     let out1 ←
-      kron_loop0_loop0_loop0 { start := 0#usize, «end» := b_rows } b b_rows
-        b_cols out_cols out i j a_val
-    ok (cont (iter1, out1))
+      kron_loop0_loop0_loop0_loop0 { start := 0#usize, «end» := b_cols } b
+        b_rows b_cols out_cols out i j a_val k
+    kron_loop0_loop0_loop0 iter1 b b_rows b_cols out_cols out1 i j a_val
+partial_fixpoint
 
 /-- [matrix_kronecker::kron]: loop 1:
     Source: 'src/lib.rs', lines 20:8-30:9
@@ -141,31 +87,19 @@ def kron_loop0_loop0
   (out_cols : Std.Usize) (out : alloc.vec.Vec Rat) (i : Std.Usize) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, out1) => kron_loop0_loop0.body a a_cols b b_rows b_cols
-      out_cols i iter1 out1)
-    (iter, out)
-
-/-- [matrix_kronecker::kron]: loop body 0:
-    Source: 'src/lib.rs', lines 19:4-31:5
-    Visibility: public -/
-@[rust_loop_body]
-def kron_loop0.body
-  (a : Slice Rat) (a_cols : Std.Usize) (b : Slice Rat) (b_rows : Std.Usize)
-  (b_cols : Std.Usize) (out_cols : Std.Usize)
-  (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec Rat))
-    (alloc.vec.Vec Rat))
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done out)
-  | some i =>
+  | none => ok out
+  | some j =>
+    let i1 ← i * a_cols
+    let i2 ← i1 + j
+    let a_val ← Slice.index_usize a i2
     let out1 ←
-      kron_loop0_loop0 { start := 0#usize, «end» := a_cols } a a_cols b
-        b_rows b_cols out_cols out i
-    ok (cont (iter1, out1))
+      kron_loop0_loop0_loop0 { start := 0#usize, «end» := b_rows } b b_rows
+        b_cols out_cols out i j a_val
+    kron_loop0_loop0 iter1 a a_cols b b_rows b_cols out_cols out1 i
+partial_fixpoint
 
 /-- [matrix_kronecker::kron]: loop 0:
     Source: 'src/lib.rs', lines 19:4-31:5
@@ -177,10 +111,16 @@ def kron_loop0
   (out_cols : Std.Usize) (out : alloc.vec.Vec Rat) :
   Result (alloc.vec.Vec Rat)
   := do
-  loop
-    (fun (iter1, out1) => kron_loop0.body a a_cols b b_rows b_cols out_cols
-      iter1 out1)
-    (iter, out)
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let out1 ←
+      kron_loop0_loop0 { start := 0#usize, «end» := a_cols } a a_cols b
+        b_rows b_cols out_cols out i
+    kron_loop0 iter1 a a_cols b b_rows b_cols out_cols out1
+partial_fixpoint
 
 /-- [matrix_kronecker::kron]:
     Source: 'src/lib.rs', lines 7:0-33:1

@@ -18,19 +18,19 @@ namespace matrix_kronecker
 
 /- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
-/-- [matrix_kronecker::test_2x2_kron_2x2]: loop body 0:
+/-- [matrix_kronecker::test_2x2_kron_2x2]: loop 0:
     Source: 'src/lib.rs', lines 47:4-50:5
     Visibility: public -/
-@[rust_loop_body]
-def test_2x2_kron_2x2_loop.body
-  (c : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
+@[rust_loop]
+def test_2x2_kron_2x2_loop
+  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
+  (expected : alloc.vec.Vec Rat) (tol : Rat) :
+  Result Unit
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok ()
   | some i =>
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) c i
@@ -41,20 +41,8 @@ def test_2x2_kron_2x2_loop.body
     let fl2 := |diff|
     let b := fl2 ≤ tol
     massert b
-    ok (cont iter1)
-
-/-- [matrix_kronecker::test_2x2_kron_2x2]: loop 0:
-    Source: 'src/lib.rs', lines 47:4-50:5
-    Visibility: public -/
-@[rust_loop]
-def test_2x2_kron_2x2_loop
-  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_2x2_kron_2x2_loop.body c expected tol iter1)
-    iter
+    test_2x2_kron_2x2_loop iter1 c expected tol
+partial_fixpoint
 
 /-- [matrix_kronecker::test_2x2_kron_2x2]:
     Source: 'src/lib.rs', lines 36:0-51:1
@@ -107,19 +95,19 @@ def test_2x2_kron_2x2 : Result Unit := do
   test_2x2_kron_2x2_loop { start := 0#usize, «end» := 16#usize } c ret2
     _f64_const_0_001
 
-/-- [matrix_kronecker::test_rectangular]: loop body 0:
+/-- [matrix_kronecker::test_rectangular]: loop 0:
     Source: 'src/lib.rs', lines 64:4-67:5
     Visibility: public -/
-@[rust_loop_body]
-def test_rectangular_loop.body
-  (c : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
+@[rust_loop]
+def test_rectangular_loop
+  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
+  (expected : alloc.vec.Vec Rat) (tol : Rat) :
+  Result Unit
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok ()
   | some i =>
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) c i
@@ -130,20 +118,8 @@ def test_rectangular_loop.body
     let fl2 := |diff|
     let b := fl2 ≤ tol
     massert b
-    ok (cont iter1)
-
-/-- [matrix_kronecker::test_rectangular]: loop 0:
-    Source: 'src/lib.rs', lines 64:4-67:5
-    Visibility: public -/
-@[rust_loop]
-def test_rectangular_loop
-  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_rectangular_loop.body c expected tol iter1)
-    iter
+    test_rectangular_loop iter1 c expected tol
+partial_fixpoint
 
 /-- [matrix_kronecker::test_rectangular]:
     Source: 'src/lib.rs', lines 53:0-68:1
@@ -209,19 +185,19 @@ def test_rectangular : Result Unit := do
   test_rectangular_loop { start := 0#usize, «end» := 24#usize } c ret2
     _f64_const_0_001
 
-/-- [matrix_kronecker::test_identity]: loop body 0:
+/-- [matrix_kronecker::test_identity]: loop 0:
     Source: 'src/lib.rs', lines 80:4-83:5
     Visibility: public -/
-@[rust_loop_body]
-def test_identity_loop.body
-  (c : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat) (tol : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
+@[rust_loop]
+def test_identity_loop
+  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
+  (expected : alloc.vec.Vec Rat) (tol : Rat) :
+  Result Unit
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok ()
   | some i =>
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) c i
@@ -232,20 +208,8 @@ def test_identity_loop.body
     let fl2 := |diff|
     let b := fl2 ≤ tol
     massert b
-    ok (cont iter1)
-
-/-- [matrix_kronecker::test_identity]: loop 0:
-    Source: 'src/lib.rs', lines 80:4-83:5
-    Visibility: public -/
-@[rust_loop]
-def test_identity_loop
-  (iter : core.ops.range.Range Std.Usize) (c : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (tol : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_identity_loop.body c expected tol iter1)
-    iter
+    test_identity_loop iter1 c expected tol
+partial_fixpoint
 
 /-- [matrix_kronecker::test_identity]:
     Source: 'src/lib.rs', lines 70:0-84:1
@@ -311,20 +275,20 @@ def test_1x1 : Result Unit := do
   let b := fl2 ≤ _f64_const_0_001
   massert b
 
-/-- [matrix_kronecker::test_property]: loop body 3:
+/-- [matrix_kronecker::test_property]: loop 3:
     Source: 'src/lib.rs', lines 104:16-110:17
     Visibility: public -/
-@[rust_loop_body]
-def test_property_loop0_loop0_loop0_loop0.body
-  (a : alloc.vec.Vec Rat) (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat)
-  (i : Std.Usize) (j : Std.Usize) (k : Std.Usize)
-  (_f64_const_0_00000000010 : Rat) (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
+@[rust_loop]
+def test_property_loop0_loop0_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (a : alloc.vec.Vec Rat)
+  (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat) (i : Std.Usize)
+  (j : Std.Usize) (k : Std.Usize) (_f64_const_0_00000000010 : Rat) :
+  Result Unit
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
+  | none => ok ()
   | some l =>
     let i1 ← i * 2#usize
     let out_row ← i1 + k
@@ -347,42 +311,9 @@ def test_property_loop0_loop0_loop0_loop0.body
     let fl3 := |fl2|
     let b1 := fl3 < _f64_const_0_00000000010
     massert b1
-    ok (cont iter1)
-
-/-- [matrix_kronecker::test_property]: loop 3:
-    Source: 'src/lib.rs', lines 104:16-110:17
-    Visibility: public -/
-@[rust_loop]
-def test_property_loop0_loop0_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (a : alloc.vec.Vec Rat)
-  (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat) (i : Std.Usize)
-  (j : Std.Usize) (k : Std.Usize) (_f64_const_0_00000000010 : Rat) :
-  Result Unit
-  := do
-  loop
-    (fun iter1 => test_property_loop0_loop0_loop0_loop0.body a b c i j k
-      _f64_const_0_00000000010 iter1)
-    iter
-
-/-- [matrix_kronecker::test_property]: loop body 2:
-    Source: 'src/lib.rs', lines 103:12-111:13
-    Visibility: public -/
-@[rust_loop_body]
-def test_property_loop0_loop0_loop0.body
-  (a : alloc.vec.Vec Rat) (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat)
-  (i : Std.Usize) (j : Std.Usize) (_f64_const_0_00000000010 : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done ())
-  | some k =>
-    test_property_loop0_loop0_loop0_loop0
-      { start := 0#usize, «end» := 2#usize } a b c i j k
+    test_property_loop0_loop0_loop0_loop0 iter1 a b c i j k
       _f64_const_0_00000000010
-    ok (cont iter1)
+partial_fixpoint
 
 /-- [matrix_kronecker::test_property]: loop 2:
     Source: 'src/lib.rs', lines 103:12-111:13
@@ -394,29 +325,16 @@ def test_property_loop0_loop0_loop0
   (j : Std.Usize) (_f64_const_0_00000000010 : Rat) :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_property_loop0_loop0_loop0.body a b c i j
-      _f64_const_0_00000000010 iter1)
-    iter
-
-/-- [matrix_kronecker::test_property]: loop body 1:
-    Source: 'src/lib.rs', lines 102:8-112:9
-    Visibility: public -/
-@[rust_loop_body]
-def test_property_loop0_loop0.body
-  (a : alloc.vec.Vec Rat) (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat)
-  (i : Std.Usize) (_f64_const_0_00000000010 : Rat)
-  (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
-  | some j =>
-    test_property_loop0_loop0_loop0 { start := 0#usize, «end» := 2#usize } a
-      b c i j _f64_const_0_00000000010
-    ok (cont iter1)
+  | none => ok ()
+  | some k =>
+    test_property_loop0_loop0_loop0_loop0
+      { start := 0#usize, «end» := 2#usize } a b c i j k
+      _f64_const_0_00000000010
+    test_property_loop0_loop0_loop0 iter1 a b c i j _f64_const_0_00000000010
+partial_fixpoint
 
 /-- [matrix_kronecker::test_property]: loop 1:
     Source: 'src/lib.rs', lines 102:8-112:9
@@ -428,28 +346,15 @@ def test_property_loop0_loop0
   (_f64_const_0_00000000010 : Rat) :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_property_loop0_loop0.body a b c i
-      _f64_const_0_00000000010 iter1)
-    iter
-
-/-- [matrix_kronecker::test_property]: loop body 0:
-    Source: 'src/lib.rs', lines 101:4-113:5
-    Visibility: public -/
-@[rust_loop_body]
-def test_property_loop0.body
-  (a : alloc.vec.Vec Rat) (b : alloc.vec.Vec Rat) (c : alloc.vec.Vec Rat)
-  (_f64_const_0_00000000010 : Rat) (iter : core.ops.range.Range Std.Usize) :
-  Result (ControlFlow (core.ops.range.Range Std.Usize) Unit)
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done ())
-  | some i =>
-    test_property_loop0_loop0 { start := 0#usize, «end» := 3#usize } a b c i
-      _f64_const_0_00000000010
-    ok (cont iter1)
+  | none => ok ()
+  | some j =>
+    test_property_loop0_loop0_loop0 { start := 0#usize, «end» := 2#usize } a
+      b c i j _f64_const_0_00000000010
+    test_property_loop0_loop0 iter1 a b c i _f64_const_0_00000000010
+partial_fixpoint
 
 /-- [matrix_kronecker::test_property]: loop 0:
     Source: 'src/lib.rs', lines 101:4-113:5
@@ -461,10 +366,15 @@ def test_property_loop0
   (_f64_const_0_00000000010 : Rat) :
   Result Unit
   := do
-  loop
-    (fun iter1 => test_property_loop0.body a b c _f64_const_0_00000000010
-      iter1)
-    iter
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ()
+  | some i =>
+    test_property_loop0_loop0 { start := 0#usize, «end» := 3#usize } a b c i
+      _f64_const_0_00000000010
+    test_property_loop0 iter1 a b c _f64_const_0_00000000010
+partial_fixpoint
 
 /-- [matrix_kronecker::test_property]:
     Source: 'src/lib.rs', lines 95:0-114:1
