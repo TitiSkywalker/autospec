@@ -14,11 +14,7 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace matrix_inverse_2x2
-
-/- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
 /-- [matrix_inverse_2x2::assert_vec4_approx_eq]: loop body 0:
     Source: 'src/lib.rs', lines 20:4-23:5
@@ -68,7 +64,7 @@ def assert_vec4_approx_eq
     Source: 'src/lib.rs', lines 27:0-32:1
     Visibility: public -/
 def test_invert_simple : Result Unit := do
-  let _f64_const_neg_1 := (1 : Rat)
+  let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_0_001 := (1/1000 : Rat)
   let _f64_const_1 := (1 : Rat)
   let _f64_const_2 := (2 : Rat)
@@ -220,8 +216,6 @@ def test_invert_large : Result Unit := do
   let s1 := alloc.vec.Vec.deref result
   let s2 := alloc.vec.Vec.deref ret1
   assert_vec4_approx_eq s1 s2 _f64_const_0_001
-
-#eval assert_vec4_approx_eq
 
 #eval test_invert_diagonal
 

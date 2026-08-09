@@ -15,17 +15,7 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace vector_norm
-
-/- F64 replaced with ℝ by autospec -/
-def RealClone.clone (x : ℝ) : Result ℝ := ok x
-
-@[reducible]
-def RealClone : core.clone.Clone ℝ := {
-  clone := RealClone.clone
-}
 
 /-- [vector_norm::vector_norm]: loop body 0:
     Source: 'src/lib.rs', lines 7:4-10:5

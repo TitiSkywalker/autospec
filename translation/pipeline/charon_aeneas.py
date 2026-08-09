@@ -30,7 +30,7 @@ def run_charon(charon_bin: str, workdir: Path) -> bool:
             if line.strip():
                 print(f"           {line.strip()}", file=sys.stderr)
         return False
-    phase("  charon", "ok")
+    phase("charon", "ok")
     return True
 
 
@@ -64,7 +64,7 @@ def run_adapter(workdir: Path) -> dict[str, str] | None:
         parts.append(f"{adapter_stats['binop']} binop/neg")
     if adapter_stats.get("consts") and adapter_stats["consts"] != "0":
         parts.append(f"{adapter_stats['consts']} consts")
-    phase("  adapter", ", ".join(parts))
+    phase("adapter", ", ".join(parts))
     return adapter_stats
 
 
@@ -78,7 +78,7 @@ def run_aeneas(aeneas_bin: str, workdir: Path) -> list[str] | None:
 
     for f in llbc_files:
         result = subprocess.run(
-            [aeneas_bin, "-sequential", "-backend", "lean", str(workdir / f)],
+            [aeneas_bin, "-all-computable", "-sequential", "-backend", "lean", str(workdir / f)],
             cwd=str(workdir),
             capture_output=True,
             text=True,
@@ -102,5 +102,5 @@ def run_aeneas(aeneas_bin: str, workdir: Path) -> list[str] | None:
         fail("aeneas", "no .lean file generated")
         return None
 
-    phase("  aeneas", "ok")
+    phase("aeneas", "ok")
     return aeneas_warnings

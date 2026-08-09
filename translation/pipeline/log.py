@@ -13,7 +13,8 @@ def set_verbose(v: bool) -> None:
 def dbg(msg: str) -> None:
     """Print debug info when verbose mode is on."""
     if _VERBOSE:
-        print(f"           \033[2m{msg}\033[0m", file=sys.stderr)
+        sys.stdout.flush()
+        print(f"  {'debug':<10} \033[2m{msg}\033[0m", file=sys.stderr)
 
 
 def phase(tag: str, msg: str = "") -> None:
@@ -23,9 +24,10 @@ def phase(tag: str, msg: str = "") -> None:
 
 def fail(tag: str, reason: str) -> None:
     """Print a phase failure message to stderr."""
+    sys.stdout.flush()
     print(f"  {tag:<10} \033[31mFAIL\033[0m  {reason}", file=sys.stderr)
 
 
 def warn(msg: str) -> None:
     """Print a warning message."""
-    print(f"           \033[33m⚠\033[0m  {msg}")
+    print(f"  {'warn':<10} \033[33m{msg}\033[0m")

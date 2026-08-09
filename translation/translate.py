@@ -21,7 +21,7 @@ from pipeline.log import phase, fail, warn, set_verbose
 from pipeline.simplify import simplify_for_aeneas
 from pipeline.flatten import try_flatten_nested_loops
 from pipeline.charon_aeneas import run_charon, run_adapter, run_aeneas
-from pipeline.lean_post import write_lean_output
+from pipeline.lean_post import write_lean_output, NonComputableError
 from pipeline.extract_test import translate_test_file
 
 
@@ -72,16 +72,30 @@ class Translator:
         results: list[tuple[str, str, int]] = []  # (tag, filename, def_count)
 
         # 1. Translate implementation
-        outcome = self._translate_inner(
-            project_path, output_path, flatten=False,
-        )
-        if outcome is None:
-            warn("retrying with flatten-loops")
+        try:
             outcome = self._translate_inner(
-                project_path, output_path, flatten=True,
+                project_path, output_path, flatten=False,
             )
-        if outcome is None:
-            return False
+            if outcome is None:
+                warn("retrying with flatten-loops")
+                outcome = self._translate_inner(
+                    project_path, output_path, flatten=True,
+                )
+            if outcome is None:
+                return False
+        except NonComputableError as e:
+            warn(f"{e}; auto-switching to --target Real")
+            self.target = "Real"
+            outcome = self._translate_inner(
+                project_path, output_path, flatten=False, target="Real",
+            )
+            if outcome is None:
+                warn("retrying with flatten-loops")
+                outcome = self._translate_inner(
+                    project_path, output_path, flatten=True, target="Real",
+                )
+            if outcome is None:
+                return False
 
         impl_defs, impl_files = outcome
         for name in sorted(impl_files):
@@ -107,10 +121,10 @@ class Translator:
 
         # Summary
         for tag, filename, count in results:
-            phase(f"  {tag}", f"{filename}  {count} defs")
+            phase(tag, f"{filename}  {count} defs")
         total_files = len(results)
         total_defs = sum(r[2] for r in results)
-        phase("✓ done", f"{total_files} file(s), {total_defs} defs")
+        phase("done", f"{total_files} file(s), {total_defs} defs")
         return True
 
     # ── core pipeline ───────────────────────────────────────────────────────
@@ -121,11 +135,14 @@ class Translator:
         output_path: Path,
         *,
         flatten: bool,
+        target: str | None = None,
     ) -> tuple[int, list[str]] | None:
         """Run the full charon→adapter→aeneas pipeline on a copy of the project.
 
         When *flatten* is True nested loops are extracted into separate
         functions *before* charon/aeneas (best-effort).
+
+        *target* overrides ``self.target`` for this invocation only.
 
         Returns ``(def_count, written_filenames)``, or *None* on failure.
         """
@@ -157,11 +174,13 @@ class Translator:
             if aeneas_warnings is None:
                 return None
 
-            def_count, written = write_lean_output(workdir, output_path, target=self.target)
-            phase("  output", f"{def_count} defs")
+            def_count, written = write_lean_output(
+                workdir, output_path, target=target if target is not None else self.target
+            )
             if def_count == 0:
                 fail("output", "no definitions written")
                 return None
+            phase("output", f"{def_count} defs")
 
             for w in aeneas_warnings:
                 warn(w)

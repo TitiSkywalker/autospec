@@ -14,11 +14,7 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace graph_kruskal
-
-/- Rat replaced with Rat; f64_helpers inlined by autospec -/
 
 /-- [graph_kruskal::assert_approx_eq]:
     Source: 'src/lib.rs', lines 103:0-112:1

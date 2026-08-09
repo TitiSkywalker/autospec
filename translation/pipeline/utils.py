@@ -47,6 +47,8 @@ def parse_adapter_stderr(stderr: str) -> dict[str, str]:
                 if "=" in part:
                     k, v = part.split("=", 1)
                     stats[k.strip()] = v.strip()
+        elif "no f64" in body:
+            stats["f64"] = "none"
         else:
             m2 = re.match(r"(\d+)\s+float consts?,\s*(\d+)\s+binop/neg", body)
             if m2:

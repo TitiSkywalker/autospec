@@ -13,17 +13,7 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace graph_kruskal
-
-/- F64 replaced with Rat; f64_helpers inlined by autospec -/
-def RatClone.clone (x : Rat) : Result Rat := ok x
-
-@[reducible]
-def RatClone : core.clone.Clone Rat := {
-  clone := RatClone.clone
-}
 
 /-- [graph_kruskal::find]: loop body 0:
     Source: 'src/lib.rs', lines 9:4-11:5

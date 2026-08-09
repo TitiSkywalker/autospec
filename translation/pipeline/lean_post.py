@@ -13,8 +13,21 @@ if _tools_dir not in sys.path:
 from lean_inline import inline_f64_helpers  # noqa: E402
 
 
+class NonComputableError(Exception):
+    """Rat target cannot handle non-computable operations like sqrt."""
+
+
 def lean_f64_to_rat(content: str) -> str:
-    """Replace F64 opaque type with Rat (computable rational arithmetic)."""
+    """Replace F64 opaque type with Rat (computable rational arithmetic).
+
+    Raises NonComputableError if the code uses sqrt, which is not
+    computable for Rat — the caller should retry with ``--target Real``.
+    """
+    # Clean up any stray noncomputable section marker (aeneas adds this
+    # when there are external definitions).  Must happen before the early
+    # return so that projects without f64 also get the cleanup.
+    content = content.replace("noncomputable section\n", "")
+
     if "F64" not in content:
         return content
 
@@ -73,21 +86,18 @@ def lean_f64_to_rat(content: str) -> str:
         result,
     )
     result = re.sub(r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result)
-    # When sqrt is present the code generator cannot compile the module
-    # (Rat has no computable sqrt).  Insert ``noncomputable section`` so
-    # that the code generator skips all definitions in the file.
-    if "std.f64.Rat.sqrt" in result:
-        result = result.replace("noncomputable section\n", "")
-        result = result.replace(
-            "set_option linter.style.nameCheck false\n",
-            "set_option linter.style.nameCheck false\n"
-            "noncomputable section\n",
-            count=1,
+    # Detect non-computable external functions (sqrt, exp, sin, etc.).
+    # Computable f64 ops were handled by the adapter → f64_helpers and
+    # will be inlined later.  Anything still referencing std.f64.Rat.*
+    # is a non-computable axiom from aeneas.
+    non_comp = set(re.findall(r"std\.f64\.Rat\.(\w+)", result))
+    if non_comp:
+        funcs = ", ".join(sorted(non_comp))
+        raise NonComputableError(
+            f"{funcs} not computable in Rat mode"
         )
-    else:
-        result = result.replace("noncomputable section\n", "")
 
-    if "def RatClone.clone" not in result:
+    if "RatClone" in result and "def RatClone.clone" not in result:
         rat_clone = (
             "/- F64 replaced with Rat by autospec -/\n"
             "def RatClone.clone (x : Rat) : Result Rat := ok x\n"
@@ -211,7 +221,7 @@ def lean_f64_to_real(content: str) -> str:
         result,
     )
 
-    if "def RealClone.clone" not in result:
+    if "RealClone" in result and "def RealClone.clone" not in result:
         real_clone = (
             "/- F64 replaced with ℝ by autospec -/\n"
             "def RealClone.clone (x : ℝ) : Result ℝ := ok x\n"
@@ -394,7 +404,10 @@ def write_lean_output(
         if _use_real:
             text = lean_f64_to_real(text)
         else:
-            text = lean_f64_to_rat(text)
+            try:
+                text = lean_f64_to_rat(text)
+            except NonComputableError:
+                raise
         text = lean_integers_to_int(text)
         text = inline_f64_helpers(text)
         if _use_real:

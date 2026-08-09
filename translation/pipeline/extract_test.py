@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 from .log import phase, warn
-from .lean_post import lean_f64_to_rat, lean_f64_to_real, lean_integers_to_int
+from .lean_post import lean_f64_to_rat, lean_f64_to_real, lean_integers_to_int, NonComputableError
 from .utils import read_crate_name, capitalize_first, find_lake_root
 
 # Import from sibling tools package
@@ -97,7 +97,10 @@ def translate_test_file(
                 if _use_real:
                     combined_text = lean_f64_to_real(combined_text)
                 else:
-                    combined_text = lean_f64_to_rat(combined_text)
+                    try:
+                        combined_text = lean_f64_to_rat(combined_text)
+                    except NonComputableError:
+                        raise
                 combined_text = lean_integers_to_int(combined_text)
                 combined_text = inline_f64_helpers(combined_text)
                 if _use_real:

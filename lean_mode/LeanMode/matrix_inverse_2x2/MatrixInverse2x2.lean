@@ -13,17 +13,7 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/- You can remove the following line by using the CLI option `-all-computable`: -/
-
 namespace matrix_inverse_2x2
-
-/- F64 replaced with Rat; f64_helpers inlined by autospec -/
-def RatClone.clone (x : Rat) : Result Rat := ok x
-
-@[reducible]
-def RatClone : core.clone.Clone Rat := {
-  clone := RatClone.clone
-}
 
 /-- [core::mem::maybe_uninit::MaybeUninit]
     Source: '/rustc/library/core/src/mem/maybe_uninit.rs', lines 355:0-355:24
