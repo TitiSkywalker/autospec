@@ -31,29 +31,6 @@ def RealClone : core.clone.Clone ℝ := {
     Visibility: public -/
 @[rust_fun "std::f64::{f64}::exp"] axiom std.f64.ℝ.exp : ℝ → Result ℝ
 
-/-- [tensor_softmax_1d::softmax]: loop body 0:
-    Source: 'src/lib.rs', lines 17:4-21:5
-    Visibility: public -/
-@[rust_loop_body]
-def softmax_loop0.body
-  (input : Slice ℝ) (iter : core.ops.range.Range Std.Usize) (sum : ℝ)
-  (out : alloc.vec.Vec ℝ) :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × ℝ ×
-    (alloc.vec.Vec ℝ)) (ℝ × (alloc.vec.Vec ℝ)))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (done (sum, out))
-  | some i =>
-    let fl ← Slice.index_usize input i
-    let e ← std.f64.ℝ.exp fl
-    let sum1 := sum + e
-    let (_, index_mut_back) ←
-      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ) out i
-    let out1 := index_mut_back e
-    ok (cont (iter1, sum1, out1))
-
 /-- [tensor_softmax_1d::softmax]: loop 0:
     Source: 'src/lib.rs', lines 17:4-21:5
     Visibility: public -/
@@ -63,32 +40,19 @@ def softmax_loop0
   (out : alloc.vec.Vec ℝ) :
   Result (ℝ × (alloc.vec.Vec ℝ))
   := do
-  loop
-    (fun (iter1, sum1, out1) => softmax_loop0.body input iter1 sum1 out1)
-    (iter, sum, out)
-
-/-- [tensor_softmax_1d::softmax]: loop body 1:
-    Source: 'src/lib.rs', lines 24:4-26:5
-    Visibility: public -/
-@[rust_loop_body]
-def softmax_loop1.body
-  (sum : ℝ) (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec ℝ)
-  :
-  Result (ControlFlow ((core.ops.range.Range Std.Usize) × (alloc.vec.Vec ℝ))
-    (alloc.vec.Vec ℝ))
-  := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (done out)
+  | none => ok (sum, out)
   | some i =>
-    let fl ←
-      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) out i
+    let fl ← Slice.index_usize input i
+    let e ← std.f64.ℝ.exp fl
+    let sum1 := sum + e
     let (_, index_mut_back) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ) out i
-    let fl1 := fl / sum
-    let out1 := index_mut_back fl1
-    ok (cont (iter1, out1))
+    let out1 := index_mut_back e
+    softmax_loop0 iter1 input sum1 out1
+partial_fixpoint
 
 /-- [tensor_softmax_1d::softmax]: loop 1:
     Source: 'src/lib.rs', lines 24:4-26:5
@@ -99,9 +63,19 @@ def softmax_loop1
   :
   Result (alloc.vec.Vec ℝ)
   := do
-  loop
-    (fun (iter1, out1) => softmax_loop1.body sum iter1 out1)
-    (iter, out)
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let fl ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) out i
+    let (_, index_mut_back) ←
+      alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ) out i
+    let fl1 := fl / sum
+    let out1 := index_mut_back fl1
+    softmax_loop1 iter1 sum out1
+partial_fixpoint
 
 /-- [tensor_softmax_1d::softmax]:
     Source: 'src/lib.rs', lines 8:0-28:1

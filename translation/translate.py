@@ -34,16 +34,16 @@ class Translator:
         aeneas_bin: str | Path | None = None,
         verbose: bool = False,
         target: str = "Rat",
+        loops_to_rec: bool = False,
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
             charon_bin or _root.parent / "aeneas" / "charon" / "bin" / "charon"
         )
-        self.aeneas = str(
-            aeneas_bin or _root.parent / "aeneas" / "bin" / "aeneas"
-        )
+        self.aeneas = str(aeneas_bin or _root.parent / "aeneas" / "bin" / "aeneas")
         self.verbose = verbose
         self.target = target
+        self.loops_to_rec = loops_to_rec
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -74,12 +74,16 @@ class Translator:
         # 1. Translate implementation
         try:
             outcome = self._translate_inner(
-                project_path, output_path, flatten=False,
+                project_path,
+                output_path,
+                flatten=False,
             )
             if outcome is None:
                 warn("retrying with flatten-loops")
                 outcome = self._translate_inner(
-                    project_path, output_path, flatten=True,
+                    project_path,
+                    output_path,
+                    flatten=True,
                 )
             if outcome is None:
                 return False
@@ -87,12 +91,18 @@ class Translator:
             warn(f"{e}; auto-switching to --target Real")
             self.target = "Real"
             outcome = self._translate_inner(
-                project_path, output_path, flatten=False, target="Real",
+                project_path,
+                output_path,
+                flatten=False,
+                target="Real",
             )
             if outcome is None:
                 warn("retrying with flatten-loops")
                 outcome = self._translate_inner(
-                    project_path, output_path, flatten=True, target="Real",
+                    project_path,
+                    output_path,
+                    flatten=True,
+                    target="Real",
                 )
             if outcome is None:
                 return False
@@ -170,12 +180,16 @@ class Translator:
             if run_adapter(workdir) is None:
                 return None
 
-            aeneas_warnings = run_aeneas(self.aeneas, workdir)
+            aeneas_warnings = run_aeneas(
+                self.aeneas, workdir, loops_to_rec=self.loops_to_rec
+            )
             if aeneas_warnings is None:
                 return None
 
             def_count, written = write_lean_output(
-                workdir, output_path, target=target if target is not None else self.target
+                workdir,
+                output_path,
+                target=target if target is not None else self.target,
             )
             if def_count == 0:
                 fail("output", "no definitions written")
@@ -202,12 +216,24 @@ if __name__ == "__main__":
     p.add_argument("--charon", default=None)
     p.add_argument("--aeneas", default=None)
     p.add_argument(
-        "--target", default="Rat", choices=["Rat", "Real"],
+        "--target",
+        default="Rat",
+        choices=["Rat", "Real"],
         help="Replace f64 with Rat (default) or ℝ (computable sqrt)",
+    )
+    p.add_argument(
+        "--loops-to-rec",
+        action="store_true",
+        help="Pass -loops-to-rec to aeneas: translate loops to recursive functions",
     )
     args = p.parse_args()
 
-    t = Translator(charon_bin=args.charon, aeneas_bin=args.aeneas,
-                   verbose=args.verbose, target=args.target)
+    t = Translator(
+        charon_bin=args.charon,
+        aeneas_bin=args.aeneas,
+        verbose=args.verbose,
+        target=args.target,
+        loops_to_rec=args.loops_to_rec,
+    )
     ok = t.translate(args.project_dir, args.output_dir)
     raise SystemExit(0 if ok else 1)

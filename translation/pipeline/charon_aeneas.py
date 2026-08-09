@@ -68,7 +68,7 @@ def run_adapter(workdir: Path) -> dict[str, str] | None:
     return adapter_stats
 
 
-def run_aeneas(aeneas_bin: str, workdir: Path) -> list[str] | None:
+def run_aeneas(aeneas_bin: str, workdir: Path, *, loops_to_rec: bool = False) -> list[str] | None:
     """Run aeneas on every ``.llbc`` file in *workdir*.
 
     Returns a list of aeneas warning strings, or *None* on error.
@@ -77,8 +77,12 @@ def run_aeneas(aeneas_bin: str, workdir: Path) -> list[str] | None:
     aeneas_warnings: list[str] = []
 
     for f in llbc_files:
+        cmd = [aeneas_bin, "-all-computable", "-sequential", "-backend", "lean"]
+        if loops_to_rec:
+            cmd.append("-loops-to-rec")
+        cmd.append(str(workdir / f))
         result = subprocess.run(
-            [aeneas_bin, "-all-computable", "-sequential", "-backend", "lean", str(workdir / f)],
+            cmd,
             cwd=str(workdir),
             capture_output=True,
             text=True,
