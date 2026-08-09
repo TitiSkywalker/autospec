@@ -373,6 +373,25 @@ def _fix_partial_mutual(text: str) -> str:
     return text
 
 
+def _fix_vec_is_empty(text: str) -> str:
+    """Replace ``alloc.vec.Vec.is_empty`` (not in aeneas runtime) with a
+    length check."""
+    if "alloc.vec.Vec.is_empty" not in text:
+        return text
+    text = re.sub(
+        r"let\s+(\w+)\s+←\s+alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
+        r"let \1 := (alloc.vec.Vec.deref \2).length = 0",
+        text,
+    )
+    # Replace tail-position calls
+    text = re.sub(
+        r"alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
+        r"ok ((alloc.vec.Vec.deref \1).length = 0)",
+        text,
+    )
+    return text
+
+
 def write_lean_output(
     workdir: Path,
     output_path: Path,
@@ -415,6 +434,7 @@ def write_lean_output(
             text = re.sub(r"\bRat\b", "ℝ", text)
             text = re.sub(r"\bRatClone\b", "RealClone", text)
         text = _fix_partial_mutual(text)
+        text = _fix_vec_is_empty(text)
         (output_path / f).write_text(text.rstrip("\n") + "\n")
         written.append(f)
         def_count += len(
