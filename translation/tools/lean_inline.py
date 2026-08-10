@@ -325,35 +325,8 @@ def _i64_const_to_int(name: str) -> str:
 
 
 def _remove_i64_helper_defs(content: str) -> str:
-    """Remove ``def i64_helpers.*`` / ``axiom i64_helpers.*`` and their
-    associated doc-comment + attribute blocks."""
-    # Remove the entire block: doc comment → attribute → axiom/def
-    content = re.sub(
-        r"\n*/--\s+\[i64_helpers::\S+\]:.*?\n"
-        r"(?:.*?\n)*?"
-        r"@\[rust_fun\s+\"i64_helpers::\S+\"\][ \t]*(?:\n[ \t]*)?"
-        r"(?:noncomputable\s+)?(?:axiom|def)\s+i64_helpers\.\S+[ \t]*[^\n]*\n?",
-        "",
-        content,
-        flags=re.DOTALL,
-    )
-
-    # Fallback: remove any remaining bare i64_helpers lines
-    lines = content.split("\n")
-    out: list[str] = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("def i64_helpers."):
-            continue
-        if stripped.startswith("axiom i64_helpers."):
-            continue
-        out.append(line)
-
-    # Collapse 4+ consecutive blank lines → 3
-    result = "\n".join(out)
-    result = re.sub(r"\n{4,}", "\n\n\n", result)
-
-    return result
+    """Remove i64_helpers definitions."""
+    return _remove_helper_defs(content, "i64_helpers")
 
 
 # ── constant conversion ─────────────────────────────────────────────────────
@@ -414,44 +387,45 @@ def _const_to_rat(name: str) -> str:
 # ── definition removal ──────────────────────────────────────────────────────
 
 
-def _remove_f64_helper_defs(content: str) -> str:
-    """Remove ``def f64_helpers.*`` / ``axiom f64_helpers.*`` and their
+def _remove_helper_defs(content: str, prefix: str) -> str:
+    """Remove ``def <prefix>.*`` / ``axiom <prefix>.*`` and their
     associated doc-comment + attribute blocks."""
+    escaped = re.escape(prefix)
     # Remove the entire block: doc comment → attribute → axiom/def
     content = re.sub(
-        r"\n*/--\s+\[f64_helpers::\S+\]:.*?\n"
+        rf"\n*/--\s+\[{escaped}::\S+\]:.*?\n"
         r"(?:.*?\n)*?"
-        r"@\[rust_fun\s+\"f64_helpers::\S+\"\][ \t]*(?:\n[ \t]*)?"
-        r"(?:noncomputable\s+)?(?:axiom|def)\s+f64_helpers\.\S+[ \t]*[^\n]*\n?",
+        rf"@\[rust_fun\s+\"{escaped}::\S+\"\][ \t]*(?:\n[ \t]*)?"
+        rf"(?:noncomputable\s+)?(?:axiom|def)\s+{escaped}\.\S+[ \t]*[^\n]*\n?",
         "",
         content,
         flags=re.DOTALL,
     )
 
+    # Fallback: remove any remaining bare helper lines
     lines = content.split("\n")
     out: list[str] = []
-
     for line in lines:
         stripped = line.strip()
-
-        # Remove the old autospec comment
-        if stripped == "/- F64 replaced with Rat by autospec -/":
-            out.append("/- F64 replaced with Rat; f64_helpers inlined by autospec -/")
+        if stripped.startswith(f"def {prefix}."):
             continue
-
-        # Remove f64_helpers definition/axiom lines (fallback)
-        if stripped.startswith("def f64_helpers."):
+        if stripped.startswith(f"axiom {prefix}."):
             continue
-        if stripped.startswith("axiom f64_helpers."):
-            continue
-
         out.append(line)
 
     # Collapse 4+ consecutive blank lines → 3
     result = "\n".join(out)
     result = re.sub(r"\n{4,}", "\n\n\n", result)
-
     return result
+
+
+def _remove_f64_helper_defs(content: str) -> str:
+    """Remove f64_helpers definitions, plus the autospec F64 comment."""
+    content = content.replace(
+        "/- F64 replaced with Rat by autospec -/",
+        "/- F64 replaced with Rat; f64_helpers inlined by autospec -/",
+    )
+    return _remove_helper_defs(content, "f64_helpers")
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

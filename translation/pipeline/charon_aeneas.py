@@ -11,7 +11,7 @@ from .utils import parse_adapter_stderr
 
 # Paths resolved relative to this file.
 _ROOT = Path(__file__).resolve().parent.parent
-_LLBC_ADAPTER = _ROOT / "tools" / "llbc_adapter.py"
+_F64_ADAPTER = _ROOT / "tools" / "f64_adapter.py"
 _I64_ADAPTER = _ROOT / "tools" / "i64_adapter.py"
 
 
@@ -49,7 +49,7 @@ def run_adapter(workdir: Path) -> dict[str, str] | None:
     for f in llbc_files:
         llbc_path = str(workdir / f)
         result = subprocess.run(
-            [sys.executable, str(_LLBC_ADAPTER), llbc_path, "-o", llbc_path],
+            [sys.executable, str(_F64_ADAPTER), llbc_path, "-o", llbc_path],
             capture_output=True,
             text=True,
         )
