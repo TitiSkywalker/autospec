@@ -294,17 +294,33 @@ def lean_integers_to_int(content: str) -> str:
         content = re.sub(rf"{re.escape(suffix)}\b", "", content)
 
     # After type replacement, arithmetic ops that were monadic on
-    # Std.U64/Std.I32 (returning Result) are now pure Int operations.
-    # Convert ``let x ← a % b`` → ``let x := a % b``.
-    # Only % — the only op that appears on Int values after type
-    # replacement (gcd).  / + - involve Usize which stays monadic.
-    for op in ["%"]:
+    # Std.U64/Std.I32/I64 (returning Result) are now pure Int operations.
+    # Convert ``let x ← a op b`` → ``let x := a op b``.
+    #
+    # Must NOT convert Usize arithmetic.  Two guards:
+    # 1. (?!#usize) lookahead — exclude literal #usize suffixes
+    # 2. Int-context check — at least one operand appeared near ``Int`` in
+    #    the previous 5 lines, indicating it came from Vec/Slice Int.
+    for op in ["%", "+"]:
         escaped = re.escape(op)
-        content = re.sub(
-            rf"(let\s+\w+\s+)←\s+([^\s#]+)\s*{escaped}\s*([^\s#]+)",
-            rf"\1:= \2 {op} \3",
+        for m in re.finditer(
+            rf"(let\s+(\w+)\s+)←\s+(\w+(?!#usize))\s*{escaped}\s*(\w+(?!#usize))",
             content,
-        )
+        ):
+            # Guard 1: any literal #usize in the match → Usize, skip
+            if "#usize" in m.group(0):
+                continue
+            prefix, target, lhs, rhs = m.group(1), m.group(2), m.group(3), m.group(4)
+            # Guard 2: Int context heuristic — at least one operand appears
+            # near ``Int`` in the previous 5 lines (not necessarily same line).
+            before = content[:m.start()]
+            recent = "\n".join(before.split("\n")[-5:])
+            has_int_lhs = "Int" in recent and lhs in recent
+            has_int_rhs = "Int" in recent and rhs in recent
+            if has_int_lhs or has_int_rhs:
+                old = m.group(0)
+                new = f"{prefix}:= {lhs} {op} {rhs}"
+                content = content.replace(old, new, 1)
 
     extras: list[str] = []
     # Define helpers when Int-related types were replaced in this file.
