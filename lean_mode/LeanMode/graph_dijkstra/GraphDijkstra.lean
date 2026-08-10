@@ -14,7 +14,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 
 namespace graph_dijkstra
-
 /-- [graph_dijkstra::dijkstra]: loop 0:
     Source: 'src/lib.rs', lines 20:4-25:5
     Visibility: public -/
@@ -68,7 +67,8 @@ def dijkstra_loop1_loop0
               let di ←
                 alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
                   Int) dist i
-              if di < min_dist
+              let b2 := di < min_dist
+              if b2
               then ok (i, di)
               else ok (u, min_dist)
             else
@@ -116,8 +116,9 @@ def dijkstra_loop1_loop1
           let i2 ←
             alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int)
               dist v
+          let b1 := new_dist < i2
           let v1 ←
-            if new_dist < i2
+            if b1
             then
               do
               let (_, index_mut_back) ←

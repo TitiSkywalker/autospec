@@ -18,7 +18,7 @@ import sys
 _tools_dir = str(Path(__file__).resolve().parent.parent / "tools")
 if _tools_dir not in sys.path:
     sys.path.insert(0, _tools_dir)
-from lean_inline import inline_f64_helpers  # noqa: E402
+from lean_inline import inline_f64_helpers, inline_i64_helpers  # noqa: E402
 
 
 def translate_test_file(
@@ -103,6 +103,7 @@ def translate_test_file(
                         raise
                 combined_text = lean_integers_to_int(combined_text)
                 combined_text = inline_f64_helpers(combined_text)
+                combined_text = inline_i64_helpers(combined_text)
                 if _use_real:
                     combined_text = re.sub(r"\bRat\b", "ℝ", combined_text)
                     combined_text = re.sub(r"\bRatClone\b", "RealClone", combined_text)

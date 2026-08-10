@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Inline f64_helpers calls in generated Lean code.
+Inline f64_helpers / i64_helpers calls in generated Lean code.
 
 The charon→aeneas pipeline cannot handle f64 operations natively, so the
-LLBC adapter translates them into f64_helpers.* function calls.  Those
-helpers are trivial wrappers:
+LLBC adapter translates them into f64_helpers.* function calls.  Similarly,
+i64 operations are translated into i64_helpers.* calls so they become pure
+Int arithmetic instead of monadic Result-returning operations.
+
+f64 helpers are trivial wrappers:
 
     def f64_helpers.add (a b : Rat) : Result Rat := ok (a + b)   -- always ok
 
@@ -15,13 +18,19 @@ with a pure ``:=`` binding:
     let x ← f64_helpers.mul a b    →   let x := a * b
     let y ← f64_helpers.add x c    →   let y := x + c
 
-After inlining all call sites the ``def f64_helpers.*`` definitions are
-dead code and are removed.
+i64_helpers follow the same pattern, mapping to pure Int operations:
+
+    let x ← i64_helpers.add a b    →   let x := a + b
+    let x ← i64_helpers.eq a b     →   let x := a = b
+    let x ← i64_helpers.shl a n    →   let x := Int.shiftLeft a n.val
+
+After inlining all call sites the ``def f64_helpers.*`` / ``def i64_helpers.*``
+definitions are dead code and are removed.
 
 Usage::
 
-    from lean_inline import inline_f64_helpers
-    clean = inline_f64_helpers(lean_source_text)
+    from lean_inline import inline_f64_helpers, inline_i64_helpers
+    clean = inline_i64_helpers(inline_f64_helpers(lean_source_text))
 """
 
 from __future__ import annotations
@@ -50,6 +59,42 @@ _COMPARISON: dict[str, str] = {
 _UNARY: dict[str, tuple[str, str]] = {
     "neg": ("-", ""),
     "abs": ("|", "|"),
+}
+
+# ── i64 operator tables ──────────────────────────────────────────────────────
+
+# i64 helper name → Lean infix operator
+_I64_BINARY: dict[str, str] = {
+    "add": "+",
+    "sub": "-",
+    "mul": "*",
+    "div": "/",
+    "rem": "%",
+}
+
+_I64_COMPARISON: dict[str, str] = {
+    "eq": "=",
+    "ne": "≠",
+    "gt": ">",
+    "lt": "<",
+    "ge": "≥",
+    "le": "≤",
+}
+
+# i64 helper name → (function, needs_val)
+# If needs_val is True, the second argument has .val appended (for usize→Nat).
+_I64_BITWISE: dict[str, tuple[str, bool]] = {
+    "bitand": ("Int.land", False),
+    "bitor": ("Int.lor", False),
+    "bitxor": ("Int.xor", False),
+    "shl": ("Int.shiftLeft", True),
+    "shr": ("Int.shiftRight", True),
+}
+
+# i64 helper name → (prefix, suffix)
+_I64_UNARY: dict[str, tuple[str, str]] = {
+    "neg": ("-", ""),
+    "not": ("(-(", " + 1))"),
 }
 
 # ── public API ───────────────────────────────────────────────────────────────
@@ -139,6 +184,178 @@ def inline_f64_helpers(content: str) -> str:
     return content
 
 
+def inline_i64_helpers(content: str) -> str:
+    """Inline all i64_helpers.* calls and remove their definitions.
+
+    Returns the transformed Lean source.
+    """
+    # Step 1: binary arithmetic (add / sub / mul / div / rem)
+    for name, op in _I64_BINARY.items():
+        content = re.sub(
+            rf"(let\s+\w+\s+)←\s+i64_helpers\.{name}\s+(\S+)\s+(\S+)",
+            rf"\1:= \2 {op} \3",
+            content,
+        )
+
+    # Step 2: comparisons (eq / ne / gt / lt / ge / le)
+    for name, op in _I64_COMPARISON.items():
+        content = re.sub(
+            rf"(let\s+\w+\s+)←\s+i64_helpers\.{name}\s+(\S+)\s+(\S+)",
+            rf"\1:= \2 {op} \3",
+            content,
+        )
+
+    # Step 3: bitwise (bitand / bitor / bitxor) — Int.land / Int.lor / Int.xor
+    for name, (func, _) in _I64_BITWISE.items():
+        if name in ("shl", "shr"):
+            continue  # shifts handled separately
+        content = re.sub(
+            rf"(let\s+\w+\s+)←\s+i64_helpers\.{name}\s+(\S+)\s+(\S+)",
+            rf"\1:= {func} \2 \3",
+            content,
+        )
+
+    # Step 4: shifts (shl / shr) — Int.shiftLeft / Int.shiftRight, usize→Nat
+    for name, (func, _) in _I64_BITWISE.items():
+        if name not in ("shl", "shr"):
+            continue
+        content = re.sub(
+            rf"(let\s+\w+\s+)←\s+i64_helpers\.{name}\s+(\S+)\s+(\S+)",
+            rf"\1:= {func} \2 \3.val",
+            content,
+        )
+
+    # Step 5: unary (neg / not)
+    for name, (prefix, suffix) in _I64_UNARY.items():
+        content = re.sub(
+            rf"(let\s+\w+\s+)←\s+i64_helpers\.{name}\s+(\S+)",
+            rf"\1:= {prefix}\2{suffix}",
+            content,
+        )
+
+    # Step 6: from_usize
+    content = re.sub(
+        r"(let\s+\w+\s+)←\s+i64_helpers\.from_usize\s+(\S+)",
+        r"\1:= (\2.val : Int)",
+        content,
+    )
+
+    # Step 7: integer constants (const_42, const_neg_5, …)
+    content = re.sub(
+        r"(let\s+\w+\s+)←\s+i64_helpers\.(const_\w+)",
+        lambda m: f"{m.group(1)}:= {_i64_const_to_int(m.group(2))}",
+        content,
+    )
+
+    # Step 8: tail-position calls (return value of do block)
+    for name, op in _I64_BINARY.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"\1\2ok (\3 {op} \4)",
+            content,
+            flags=re.MULTILINE,
+        )
+    for name, op in _I64_COMPARISON.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"\1\2ok (\3 {op} \4)",
+            content,
+            flags=re.MULTILINE,
+        )
+    for name, (func, needs_val) in _I64_BITWISE.items():
+        if needs_val:
+            content = re.sub(
+                rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+                rf"\1\2ok ({func} \3 \4.val)",
+                content,
+                flags=re.MULTILINE,
+            )
+        else:
+            content = re.sub(
+                rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+                rf"\1\2ok ({func} \3 \4)",
+                content,
+                flags=re.MULTILINE,
+            )
+    for name, (prefix, suffix) in _I64_UNARY.items():
+        content = re.sub(
+            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)[ \t]*$",
+            rf"\1\2ok ({prefix}\3{suffix})",
+            content,
+            flags=re.MULTILINE,
+        )
+    content = re.sub(
+        r"(^|\n)(\s+)i64_helpers\.from_usize\s+(\S+)[ \t]*$",
+        r"\1\2ok ((\3.val : Int))",
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Step 9: handle i64_helpers calls outside a let binding
+    content = re.sub(r"i64_helpers\.neg\s+(\S+)", r"ok (-\1)", content)
+    content = re.sub(r"i64_helpers\.not\s+(\S+)", r"ok (-(\1 + 1))", content)
+
+    # Step 10: remove now-unused ``def i64_helpers.*`` definitions
+    content = _remove_i64_helper_defs(content)
+
+    return content
+
+
+# ── i64 constant conversion ──────────────────────────────────────────────────
+
+
+def _i64_const_to_int(name: str) -> str:
+    """Convert a const_* name to an Int literal.
+
+    >>> _i64_const_to_int("const_42")
+    '(42 : Int)'
+    >>> _i64_const_to_int("const_neg_5")
+    '(-5 : Int)'
+    """
+    v = name[len("const_"):]
+    neg = v.startswith("neg_")
+    if neg:
+        v = v[len("neg_"):]
+    if neg:
+        return f"(-{v} : Int)"
+    return f"({v} : Int)"
+
+
+# ── i64 definition removal ───────────────────────────────────────────────────
+
+
+def _remove_i64_helper_defs(content: str) -> str:
+    """Remove ``def i64_helpers.*`` / ``axiom i64_helpers.*`` and their
+    associated doc-comment + attribute blocks."""
+    # Remove the entire block: doc comment → attribute → axiom/def
+    content = re.sub(
+        r"\n*/--\s+\[i64_helpers::\S+\]:.*?\n"
+        r"(?:.*?\n)*?"
+        r"@\[rust_fun\s+\"i64_helpers::\S+\"\][ \t]*(?:\n[ \t]*)?"
+        r"(?:noncomputable\s+)?(?:axiom|def)\s+i64_helpers\.\S+[ \t]*[^\n]*\n?",
+        "",
+        content,
+        flags=re.DOTALL,
+    )
+
+    # Fallback: remove any remaining bare i64_helpers lines
+    lines = content.split("\n")
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("def i64_helpers."):
+            continue
+        if stripped.startswith("axiom i64_helpers."):
+            continue
+        out.append(line)
+
+    # Collapse 4+ consecutive blank lines → 3
+    result = "\n".join(out)
+    result = re.sub(r"\n{4,}", "\n\n\n", result)
+
+    return result
+
+
 # ── constant conversion ─────────────────────────────────────────────────────
 
 
@@ -198,7 +415,19 @@ def _const_to_rat(name: str) -> str:
 
 
 def _remove_f64_helper_defs(content: str) -> str:
-    """Remove ``def f64_helpers.*`` lines and the associated comment."""
+    """Remove ``def f64_helpers.*`` / ``axiom f64_helpers.*`` and their
+    associated doc-comment + attribute blocks."""
+    # Remove the entire block: doc comment → attribute → axiom/def
+    content = re.sub(
+        r"\n*/--\s+\[f64_helpers::\S+\]:.*?\n"
+        r"(?:.*?\n)*?"
+        r"@\[rust_fun\s+\"f64_helpers::\S+\"\][ \t]*(?:\n[ \t]*)?"
+        r"(?:noncomputable\s+)?(?:axiom|def)\s+f64_helpers\.\S+[ \t]*[^\n]*\n?",
+        "",
+        content,
+        flags=re.DOTALL,
+    )
+
     lines = content.split("\n")
     out: list[str] = []
 
@@ -210,8 +439,10 @@ def _remove_f64_helper_defs(content: str) -> str:
             out.append("/- F64 replaced with Rat; f64_helpers inlined by autospec -/")
             continue
 
-        # Remove f64_helpers definition lines
+        # Remove f64_helpers definition/axiom lines (fallback)
         if stripped.startswith("def f64_helpers."):
+            continue
+        if stripped.startswith("axiom f64_helpers."):
             continue
 
         out.append(line)

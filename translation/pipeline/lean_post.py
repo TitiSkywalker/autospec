@@ -10,7 +10,7 @@ import sys
 _tools_dir = str(Path(__file__).resolve().parent.parent / "tools")
 if _tools_dir not in sys.path:
     sys.path.insert(0, _tools_dir)
-from lean_inline import inline_f64_helpers  # noqa: E402
+from lean_inline import inline_f64_helpers, inline_i64_helpers  # noqa: E402
 
 
 class NonComputableError(Exception):
@@ -445,6 +445,7 @@ def write_lean_output(
                 raise
         text = lean_integers_to_int(text)
         text = inline_f64_helpers(text)
+        text = inline_i64_helpers(text)
         if _use_real:
             # f64_helpers constants and helpers use ``Rat`` — fix type
             text = re.sub(r"\bRat\b", "ℝ", text)

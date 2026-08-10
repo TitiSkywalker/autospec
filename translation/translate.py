@@ -20,7 +20,7 @@ from pathlib import Path
 from pipeline.log import phase, fail, warn, set_verbose
 from pipeline.simplify import simplify_for_aeneas
 from pipeline.flatten import try_flatten_nested_loops
-from pipeline.charon_aeneas import run_charon, run_adapter, run_aeneas
+from pipeline.charon_aeneas import run_charon, run_adapter, run_i64_adapter, run_aeneas
 from pipeline.lean_post import write_lean_output, NonComputableError
 from pipeline.extract_test import translate_test_file
 
@@ -178,6 +178,9 @@ class Translator:
                 return None
 
             if run_adapter(workdir) is None:
+                return None
+
+            if run_i64_adapter(workdir) is None:
                 return None
 
             aeneas_warnings = run_aeneas(

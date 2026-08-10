@@ -12,6 +12,7 @@ from .utils import parse_adapter_stderr
 # Paths resolved relative to this file.
 _ROOT = Path(__file__).resolve().parent.parent
 _LLBC_ADAPTER = _ROOT / "tools" / "llbc_adapter.py"
+_I64_ADAPTER = _ROOT / "tools" / "i64_adapter.py"
 
 
 def run_charon(charon_bin: str, workdir: Path) -> bool:
@@ -65,6 +66,40 @@ def run_adapter(workdir: Path) -> dict[str, str] | None:
     if adapter_stats.get("consts") and adapter_stats["consts"] != "0":
         parts.append(f"{adapter_stats['consts']} consts")
     phase("adapter", ", ".join(parts))
+    return adapter_stats
+
+
+def run_i64_adapter(workdir: Path) -> dict[str, str] | None:
+    """Run the I64 LLBC adapter on every ``.llbc`` file in *workdir*.
+
+    Returns aggregated adapter stats, or *None* on failure.
+    """
+    llbc_files = sorted(f for f in os.listdir(str(workdir)) if f.endswith(".llbc"))
+    if not llbc_files:
+        fail("i64-adapter", "no .llbc file found")
+        return None
+
+    adapter_stats: dict[str, str] = {}
+    for f in llbc_files:
+        llbc_path = str(workdir / f)
+        result = subprocess.run(
+            [sys.executable, str(_I64_ADAPTER), llbc_path, "-o", llbc_path],
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout.strip():
+            dbg(result.stdout.strip())
+        if result.returncode != 0:
+            fail("i64-adapter", result.stderr.strip()[:200])
+            return None
+        adapter_stats = parse_adapter_stderr(result.stderr)
+
+    parts = [f"i64={adapter_stats.get('i64', '?')}"]
+    if adapter_stats.get("binop") and adapter_stats["binop"] != "0":
+        parts.append(f"{adapter_stats['binop']} binop/unop")
+    if adapter_stats.get("consts") and adapter_stats["consts"] != "0":
+        parts.append(f"{adapter_stats['consts']} consts")
+    phase("i64-adapter", ", ".join(parts))
     return adapter_stats
 
 

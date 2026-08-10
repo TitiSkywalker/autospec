@@ -39,15 +39,18 @@ def test_simple : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 2)
+  let b1 := left_val1 = 2
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 5)
+  let b2 := left_val2 = 5
+  massert b2
 
 /-- [graph_dijkstra::test_unreachable]:
     Source: 'src/lib.rs', lines 93:0-100:1
@@ -72,11 +75,13 @@ def test_unreachable : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 1)
+  let b1 := left_val1 = 1
+  massert b1
 
 /-- [graph_dijkstra::test_single_node]:
     Source: 'src/lib.rs', lines 102:0-105:1
@@ -89,7 +94,8 @@ def test_single_node : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
 
 /-- [graph_dijkstra::test_directed]:
     Source: 'src/lib.rs', lines 107:0-114:1
@@ -114,11 +120,13 @@ def test_directed : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 1)
+  let b1 := left_val1 = 1
+  massert b1
 
 /-- [graph_dijkstra::test_start_from_middle]:
     Source: 'src/lib.rs', lines 116:0-123:1
@@ -143,11 +151,13 @@ def test_start_from_middle : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val1 = 5)
+  let b1 := left_val1 = 5
+  massert b1
 
 /-- [graph_dijkstra::test_simple_graph_4node]:
     Source: 'src/lib.rs', lines 127:0-137:1
@@ -177,19 +187,23 @@ def test_simple_graph_4node : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 1)
+  let b1 := left_val1 = 1
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 3)
+  let b2 := left_val2 = 3
+  massert b2
   let left_val3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       3#usize
-  massert (left_val3 = 3)
+  let b3 := left_val3 = 3
+  massert b3
 
 /-- [graph_dijkstra::test_petgraph_example_8node]:
     Source: 'src/lib.rs', lines 139:0-153:1
@@ -219,35 +233,43 @@ def test_petgraph_example_8node : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 3)
+  let b := left_val = 3
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 0)
+  let b1 := left_val1 = 0
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 1)
+  let b2 := left_val2 = 1
+  massert b2
   let left_val3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       3#usize
-  massert (left_val3 = 2)
+  let b3 := left_val3 = 2
+  massert b3
   let left_val4 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       4#usize
-  massert (left_val4 = 1)
+  let b4 := left_val4 = 1
+  massert b4
   let left_val5 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       5#usize
-  massert (left_val5 = 2)
+  let b5 := left_val5 = 2
+  massert b5
   let left_val6 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       6#usize
-  massert (left_val6 = 3)
+  let b6 := left_val6 = 3
+  massert b6
   let left_val7 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       7#usize
-  massert (left_val7 = 4)
+  let b7 := left_val7 = 4
+  massert b7
 
 /-- [graph_dijkstra::test_empty_graph]:
     Source: 'src/lib.rs', lines 155:0-158:1
@@ -260,7 +282,8 @@ def test_empty_graph : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
 
 /-- [graph_dijkstra::test_disconnected]:
     Source: 'src/lib.rs', lines 160:0-167:1
@@ -284,11 +307,13 @@ def test_disconnected : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 1)
+  let b1 := left_val1 = 1
+  massert b1
 
 /-- [graph_dijkstra::test_indirect_better]:
     Source: 'src/lib.rs', lines 169:0-178:1
@@ -313,15 +338,18 @@ def test_indirect_better : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 2)
+  let b1 := left_val1 = 2
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 3)
+  let b2 := left_val2 = 3
+  massert b2
 
 /-- [graph_dijkstra::test_start_zero]:
     Source: 'src/lib.rs', lines 180:0-186:1
@@ -346,7 +374,8 @@ def test_start_zero : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
 
 /-- [graph_dijkstra::test_all_reachable]:
     Source: 'src/lib.rs', lines 188:0-197:1
@@ -372,15 +401,18 @@ def test_all_reachable : Result Unit := do
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val1 = 0)
+  let b := left_val1 = 0
+  massert b
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val2 = 1)
+  let b1 := left_val2 = 1
+  massert b1
   let left_val3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val3 = 2)
+  let b2 := left_val3 = 2
+  massert b2
 
 /-- [graph_dijkstra::test_linear_chain]:
     Source: 'src/lib.rs', lines 199:0-209:1
@@ -405,19 +437,23 @@ def test_linear_chain : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 2)
+  let b1 := left_val1 = 2
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 5)
+  let b2 := left_val2 = 5
+  massert b2
   let left_val3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       3#usize
-  massert (left_val3 = 6)
+  let b3 := left_val3 = 6
+  massert b3
 
 /-- [graph_dijkstra::test_complete_k3]:
     Source: 'src/lib.rs', lines 211:0-219:1
@@ -445,15 +481,18 @@ def test_complete_k3 : Result Unit := do
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
-  massert (left_val = 0)
+  let b := left_val = 0
+  massert b
   let left_val1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
-  massert (left_val1 = 1)
+  let b1 := left_val1 = 1
+  massert b1
   let left_val2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       2#usize
-  massert (left_val2 = 1)
+  let b2 := left_val2 = 1
+  massert b2
 
 #eval test_all_reachable
 
