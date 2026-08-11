@@ -157,14 +157,25 @@ pub fn reflection_axis(axis: &mut [f64], len: usize) -> (f64, bool) {
         return (0.0, false);
     }
 
-    let norm = sq_norm.sqrt();
-    let signed_norm = signum(axis[0]) * norm;
+    let reflection_norm = sq_norm.sqrt();
+    let signed_norm = signum(axis[0]) * reflection_norm;
 
-    // Build the (un-normalized) Householder vector:
-    //   v₁ = x₁ + sign(x₁)·‖x‖,   vᵢ = xᵢ (i > 1)
-    // The reflection  H = I - β·v·vᵀ  with  β = 2/(vᵀv)  is independent
-    // of the scaling of v, so we skip the usual normalization step.
+    // Build the Householder vector and normalize to unit length
+    //   v = x + sign(x₀)·‖x‖·e₁,  then  v := v / ‖v‖
     axis[0] = axis[0] + signed_norm;
+
+    // ‖v‖² = 2·‖x‖·(|x₀| + ‖x‖)
+    let x0_abs = if axis[0] - signed_norm < 0.0 { -(axis[0] - signed_norm) } else { axis[0] - signed_norm };
+    let v_norm_sq = 2.0 * reflection_norm * (x0_abs + reflection_norm);
+    if !is_zero(v_norm_sq) {
+        let v_norm = v_norm_sq.sqrt();
+        let mut i: usize = 0;
+        while i < len {
+            axis[i] = axis[i] / v_norm;
+            i = i + 1;
+        }
+    }
+
     (-signed_norm, true)
 }
 
@@ -180,7 +191,8 @@ pub fn reflect_cols(
     axis: &[f64],
     sign: f64,
 ) {
-    let m_two = sign * (-2.0);
+    // reflect_with_sign: col := sign * (col - 2*(axisᵀ·col)*axis)
+    // where axis is unit-length
     let axis_len = nrows - row_start;
     let mut j: usize = 0;
     while j < ncols {
@@ -191,11 +203,11 @@ pub fn reflect_cols(
             dot_col = dot_col + axis[i] * sub[col_base + row_start + i];
             i = i + 1;
         }
-        let factor = dot_col * m_two;
+        let factor = -2.0 * dot_col;
         let mut i: usize = 0;
         while i < axis_len {
-            sub[col_base + row_start + i] =
-                sub[col_base + row_start + i] + factor * axis[i];
+            let idx = col_base + row_start + i;
+            sub[idx] = sign * (sub[idx] + factor * axis[i]);
             i = i + 1;
         }
         j = j + 1;
@@ -207,6 +219,8 @@ pub fn reflect_cols(
 /// ``sub`` is in column-major order with stride `nrows`.
 /// The first column is column `col_start` of the original matrix.
 /// ``work[0..nrows]`` is scratch space.
+///
+/// reflect_rows_with_sign: row := sign * (row - 2·(row·axis)·axisᵀ)
 pub fn reflect_rows(
     sub: &mut [f64],
     nrows: usize,
@@ -216,10 +230,10 @@ pub fn reflect_rows(
     work: &mut [f64],
     sign: f64,
 ) {
-    let m_two = sign * (-2.0);
     let axis_len = ncols;
     let bottom_nrows = nrows - row_start;
 
+    // work = sub · axis
     let mut i: usize = 0;
     while i < bottom_nrows {
         work[i] = 0.0;
@@ -236,12 +250,13 @@ pub fn reflect_rows(
         j = j + 1;
     }
 
+    // sub := sign * (sub - 2·work·axisᵀ)
     let mut j: usize = 0;
     while j < axis_len {
         let mut i: usize = 0;
         while i < bottom_nrows {
-            sub[(row_start + i) + j * nrows] =
-                sub[(row_start + i) + j * nrows] + m_two * work[i] * axis[j];
+            let idx = (row_start + i) + j * nrows;
+            sub[idx] = sign * (sub[idx] - 2.0 * work[i] * axis[j]);
             i = i + 1;
         }
         j = j + 1;
@@ -427,18 +442,19 @@ pub fn bidiagonal_decompose(
     upper_diagonal
 }
 
-/// Convenience wrapper: allocates workspace and returns owned vectors.
+/// Convenience wrapper: allocates workspace and returns U, B, Vt.
 ///
-/// Returns ``(diagonal, off_diagonal, upper_diagonal, uv)`` where
-/// * `diagonal` — diagonal entries of B
-/// * `off_diagonal` — off-diagonal entries of B
-/// * `upper_diagonal` — true if m ≥ n
-/// * `uv` — matrix with Householder vectors (upper triangle = U, lower = V)
+/// Returns ``(U, B, Vt)`` where
+/// * `U` — m×k orthogonal matrix (column-major), k = min(m,n)
+/// * `B` — k×k bidiagonal matrix (column-major)
+/// * `Vt` — k×n, the transpose of the orthogonal V (column-major)
+///
+/// The decomposition satisfies  M = U · B · Vt.
 pub fn bidiagonal(
     matrix: &mut [f64],
     nrows: usize,
     ncols: usize,
-) -> (Vec<f64>, Vec<f64>, bool, Vec<f64>) {
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let min_nm = if nrows < ncols { nrows } else { ncols };
     let mut diagonal = vec![0.0; min_nm];
     let mut off_diagonal = vec![0.0; if min_nm > 0 { min_nm - 1 } else { 0 }];
@@ -447,12 +463,212 @@ pub fn bidiagonal(
     let mut work = vec![0.0; nrows];
     let mut sub_work = vec![0.0; nrows * ncols];
 
-    let uv = matrix.to_vec();
-
     let upper_diagonal = bidiagonal_decompose(
         matrix, nrows, ncols, &mut diagonal, &mut off_diagonal,
         &mut col_axis_work, &mut row_axis_work, &mut work, &mut sub_work,
     );
 
-    (diagonal, off_diagonal, upper_diagonal, uv)
+    let U = build_u(matrix, nrows, ncols, &diagonal, &off_diagonal, upper_diagonal);
+    let Vt = build_vt(matrix, nrows, ncols, &diagonal, &off_diagonal, upper_diagonal);
+    let B = build_b(&diagonal, &off_diagonal, upper_diagonal);
+
+    (U, B, Vt)
+}
+
+// ── U / Vt / B reconstruction (nalgebra conventions) ──────────────────────────
+
+/// Build U (m × k, column-major), matching nalgebra's `Bidiagonal::u()`.
+///
+/// Uses `reflect_with_sign(sign)` formula:
+///   col_new := sign · (col - 2/(vᵀv)·(vᵀ·col)·v)
+///
+/// Applied in **reverse** order (left-multiplication).
+/// The sign comes from `diagonal[i].signum()` (upper) or `off_diagonal[i].signum()` (lower).
+fn build_u(
+    modified: &[f64],
+    m: usize,
+    _n: usize,
+    diagonal: &[f64],
+    off_diagonal: &[f64],
+    upper: bool,
+) -> Vec<f64> {
+    let k = diagonal.len();
+    let shift: usize = if upper { 0 } else { 1 };
+    let kmax = if k > shift { k - shift } else { 0 };
+
+    let mut U = vec![0.0; m * k];
+    for i in 0..k {
+        U[i + i * m] = 1.0;
+    }
+
+    let mut ii: isize = kmax as isize - 1;
+    while ii >= 0 {
+        let i = ii as usize;
+        let start_row = i + shift;
+        let axis_len = m - start_row;
+        ii = ii - 1;
+
+        if axis_len == 0 { continue; }
+
+        let mut v = vec![0.0; axis_len];
+        let mut vtv: f64 = 0.0;
+        let mut r: usize = 0;
+        while r < axis_len {
+            let val = modified[(start_row + r) + i * m];
+            v[r] = val;
+            vtv = vtv + val * val;
+            r = r + 1;
+        }
+
+        if is_zero(vtv) { continue; }
+        let beta = 2.0 / vtv;
+        let sgn = if upper { signum(diagonal[i]) } else { signum(off_diagonal[i]) };
+
+        // reflect_with_sign: col := sgn · (col - β·(vᵀ·col)·v)
+        let mut c: usize = i;
+        while c < k {
+            let mut dot: f64 = 0.0;
+            let mut r: usize = 0;
+            while r < axis_len {
+                dot = dot + v[r] * U[(start_row + r) + c * m];
+                r = r + 1;
+            }
+            let factor = beta * dot;
+            let mut r: usize = 0;
+            while r < axis_len {
+                let idx = (start_row + r) + c * m;
+                U[idx] = sgn * (U[idx] - factor * v[r]);
+                r = r + 1;
+            }
+            c = c + 1;
+        }
+    }
+
+    U
+}
+
+/// Build Vᵀ (k × n, column-major), matching nalgebra's `Bidiagonal::v_t()`.
+///
+/// Uses `reflect_rows_with_sign(sign)` which applies:
+///   row_new := sign · (row - 2/(wᵀw)·(row·w)·wᵀ)
+///
+/// Applied from the right in **reverse** order.
+/// The sign comes from `off_diagonal[i].signum()` (upper) or `diagonal[i].signum()` (lower).
+fn build_vt(
+    modified: &[f64],
+    m: usize,
+    n: usize,
+    diagonal: &[f64],
+    off_diagonal: &[f64],
+    upper: bool,
+) -> Vec<f64> {
+    let k = diagonal.len();
+    let shift: usize = if upper { 1 } else { 0 };
+    let kmax = if k > shift { k - shift } else { 0 };
+
+    let mut V = vec![0.0; n * n];
+    let mut j: usize = 0;
+    while j < n {
+        V[j + j * n] = 1.0;
+        j = j + 1;
+    }
+
+    let mut ii: isize = kmax as isize - 1;
+    while ii >= 0 {
+        let i = ii as usize;
+        let start_col = i + shift;
+        let axis_len = n - start_col;
+        ii = ii - 1;
+
+        if axis_len == 0 { continue; }
+
+        let mut w = vec![0.0; axis_len];
+        let mut wtw: f64 = 0.0;
+        let mut c: usize = 0;
+        while c < axis_len {
+            let val = modified[i + (start_col + c) * m];
+            w[c] = val;
+            wtw = wtw + val * val;
+            c = c + 1;
+        }
+
+        if is_zero(wtw) { continue; }
+        let beta = 2.0 / wtw;
+        let sgn = if upper { signum(off_diagonal[i]) } else { signum(diagonal[i]) };
+
+        // reflect_rows_with_sign: V := sgn · (V - β·(V·w)·wᵀ)
+        // Step 1: Vw = V · w
+        let mut Vw = vec![0.0; n];
+        let mut r: usize = 0;
+        while r < n {
+            let mut dot: f64 = 0.0;
+            let mut c: usize = 0;
+            while c < axis_len {
+                dot = dot + V[r + (start_col + c) * n] * w[c];
+                c = c + 1;
+            }
+            Vw[r] = dot;
+            r = r + 1;
+        }
+
+        // Step 2: V[r][c] = sgn * (V[r][c] - β · Vw[r] · w[c])
+        let mut r: usize = 0;
+        while r < n {
+            let mut c: usize = 0;
+            while c < axis_len {
+                let idx = r + (start_col + c) * n;
+                V[idx] = sgn * (V[idx] - beta * Vw[r] * w[c]);
+                c = c + 1;
+            }
+            r = r + 1;
+        }
+    }
+
+    // V^T[r][c] = V[c][r], first k rows → Vt (k×n column-major)
+    let mut Vt = vec![0.0; k * n];
+    let mut c: usize = 0;
+    while c < n {
+        let mut r: usize = 0;
+        while r < k {
+            Vt[r + c * k] = V[r + c * n];
+            r = r + 1;
+        }
+        c = c + 1;
+    }
+
+    Vt
+}
+
+/// Build the bidiagonal matrix B (k × k, column-major) with absolute-value
+/// entries, matching nalgebra's `Bidiagonal::d()`.
+fn build_b(diagonal: &[f64], off_diagonal: &[f64], upper: bool) -> Vec<f64> {
+    let k = diagonal.len();
+    let mut B = vec![0.0; k * k];
+
+    // Diagonal: B[i + i*k] = |diagonal[i]|
+    let mut i: usize = 0;
+    while i < k {
+        B[i + i * k] = if diagonal[i] < 0.0 { -diagonal[i] } else { diagonal[i] };
+        i = i + 1;
+    }
+
+    if k > 0 && !off_diagonal.is_empty() {
+        if upper {
+            let mut i: usize = 0;
+            while i < off_diagonal.len() {
+                B[i + (i + 1) * k] =
+                    if off_diagonal[i] < 0.0 { -off_diagonal[i] } else { off_diagonal[i] };
+                i = i + 1;
+            }
+        } else {
+            let mut i: usize = 0;
+            while i < off_diagonal.len() {
+                B[(i + 1) + i * k] =
+                    if off_diagonal[i] < 0.0 { -off_diagonal[i] } else { off_diagonal[i] };
+                i = i + 1;
+            }
+        }
+    }
+
+    B
 }

@@ -359,6 +359,89 @@ def lean_integers_to_int(content: str) -> str:
     return content
 
 
+def _mark_noncomputable_defs(text: str) -> str:
+    """Mark defs that depend on axioms (directly or transitively)
+    as noncomputable.
+
+    Without this, Lean's code generator rejects definitions whose
+    evaluation chain reaches an axiom.
+    """
+    # Collect names declared as axiom (may already have noncomputable prefix)
+    axiom_names: set[str] = set()
+    for m in re.finditer(
+        r"^\s*(?:noncomputable\s+)?axiom\s+(\w+)", text, re.MULTILINE
+    ):
+        axiom_names.add(m.group(1))
+    if not axiom_names:
+        return text
+
+    # Find every top-level def/theorem and capture its body (up to the next
+    # top-level keyword at indent 0).
+    decls: list[tuple[str, str, int, int]] = []  # (name, body, start, end)
+    pattern = re.compile(
+        r"^(?:@\[[^\]]*\][ \t]*\n\s*)?"
+        r"(?:(noncomputable[ \t]+)?(def|theorem)[ \t]+(\w+))",
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(text):
+        name = m.group(3)
+        is_noncomp = m.group(1) is not None
+        body_start = m.end()
+        # Search for the next top-level declaration or namespace closing
+        next_decl = re.search(
+            r"^\s*(?:end\b|namespace\b|(?:noncomputable\s+)?(?:def|axiom|theorem)\s+)",
+            text[body_start:],
+            re.MULTILINE,
+        )
+        body_end = body_start + next_decl.start() if next_decl else len(text)
+        body = text[body_start:body_end]
+        decls.append((name, body, m.start(), m.end()))
+        if is_noncomp:
+            axiom_names.add(name)
+
+    # Fixed-point propagation: def A calls def B which calls axiom …
+    changed = True
+    while changed:
+        changed = False
+        for name, body, _, _ in decls:
+            if name in axiom_names:
+                continue
+            # Check whether the body references any name already marked
+            if any(
+                re.search(rf"\b{re.escape(n)}\b", body) for n in axiom_names
+            ):
+                axiom_names.add(name)
+                changed = True
+
+    # Rewrite: insert noncomputable before affected defs (not axioms, which
+    # are handled separately).
+    if not axiom_names:
+        return text
+
+    # Collect names that need noncomputable (exclude original axioms)
+    noncomp_names = sorted(
+        set(n for n in axiom_names if n not in set(
+            re.findall(r"^\s*(?:noncomputable\s+)?axiom\s+(\w+)", text, re.MULTILINE)
+        )),
+        key=len,
+        reverse=True,  # longest first to avoid partial matches
+    )
+    if not noncomp_names:
+        return text
+
+    # Insert noncomputable before def lines that aren't already marked.
+    # We match def <name> at start-of-line.
+    for name in noncomp_names:
+        text = re.sub(
+            rf"^(@\[[^\]]*\]\s*\n\s*)?(def\s+{re.escape(name)}\b)",
+            rf"\1noncomputable \2",
+            text,
+            flags=re.MULTILINE,
+        )
+
+    return text
+
+
 def _fix_partial_mutual(text: str) -> str:
     """Replace ``partial_fixpoint`` with ``partial`` for tail-recursive
     functions inside ``mutual`` blocks, so the Lean 4.31 monotonicity
@@ -452,10 +535,15 @@ def write_lean_output(
             text = re.sub(r"\bRatClone\b", "RealClone", text)
         text = _fix_partial_mutual(text)
         text = _fix_vec_is_empty(text)
+        text = _mark_noncomputable_defs(text)
         (output_path / f).write_text(text.rstrip("\n") + "\n")
         written.append(f)
         def_count += len(
-            re.findall(r"^\s*(?:def|theorem|axiom)\s+\S+", text, re.MULTILINE)
+            re.findall(
+                r"^\s*(?:noncomputable\s+)?(?:def|theorem|axiom)\s+\S+",
+                text,
+                re.MULTILINE,
+            )
         )
 
     return def_count, written
