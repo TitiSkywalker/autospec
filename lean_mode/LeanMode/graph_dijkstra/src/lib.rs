@@ -3,28 +3,29 @@
 
 /// Compute shortest distances from `start` to all vertices.
 ///
-/// Returns `dist[v]` = shortest distance from start to v (as integer).
-/// Unreachable vertices have `has_dist[v] = false` (callers must track separately).
+/// Returns `(dist, reachable)` where:
+/// - `dist[v]` = shortest distance from start to v (0 for unreachable vertices).
+/// - `reachable[v]` = true iff v is reachable from start.
 pub fn dijkstra(
     n: usize,
     from_list: &[usize],
     to_list: &[usize],
     weight_list: &[i64],
     start: usize,
-) -> Vec<i64> {
+) -> (Vec<i64>, Vec<bool>) {
     let mut dist: Vec<i64> = Vec::new();
-    let mut has_dist: Vec<bool> = Vec::new();
+    let mut reachable: Vec<bool> = Vec::new();
     let mut visited: Vec<bool> = Vec::new();
 
     let mut i: usize = 0;
     while i < n {
         dist.push(0);
-        has_dist.push(false);
+        reachable.push(false);
         visited.push(false);
         i += 1;
     }
     dist[start] = 0;
-    has_dist[start] = true;
+    reachable[start] = true;
 
     let edges_len = from_list.len();
 
@@ -36,7 +37,7 @@ pub fn dijkstra(
 
         let mut i: usize = 0;
         while i < n {
-            if !visited[i] && has_dist[i] {
+            if !visited[i] && reachable[i] {
                 if !found {
                     min_dist = dist[i];
                     u = i;
@@ -64,9 +65,9 @@ pub fn dijkstra(
                 let v = to_list[k];
                 let w = weight_list[k];
                 let new_dist = dist[u] + w;
-                if !has_dist[v] {
+                if !reachable[v] {
                     dist[v] = new_dist;
-                    has_dist[v] = true;
+                    reachable[v] = true;
                 } else if new_dist < dist[v] {
                     dist[v] = new_dist;
                 }
@@ -77,5 +78,5 @@ pub fn dijkstra(
         iter += 1;
     }
 
-    dist
+    (dist, reachable)
 }

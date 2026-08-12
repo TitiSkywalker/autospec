@@ -46,5 +46,23 @@ def simplify_for_aeneas(project_dir: Path) -> None:
             text = text.replace("&mut *ipiv", "ipiv")
             changed = True
 
+        # <vec>.iter().all(|&<binder>| <var>) → manual while loop
+        # aeneas cannot translate Iterator::all (takes a closure, and the
+        # method implementation is an external stdlib definition).
+        for m in re.finditer(
+            r"(\w+)\.iter\(\)\.all\(\|&(\w+)\|\s*(\w+)\)",
+            text,
+        ):
+            vec, binder, cond = m.group(1), m.group(2), m.group(3)
+            if binder == cond:
+                text = text.replace(
+                    m.group(0),
+                    "{ let mut __all = true; let mut __i: usize = 0;"
+                    f" while __i < {vec}.len()"
+                    f" {{ if !{vec}[__i]"
+                    f" {{ __all = false; break; }} __i += 1; }} __all }}",
+                )
+                changed = True
+
         if changed:
             rs.write_text(text)

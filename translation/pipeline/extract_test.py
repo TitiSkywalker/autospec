@@ -121,7 +121,7 @@ def translate_test_file(
                     target = output_path / f"Test_{stem}.lean"
                     target.write_text(test_text)
                     def_count = len(re.findall(
-                        r"^\s*(?:def|theorem|axiom)\s+\S+",
+                        r"^\s*(?:noncomputable\s+)?(?:def|theorem|axiom)\s+\S+",
                         test_text, re.MULTILINE,
                     ))
                     return def_count
@@ -168,13 +168,17 @@ def _add_import(lean_text: str, module: str) -> str:
 def _add_evals(lean_text: str, fn_names: set[str]) -> str:
     """Append ``#eval <fn>`` for each test function, before ``end <ns>``.
 
-    Skips eval when the file is ``noncomputable``.  Both ``Rat`` and
-    ``Real`` sqrt are noncomputable (``Real.sqrt`` is an
-    ``@[irreducible] noncomputable def`` in mathlib).
+    Skips eval when the file or the specific def is ``noncomputable``
+    (``#eval`` cannot execute noncomputable definitions).
     """
     if "noncomputable section" in lean_text:
         return lean_text
     for name in sorted(fn_names):
+        # Skip if this specific def is marked noncomputable
+        if re.search(
+            rf"noncomputable\s+def\s+{re.escape(name)}\b", lean_text
+        ):
+            continue
         lean_text = re.sub(
             rf"(\nend\s+\S+\s*)$",
             rf"\n#eval {name}\n\1",
@@ -192,7 +196,7 @@ def _extract_defs_by_prefix(combined_text: str, prefixes: set[str]) -> str:
     preamble_end = 0
     for i, line in enumerate(lines):
         if line.startswith("/-- [") or re.match(
-            r"^\s*(?:def|theorem|axiom)\s+\S+", line
+            r"^\s*(?:noncomputable\s+)?(?:def|theorem|axiom)\s+\S+", line
         ):
             preamble_end = i
             break
@@ -222,7 +226,7 @@ def _extract_defs_by_prefix(combined_text: str, prefixes: set[str]) -> str:
     _KEEP_PREFIXES = set(prefixes)
     kept: list[str] = []
     for block in blocks:
-        m = re.search(r"^\s*(?:def|theorem|axiom)\s+(\S+)", block, re.MULTILINE)
+        m = re.search(r"^\s*(?:noncomputable\s+)?(?:def|theorem|axiom)\s+(\S+)", block, re.MULTILINE)
         if m:
             name = m.group(1).rstrip(":")
             if any(name.startswith(p) for p in _KEEP_PREFIXES):

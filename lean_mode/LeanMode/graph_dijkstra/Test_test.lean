@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace graph_dijkstra
 
 /-- [graph_dijkstra::test_simple]:
-    Source: 'src/lib.rs', lines 83:0-91:1
+    Source: 'src/lib.rs', lines 84:0-95:1
     Visibility: public -/
 def test_simple : Result Unit := do
   let y ←
@@ -35,7 +35,7 @@ def test_simple : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -51,9 +51,21 @@ def test_simple : Result Unit := do
       2#usize
   let b2 := left_val2 = 5
   massert b2
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b3
+  let b4 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert b4
+  let b5 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      2#usize
+  massert b5
 
 /-- [graph_dijkstra::test_unreachable]:
-    Source: 'src/lib.rs', lines 93:0-100:1
+    Source: 'src/lib.rs', lines 97:0-107:1
     Visibility: public -/
 def test_unreachable : Result Unit := do
   let y ←
@@ -71,7 +83,7 @@ def test_unreachable : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -82,23 +94,39 @@ def test_unreachable : Result Unit := do
       1#usize
   let b1 := left_val1 = 1
   massert b1
+  let b2 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b2
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert b3
+  let b4 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      2#usize
+  massert (¬ b4)
 
 /-- [graph_dijkstra::test_single_node]:
-    Source: 'src/lib.rs', lines 102:0-105:1
+    Source: 'src/lib.rs', lines 109:0-113:1
     Visibility: public -/
 def test_single_node : Result Unit := do
   let s ← lift (Array.to_slice (Std.Array.empty Std.Usize))
   let s1 ← lift (Array.to_slice (Std.Array.empty Std.Usize))
   let s2 ← lift (Array.to_slice (Std.Array.empty Int))
-  let dist ← dijkstra 1#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 1#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
   let b := left_val = 0
   massert b
+  let b1 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b1
 
 /-- [graph_dijkstra::test_directed]:
-    Source: 'src/lib.rs', lines 107:0-114:1
+    Source: 'src/lib.rs', lines 115:0-124:1
     Visibility: public -/
 def test_directed : Result Unit := do
   let y ←
@@ -116,7 +144,7 @@ def test_directed : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 2#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 2#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -127,9 +155,17 @@ def test_directed : Result Unit := do
       1#usize
   let b1 := left_val1 = 1
   massert b1
+  let b2 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b2
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert b3
 
 /-- [graph_dijkstra::test_start_from_middle]:
-    Source: 'src/lib.rs', lines 116:0-123:1
+    Source: 'src/lib.rs', lines 126:0-136:1
     Visibility: public -/
 def test_start_from_middle : Result Unit := do
   let y ←
@@ -147,7 +183,7 @@ def test_start_from_middle : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 1#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 1#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       1#usize
@@ -158,9 +194,40 @@ def test_start_from_middle : Result Unit := do
       2#usize
   let b1 := left_val1 = 5
   massert b1
+  let b2 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert b2
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      2#usize
+  massert b3
+  let b4 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert (¬ b4)
+
+/-- [graph_dijkstra::test_simple_graph_4node]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-150:146
+    Visibility: public -/
+@[rust_loop]
+def test_simple_graph_4node_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then let __i1 ← __i + 1#usize
+         test_simple_graph_4node_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_simple_graph_4node]:
-    Source: 'src/lib.rs', lines 127:0-137:1
+    Source: 'src/lib.rs', lines 140:0-151:1
     Visibility: public -/
 def test_simple_graph_4node : Result Unit := do
   let y ←
@@ -183,7 +250,7 @@ def test_simple_graph_4node : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 4#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 4#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -204,9 +271,31 @@ def test_simple_graph_4node : Result Unit := do
       3#usize
   let b3 := left_val3 = 3
   massert b3
+  let __all ← test_simple_graph_4node_loop reachable 0#usize
+  massert __all
+
+/-- [graph_dijkstra::test_petgraph_example_8node]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-167:146
+    Visibility: public -/
+@[rust_loop]
+def test_petgraph_example_8node_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then
+      let __i1 ← __i + 1#usize
+      test_petgraph_example_8node_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_petgraph_example_8node]:
-    Source: 'src/lib.rs', lines 139:0-153:1
+    Source: 'src/lib.rs', lines 153:0-168:1
     Visibility: public -/
 def test_petgraph_example_8node : Result Unit := do
   let y ←
@@ -229,7 +318,7 @@ def test_petgraph_example_8node : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 8#usize s s1 s2 1#usize
+  let (dist, reachable) ← dijkstra 8#usize s s1 s2 1#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -270,23 +359,37 @@ def test_petgraph_example_8node : Result Unit := do
       7#usize
   let b7 := left_val7 = 4
   massert b7
+  let __all ← test_petgraph_example_8node_loop reachable 0#usize
+  massert __all
 
 /-- [graph_dijkstra::test_empty_graph]:
-    Source: 'src/lib.rs', lines 155:0-158:1
+    Source: 'src/lib.rs', lines 170:0-176:1
     Visibility: public -/
 def test_empty_graph : Result Unit := do
   let s ← lift (Array.to_slice (Std.Array.empty Std.Usize))
   let s1 ← lift (Array.to_slice (Std.Array.empty Std.Usize))
   let s2 ← lift (Array.to_slice (Std.Array.empty Int))
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
   let b := left_val = 0
   massert b
+  let b1 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b1
+  let b2 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert (¬ b2)
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      2#usize
+  massert (¬ b3)
 
 /-- [graph_dijkstra::test_disconnected]:
-    Source: 'src/lib.rs', lines 160:0-167:1
+    Source: 'src/lib.rs', lines 178:0-189:1
     Visibility: public -/
 def test_disconnected : Result Unit := do
   let y ←
@@ -303,7 +406,7 @@ def test_disconnected : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 4#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 4#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -314,9 +417,44 @@ def test_disconnected : Result Unit := do
       1#usize
   let b1 := left_val1 = 1
   massert b1
+  let b2 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b2
+  let b3 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      1#usize
+  massert b3
+  let b4 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      2#usize
+  massert (¬ b4)
+  let b5 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      3#usize
+  massert (¬ b5)
+
+/-- [graph_dijkstra::test_indirect_better]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-200:146
+    Visibility: public -/
+@[rust_loop]
+def test_indirect_better_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then let __i1 ← __i + 1#usize
+         test_indirect_better_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_indirect_better]:
-    Source: 'src/lib.rs', lines 169:0-178:1
+    Source: 'src/lib.rs', lines 191:0-201:1
     Visibility: public -/
 def test_indirect_better : Result Unit := do
   let y ←
@@ -334,7 +472,7 @@ def test_indirect_better : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -350,9 +488,11 @@ def test_indirect_better : Result Unit := do
       2#usize
   let b2 := left_val2 = 3
   massert b2
+  let __all ← test_indirect_better_loop reachable 0#usize
+  massert __all
 
 /-- [graph_dijkstra::test_start_zero]:
-    Source: 'src/lib.rs', lines 180:0-186:1
+    Source: 'src/lib.rs', lines 203:0-210:1
     Visibility: public -/
 def test_start_zero : Result Unit := do
   let y ←
@@ -370,15 +510,38 @@ def test_start_zero : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
   let b := left_val = 0
   massert b
+  let b1 ←
+    alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool) reachable
+      0#usize
+  massert b1
+
+/-- [graph_dijkstra::test_all_reachable]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-221:146
+    Visibility: public -/
+@[rust_loop]
+def test_all_reachable_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then let __i1 ← __i + 1#usize
+         test_all_reachable_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_all_reachable]:
-    Source: 'src/lib.rs', lines 188:0-197:1
+    Source: 'src/lib.rs', lines 212:0-222:1
     Visibility: public -/
 def test_all_reachable : Result Unit := do
   let y ←
@@ -395,7 +558,7 @@ def test_all_reachable : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val := alloc.vec.Vec.len dist
   massert (left_val = 3#usize)
   let left_val1 ←
@@ -413,9 +576,30 @@ def test_all_reachable : Result Unit := do
       2#usize
   let b2 := left_val3 = 2
   massert b2
+  let __all ← test_all_reachable_loop reachable 0#usize
+  massert __all
+
+/-- [graph_dijkstra::test_linear_chain]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-234:146
+    Visibility: public -/
+@[rust_loop]
+def test_linear_chain_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then let __i1 ← __i + 1#usize
+         test_linear_chain_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_linear_chain]:
-    Source: 'src/lib.rs', lines 199:0-209:1
+    Source: 'src/lib.rs', lines 224:0-235:1
     Visibility: public -/
 def test_linear_chain : Result Unit := do
   let y ←
@@ -433,7 +617,7 @@ def test_linear_chain : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 4#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 4#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -454,9 +638,30 @@ def test_linear_chain : Result Unit := do
       3#usize
   let b3 := left_val3 = 6
   massert b3
+  let __all ← test_linear_chain_loop reachable 0#usize
+  massert __all
+
+/-- [graph_dijkstra::test_complete_k3]: loop 0:
+    Source: 'src/lib.rs', lines 1:0-245:146
+    Visibility: public -/
+@[rust_loop]
+def test_complete_k3_loop
+  (reachable : alloc.vec.Vec Bool) (__i : Std.Usize) : Result Bool := do
+  let i := alloc.vec.Vec.len reachable
+  if __i < i
+  then
+    let b ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
+        reachable __i
+    if b
+    then let __i1 ← __i + 1#usize
+         test_complete_k3_loop reachable __i1
+    else ok false
+  else ok true
+partial_fixpoint
 
 /-- [graph_dijkstra::test_complete_k3]:
-    Source: 'src/lib.rs', lines 211:0-219:1
+    Source: 'src/lib.rs', lines 237:0-246:1
     Visibility: public -/
 def test_complete_k3 : Result Unit := do
   let y ←
@@ -477,7 +682,7 @@ def test_complete_k3 : Result Unit := do
   let s := alloc.vec.Vec.deref ret
   let s1 := alloc.vec.Vec.deref ret1
   let s2 := alloc.vec.Vec.deref ret2
-  let dist ← dijkstra 3#usize s s1 s2 0#usize
+  let (dist, reachable) ← dijkstra 3#usize s s1 s2 0#usize
   let left_val ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Int) dist
       0#usize
@@ -493,6 +698,8 @@ def test_complete_k3 : Result Unit := do
       2#usize
   let b2 := left_val2 = 1
   massert b2
+  let __all ← test_complete_k3_loop reachable 0#usize
+  massert __all
 
 #eval test_all_reachable
 

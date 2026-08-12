@@ -15,12 +15,12 @@ set_option maxRecDepth 2048
 
 namespace graph_dijkstra
 /-- [graph_dijkstra::dijkstra]: loop 0:
-    Source: 'src/lib.rs', lines 20:4-25:5
+    Source: 'src/lib.rs', lines 21:4-26:5
     Visibility: public -/
 @[rust_loop]
 def dijkstra_loop0
   (n : Std.Usize) (dist : alloc.vec.Vec Int)
-  (has_dist : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
+  (reachable : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
   (i : Std.Usize) :
   Result ((alloc.vec.Vec Int) × (alloc.vec.Vec Bool) × (alloc.vec.Vec
     Bool))
@@ -28,20 +28,20 @@ def dijkstra_loop0
   if i < n
   then
     let dist1 ← alloc.vec.Vec.push dist 0
-    let has_dist1 ← alloc.vec.Vec.push has_dist false
+    let reachable1 ← alloc.vec.Vec.push reachable false
     let visited1 ← alloc.vec.Vec.push visited false
     let i1 ← i + 1#usize
-    dijkstra_loop0 n dist1 has_dist1 visited1 i1
-  else ok (dist, has_dist, visited)
+    dijkstra_loop0 n dist1 reachable1 visited1 i1
+  else ok (dist, reachable, visited)
 partial_fixpoint
 
 /-- [graph_dijkstra::dijkstra]: loop 2:
-    Source: 'src/lib.rs', lines 1:0-53:9
+    Source: 'src/lib.rs', lines 1:0-54:9
     Visibility: public -/
 @[rust_loop]
 def dijkstra_loop1_loop0
   (n : Std.Usize) (dist : alloc.vec.Vec Int)
-  (has_dist : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
+  (reachable : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
   (u : Std.Usize) (min_dist : Int) (found : Bool) (i : Std.Usize) :
   Result Std.Usize
   := do
@@ -57,7 +57,7 @@ def dijkstra_loop1_loop0
         do
         let b1 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
-            has_dist i
+            reachable i
         if b1
         then
           let (i1, i2) ←
@@ -80,25 +80,25 @@ def dijkstra_loop1_loop0
           ok (i1, i2, true)
         else ok (u, min_dist, found)
     let i1 ← i + 1#usize
-    dijkstra_loop1_loop0 n dist has_dist visited u1 min_dist1 found1 i1
+    dijkstra_loop1_loop0 n dist reachable visited u1 min_dist1 found1 i1
   else ok u
 partial_fixpoint
 
 /-- [graph_dijkstra::dijkstra]: loop 3:
-    Source: 'src/lib.rs', lines 62:8-75:9
+    Source: 'src/lib.rs', lines 63:8-76:9
     Visibility: public -/
 @[rust_loop]
 def dijkstra_loop1_loop1
   (from_list : Slice Std.Usize) (to_list : Slice Std.Usize)
   (weight_list : Slice Int) (dist : alloc.vec.Vec Int)
-  (has_dist : alloc.vec.Vec Bool) (edges_len : Std.Usize) (u : Std.Usize)
+  (reachable : alloc.vec.Vec Bool) (edges_len : Std.Usize) (u : Std.Usize)
   (k : Std.Usize) :
   Result ((alloc.vec.Vec Int) × (alloc.vec.Vec Bool))
   := do
   if k < edges_len
   then
     let i ← Slice.index_usize from_list k
-    let (dist1, has_dist1) ←
+    let (dist1, reachable1) ←
       if i = u
       then
         do
@@ -110,7 +110,7 @@ def dijkstra_loop1_loop1
         let new_dist := i1 + w
         let b ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Bool)
-            has_dist v
+            reachable v
         if b
         then
           let i2 ←
@@ -126,64 +126,64 @@ def dijkstra_loop1_loop1
                   Int) dist v
               ok (index_mut_back new_dist)
             else ok dist
-          ok (v1, has_dist)
+          ok (v1, reachable)
         else
           let (_, index_mut_back) ←
             alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
               Int) dist v
           let (_, index_mut_back1) ←
             alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
-              Bool) has_dist v
-          let has_dist2 := index_mut_back1 true
+              Bool) reachable v
+          let reachable2 := index_mut_back1 true
           let dist2 := index_mut_back new_dist
-          ok (dist2, has_dist2)
-      else ok (dist, has_dist)
+          ok (dist2, reachable2)
+      else ok (dist, reachable)
     let k1 ← k + 1#usize
-    dijkstra_loop1_loop1 from_list to_list weight_list dist1 has_dist1
+    dijkstra_loop1_loop1 from_list to_list weight_list dist1 reachable1
       edges_len u k1
-  else ok (dist, has_dist)
+  else ok (dist, reachable)
 partial_fixpoint
 
 /-- [graph_dijkstra::dijkstra]: loop 1:
-    Source: 'src/lib.rs', lines 1:0-78:5
+    Source: 'src/lib.rs', lines 1:0-79:5
     Visibility: public -/
 @[rust_loop]
 def dijkstra_loop1
   (n : Std.Usize) (from_list : Slice Std.Usize) (to_list : Slice Std.Usize)
   (weight_list : Slice Int) (dist : alloc.vec.Vec Int)
-  (has_dist : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
+  (reachable : alloc.vec.Vec Bool) (visited : alloc.vec.Vec Bool)
   (edges_len : Std.Usize) (iter : Std.Usize) :
-  Result (alloc.vec.Vec Int)
+  Result ((alloc.vec.Vec Int) × (alloc.vec.Vec Bool))
   := do
   if iter < n
   then
     let u ←
-      dijkstra_loop1_loop0 n dist has_dist visited n 0 false 0#usize
+      dijkstra_loop1_loop0 n dist reachable visited n 0 false 0#usize
     if u = n
-    then ok dist
+    then ok (dist, reachable)
     else
       let (_, index_mut_back) ←
         alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Bool)
           visited u
       let visited1 := index_mut_back true
-      let (dist1, has_dist1) ←
-        dijkstra_loop1_loop1 from_list to_list weight_list dist has_dist
+      let (dist1, reachable1) ←
+        dijkstra_loop1_loop1 from_list to_list weight_list dist reachable
           edges_len u 0#usize
       let iter1 ← iter + 1#usize
-      dijkstra_loop1 n from_list to_list weight_list dist1 has_dist1 visited1
+      dijkstra_loop1 n from_list to_list weight_list dist1 reachable1 visited1
         edges_len iter1
-  else ok dist
+  else ok (dist, reachable)
 partial_fixpoint
 
 /-- [graph_dijkstra::dijkstra]:
-    Source: 'src/lib.rs', lines 8:0-81:1
+    Source: 'src/lib.rs', lines 9:0-82:1
     Visibility: public -/
 def dijkstra
   (n : Std.Usize) (from_list : Slice Std.Usize) (to_list : Slice Std.Usize)
   (weight_list : Slice Int) (start : Std.Usize) :
-  Result (alloc.vec.Vec Int)
+  Result ((alloc.vec.Vec Int) × (alloc.vec.Vec Bool))
   := do
-  let (dist, has_dist, visited) ←
+  let (dist, reachable, visited) ←
     dijkstra_loop0 n (alloc.vec.Vec.new Int) (alloc.vec.Vec.new Bool)
       (alloc.vec.Vec.new Bool) 0#usize
   let (_, index_mut_back) ←
@@ -191,11 +191,11 @@ def dijkstra
       dist start
   let (_, index_mut_back1) ←
     alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice Bool)
-      has_dist start
+      reachable start
   let edges_len := Slice.len from_list
-  let has_dist1 := index_mut_back1 true
+  let reachable1 := index_mut_back1 true
   let dist1 := index_mut_back 0
-  dijkstra_loop1 n from_list to_list weight_list dist1 has_dist1 visited
+  dijkstra_loop1 n from_list to_list weight_list dist1 reachable1 visited
     edges_len 0#usize
 
 end graph_dijkstra

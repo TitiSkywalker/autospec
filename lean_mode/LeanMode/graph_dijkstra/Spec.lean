@@ -9,15 +9,10 @@ set_option linter.unusedVariables false
 /-!
 # Specification: Dijkstra's Shortest Paths
 
-`dijkstra n from_list to_list weight_list start` returns shortest distances
-from `start` to all vertices 0..n-1.
+`dijkstra n from_list to_list weight_list start` returns `(dist, reachable)` where:
+- `dist[v]` = shortest distance from `start` to `v` (0 for unreachable vertices)
+- `reachable[v]` = true iff `v` is reachable from `start`
 -/
-
-/-- View the result vec as `Fin n → Int`. -/
-def toVec (v : alloc.vec.Vec Int) (len : Nat) (h : v.length = len) : Fin len → Int :=
-  λ i =>
-    have h_bound : i.val < v.length := by rw [h]; exact i.is_lt
-    v[i.val]'h_bound
 
 /-- Edge from `u` to `v` with weight `w`. -/
 def has_edge (edges : Finset (Nat × Nat × Int)) (u v : Nat) (w : Int) : Prop :=
@@ -31,7 +26,7 @@ inductive has_path (edges : Finset (Nat × Nat × Int)) : Nat → Nat → Int �
       has_path edges v w w_rest →
       has_path edges u w (w_edge + w_rest)
 
-/-- Shortest distance (or unreachable). -/
+/-- Shortest distance from `start` to `v` is `d`. -/
 def is_shortest_dist (edges : Finset (Nat × Nat × Int)) (start v : Nat) (d : Int) : Prop :=
   has_path edges start v d ∧ ∀ w, has_path edges start v w → d ≤ w
 
@@ -39,34 +34,67 @@ def is_shortest_dist (edges : Finset (Nat × Nat × Int)) (start v : Nat) (d : I
 def weights_non_negative (edges : Finset (Nat × Nat × Int)) : Prop :=
   ∀ u v w, has_edge edges u v w → w ≥ 0
 
-/-- Every vertex is reachable from `start`. -/
-def connected (edges : Finset (Nat × Nat × Int)) (start n : Nat) : Prop :=
-  ∀ v, v < n → ∃ d, is_shortest_dist edges start v d
+
+/-! ## View helpers -/
+
+/-- View the distance vec as `Fin n → Int`. -/
+def toDistVec (v : alloc.vec.Vec Int) (len : Nat) (h : v.length = len) : Fin len → Int :=
+  λ i =>
+    have h_bound : i.val < v.length := by rw [h]; exact i.is_lt
+    v[i.val]'h_bound
+
+/-- View the reachable vec as `Fin n → Bool`. -/
+def toReachableVec (v : alloc.vec.Vec Bool) (len : Nat) (h : v.length = len) : Fin len → Bool :=
+  λ i =>
+    have h_bound : i.val < v.length := by rw [h]; exact i.is_lt
+    v[i.val]'h_bound
 
 
 /-! ## Specification theorems -/
 
-/-- `dijkstra` returns a vec of length `n`. -/
+/-- `dijkstra` returns two vecs, each of length `n`. -/
 theorem dijkstra_length
     (n : Std.Usize)
     (from_list to_list : Slice Std.Usize)
     (weight_list : Slice Int)
     (start : Std.Usize)
-    (result : alloc.vec.Vec Int)
-    (h : dijkstra n from_list to_list weight_list start = ok result) :
-    result.length = n.val := by
+    (dist : alloc.vec.Vec Int) (reachable : alloc.vec.Vec Bool)
+    (h : dijkstra n from_list to_list weight_list start = ok (dist, reachable)) :
+    dist.length = n.val ∧ reachable.length = n.val := by
   sorry
 
-/-- Correctness: under connectivity + non-negative weights, each vertex
-    gets its shortest distance. -/
-theorem dijkstra_correct
+/-- Soundness: if `reachable[v]` is true, then `dist[v]` is the shortest distance
+    from `start` to `v` (under non-negative edge weights). -/
+theorem dijkstra_sound
     (n : Std.Usize)
+    (from_list to_list : Slice Std.Usize)
+    (weight_list : Slice Int)
+    (start : Std.Usize)
     (edges : Finset (Nat × Nat × Int))
     (h_wf : weights_non_negative edges)
-    (h_conn : connected edges start n.val)
-    (start : Nat)
-    (result : alloc.vec.Vec Int)
-    (h_result : result.length = n.val) :
-    let dist := toVec (alloc.vec.Vec.deref result) n.val h_result
-    ∀ (v : Fin n.val), is_shortest_dist edges start v.val (dist v) := by
+    (dist : alloc.vec.Vec Int) (reachable : alloc.vec.Vec Bool)
+    (h_dist_len : dist.length = n.val)
+    (h_reachable_len : reachable.length = n.val)
+    (h : dijkstra n from_list to_list weight_list start = ok (dist, reachable)) :
+    ∀ (v : Fin n.val),
+      (toReachableVec reachable n.val h_reachable_len v = true) →
+      is_shortest_dist edges start v.val (toDistVec dist n.val h_dist_len v) := by
+  sorry
+
+/-- Completeness: if `reachable[v]` is false, then there is no path from `start`
+    to `v` (under non-negative edge weights). -/
+theorem dijkstra_complete
+    (n : Std.Usize)
+    (from_list to_list : Slice Std.Usize)
+    (weight_list : Slice Int)
+    (start : Std.Usize)
+    (edges : Finset (Nat × Nat × Int))
+    (h_wf : weights_non_negative edges)
+    (dist : alloc.vec.Vec Int) (reachable : alloc.vec.Vec Bool)
+    (h_dist_len : dist.length = n.val)
+    (h_reachable_len : reachable.length = n.val)
+    (h : dijkstra n from_list to_list weight_list start = ok (dist, reachable)) :
+    ∀ (v : Fin n.val),
+      (toReachableVec reachable n.val h_reachable_len v = false) →
+      ¬ ∃ w, has_path edges start v.val w := by
   sorry
