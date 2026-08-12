@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace array_binary_search
 
 /-- [array_binary_search::test_target_present_middle]:
-    Source: 'src/lib.rs', lines 24:0-28:1
+    Source: 'src/lib.rs', lines 23:0-27:1
     Visibility: public -/
 def test_target_present_middle : Result Unit := do
   let y ←
@@ -31,7 +31,7 @@ def test_target_present_middle : Result Unit := do
   massert (result = 4#usize)
 
 /-- [array_binary_search::test_target_present_first]:
-    Source: 'src/lib.rs', lines 31:0-35:1
+    Source: 'src/lib.rs', lines 30:0-34:1
     Visibility: public -/
 def test_target_present_first : Result Unit := do
   let y ←
@@ -44,7 +44,7 @@ def test_target_present_first : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_target_present_last]:
-    Source: 'src/lib.rs', lines 38:0-42:1
+    Source: 'src/lib.rs', lines 37:0-41:1
     Visibility: public -/
 def test_target_present_last : Result Unit := do
   let y ←
@@ -57,7 +57,7 @@ def test_target_present_last : Result Unit := do
   massert (result = 4#usize)
 
 /-- [array_binary_search::test_target_absent_middle]:
-    Source: 'src/lib.rs', lines 45:0-49:1
+    Source: 'src/lib.rs', lines 44:0-48:1
     Visibility: public -/
 def test_target_absent_middle : Result Unit := do
   let y ←
@@ -70,7 +70,7 @@ def test_target_absent_middle : Result Unit := do
   massert (result = 2#usize)
 
 /-- [array_binary_search::test_target_absent_too_small]:
-    Source: 'src/lib.rs', lines 52:0-56:1
+    Source: 'src/lib.rs', lines 51:0-55:1
     Visibility: public -/
 def test_target_absent_too_small : Result Unit := do
   let y ←
@@ -83,7 +83,7 @@ def test_target_absent_too_small : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_target_absent_too_large]:
-    Source: 'src/lib.rs', lines 59:0-63:1
+    Source: 'src/lib.rs', lines 58:0-62:1
     Visibility: public -/
 def test_target_absent_too_large : Result Unit := do
   let y ←
@@ -96,7 +96,7 @@ def test_target_absent_too_large : Result Unit := do
   massert (result = 5#usize)
 
 /-- [array_binary_search::test_duplicates_first_occurrence]:
-    Source: 'src/lib.rs', lines 66:0-70:1
+    Source: 'src/lib.rs', lines 65:0-69:1
     Visibility: public -/
 def test_duplicates_first_occurrence : Result Unit := do
   let y ←
@@ -109,7 +109,7 @@ def test_duplicates_first_occurrence : Result Unit := do
   massert (result = 1#usize)
 
 /-- [array_binary_search::test_edge_case_empty]:
-    Source: 'src/lib.rs', lines 73:0-77:1
+    Source: 'src/lib.rs', lines 72:0-76:1
     Visibility: public -/
 def test_edge_case_empty : Result Unit := do
   let s := alloc.vec.Vec.deref (alloc.vec.Vec.new Int)
@@ -117,7 +117,7 @@ def test_edge_case_empty : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_edge_case_single_present]:
-    Source: 'src/lib.rs', lines 80:0-84:1
+    Source: 'src/lib.rs', lines 79:0-83:1
     Visibility: public -/
 def test_edge_case_single_present : Result Unit := do
   let y ←
@@ -129,7 +129,7 @@ def test_edge_case_single_present : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_edge_case_single_smaller]:
-    Source: 'src/lib.rs', lines 87:0-91:1
+    Source: 'src/lib.rs', lines 86:0-90:1
     Visibility: public -/
 def test_edge_case_single_smaller : Result Unit := do
   let y ←
@@ -141,7 +141,7 @@ def test_edge_case_single_smaller : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_edge_case_single_larger]:
-    Source: 'src/lib.rs', lines 94:0-98:1
+    Source: 'src/lib.rs', lines 93:0-97:1
     Visibility: public -/
 def test_edge_case_single_larger : Result Unit := do
   let y ←
@@ -153,7 +153,7 @@ def test_edge_case_single_larger : Result Unit := do
   massert (result = 1#usize)
 
 /-- [array_binary_search::test_all_equal_to_target]:
-    Source: 'src/lib.rs', lines 101:0-105:1
+    Source: 'src/lib.rs', lines 100:0-104:1
     Visibility: public -/
 def test_all_equal_to_target : Result Unit := do
   let a := Array.repeat 5#usize 7
@@ -164,7 +164,7 @@ def test_all_equal_to_target : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_all_less_than_target]:
-    Source: 'src/lib.rs', lines 108:0-112:1
+    Source: 'src/lib.rs', lines 107:0-111:1
     Visibility: public -/
 def test_all_less_than_target : Result Unit := do
   let y ←
@@ -177,7 +177,7 @@ def test_all_less_than_target : Result Unit := do
   massert (result = 5#usize)
 
 /-- [array_binary_search::test_all_greater_than_target]:
-    Source: 'src/lib.rs', lines 115:0-119:1
+    Source: 'src/lib.rs', lines 114:0-118:1
     Visibility: public -/
 def test_all_greater_than_target : Result Unit := do
   let y ←
@@ -190,7 +190,7 @@ def test_all_greater_than_target : Result Unit := do
   massert (result = 0#usize)
 
 /-- [array_binary_search::test_negative_numbers]:
-    Source: 'src/lib.rs', lines 122:0-126:1
+    Source: 'src/lib.rs', lines 121:0-125:1
     Visibility: public -/
 def test_negative_numbers : Result Unit := do
   let y ←
@@ -203,7 +203,7 @@ def test_negative_numbers : Result Unit := do
   massert (result = 2#usize)
 
 /-- [array_binary_search::test_larger_sorted_array]:
-    Source: 'src/lib.rs', lines 129:0-136:1
+    Source: 'src/lib.rs', lines 128:0-135:1
     Visibility: public -/
 def test_larger_sorted_array : Result Unit := do
   let y ←

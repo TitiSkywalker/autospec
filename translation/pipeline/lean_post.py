@@ -369,7 +369,7 @@ def _mark_noncomputable_defs(text: str) -> str:
     # Collect names declared as axiom (may already have noncomputable prefix)
     axiom_names: set[str] = set()
     for m in re.finditer(
-        r"^\s*(?:noncomputable\s+)?axiom\s+(\w+)", text, re.MULTILINE
+        r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE
     ):
         axiom_names.add(m.group(1))
     if not axiom_names:
@@ -421,7 +421,7 @@ def _mark_noncomputable_defs(text: str) -> str:
     # Collect names that need noncomputable (exclude original axioms)
     noncomp_names = sorted(
         set(n for n in axiom_names if n not in set(
-            re.findall(r"^\s*(?:noncomputable\s+)?axiom\s+(\w+)", text, re.MULTILINE)
+            re.findall(r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE)
         )),
         key=len,
         reverse=True,  # longest first to avoid partial matches

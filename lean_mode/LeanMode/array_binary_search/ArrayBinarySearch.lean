@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace array_binary_search
 
 /-- [array_binary_search::binary_search_lower_bound]: loop 0:
-    Source: 'src/lib.rs', lines 12:4-19:5
+    Source: 'src/lib.rs', lines 11:4-18:5
     Visibility: public -/
 @[rust_loop]
 def binary_search_lower_bound_loop
@@ -39,7 +39,7 @@ def binary_search_lower_bound_loop
 partial_fixpoint
 
 /-- [array_binary_search::binary_search_lower_bound]:
-    Source: 'src/lib.rs', lines 8:0-21:1
+    Source: 'src/lib.rs', lines 7:0-20:1
     Visibility: public -/
 def binary_search_lower_bound
   (input : Slice Int) (target : Int) : Result Std.Usize := do
