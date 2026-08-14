@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Re-translate all Rust test cases in LeanMode/ concurrently (skip failure/)."""
+
 import argparse
 import subprocess
 import sys
@@ -14,12 +15,16 @@ TRANSLATE = ROOT / "translation" / "translate.py"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Re-translate all LeanMode test cases")
-    parser.add_argument("-w", "--workers", type=int, default=4, help="Number of concurrent workers (default: 4)")
+    parser.add_argument(
+        "-w",
+        "--workers",
+        type=int,
+        default=16,
+        help="Number of concurrent workers (default: 16)",
+    )
     args = parser.parse_args()
 
-    dirs = sorted(
-        d for d in LEAN_MODE.iterdir() if d.is_dir() and d.name != "failure"
-    )
+    dirs = sorted(d for d in LEAN_MODE.iterdir() if d.is_dir() and d.name != "failure")
 
     passed: list[str] = []
     failed: list[str] = []
@@ -32,7 +37,8 @@ def main() -> None:
         nonlocal remaining
         result = subprocess.run(
             [sys.executable, str(TRANSLATE), str(d)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         ok = result.returncode == 0
         with lock:

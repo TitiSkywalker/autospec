@@ -36,6 +36,7 @@ INFO_RE = re.compile(
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+
 def _lean_module(dir_name: str, file_stem: str) -> str:
     """Turn a directory + file-stem into a Lake module name.
 
@@ -50,10 +51,12 @@ def _parse_should_panic(rust_test_path: Path) -> set[str]:
     if not rust_test_path.exists():
         return set()
     text = rust_test_path.read_text()
-    return set(re.findall(
-        r"#\[should_panic[^\]]*\]\s*\n\s*fn\s+(\w+)",
-        text,
-    ))
+    return set(
+        re.findall(
+            r"#\[should_panic[^\]]*\]\s*\n\s*fn\s+(\w+)",
+            text,
+        )
+    )
 
 
 def _parse_eval_map(lean_path: Path) -> dict[int, str]:
@@ -70,20 +73,29 @@ def _parse_eval_map(lean_path: Path) -> dict[int, str]:
 
 # ── main ─────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build every .lean file under LeanMode/")
+    parser = argparse.ArgumentParser(
+        description="Build every .lean file under LeanMode/"
+    )
     parser.add_argument(
-        "-w", "--workers", type=int, default=4,
-        help="Number of concurrent workers (default: 4)",
+        "-w",
+        "--workers",
+        type=int,
+        default=16,
+        help="Number of concurrent workers (default: 16)",
     )
     args = parser.parse_args()
 
-    WorkItem = tuple[str, str, Path | None, Path | None]  # (label, module, lean_path, rust_test_path)
+    WorkItem = tuple[
+        str, str, Path | None, Path | None
+    ]  # (label, module, lean_path, rust_test_path)
 
     work: list[WorkItem] = []
 
     dirs = sorted(
-        d for d in (LEAN_MODE / "LeanMode").iterdir()
+        d
+        for d in (LEAN_MODE / "LeanMode").iterdir()
         if d.is_dir() and d.name != "failure"
     )
 
@@ -92,7 +104,9 @@ def main() -> None:
             module = _lean_module(d.name, lean_file.stem)
             label = f"{d.name}/{lean_file.name}"
             rust_test = d / "tests" / "test.rs"
-            work.append((label, module, lean_file, rust_test if rust_test.exists() else None))
+            work.append(
+                (label, module, lean_file, rust_test if rust_test.exists() else None)
+            )
 
     passed: list[str] = []
     failed: list[tuple[str, list[str]]] = []  # (label, error_lines)
@@ -106,7 +120,8 @@ def main() -> None:
         label, module, lean_path, rust_test_path = item
         result = subprocess.run(
             ["lake", "build", module],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             cwd=str(LEAN_MODE),
         )
         combined = result.stdout + result.stderr
@@ -159,8 +174,10 @@ def main() -> None:
             if remaining == 0:
                 done_event.set()
 
-    print(f"Checking {len(work)} modules across {len(dirs)} projects "
-          f"({args.workers} concurrent)...\n")
+    print(
+        f"Checking {len(work)} modules across {len(dirs)} projects "
+        f"({args.workers} concurrent)...\n"
+    )
 
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         for item in work:
