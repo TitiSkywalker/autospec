@@ -1,7 +1,7 @@
 # lean_mode
 
 This project implements a benchmark for Rust verification using `Aeneas` translation pipeline. Each testcase is a Rust `cargo` project with the follwing structure:
-- `src/lib.rs`: the implemented algorithm as a Rust function, without using external crates. 
+
 ```
 .
 ├── MatrixMul.lean
@@ -14,3 +14,5 @@ This project implements a benchmark for Rust verification using `Aeneas` transla
 └── tests
     └── test.rs
 ```
+
+> How to add a testcase (Rust style constraints, Rat/Real handling, Spec writing, gotchas): see [TESTCASE_GUIDE.md](TESTCASE_GUIDE.md).
