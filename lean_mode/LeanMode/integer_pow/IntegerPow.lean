@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_pow
 
 /-- [integer_pow::pow]: loop 0:
-    Source: 'src/lib.rs', lines 8:4-14:5
+    Source: 'src/lib.rs', lines 9:4-15:5
     Visibility: public -/
 @[rust_loop]
 def pow_loop
@@ -34,7 +34,7 @@ def pow_loop
 partial_fixpoint
 
 /-- [integer_pow::pow]:
-    Source: 'src/lib.rs', lines 4:0-16:1
+    Source: 'src/lib.rs', lines 5:0-17:1
     Visibility: public -/
 @[reducible]
 def pow (a : Int) (e : Int) : Result Int := do

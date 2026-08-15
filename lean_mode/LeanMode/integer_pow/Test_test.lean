@@ -17,49 +17,49 @@ set_option maxRecDepth 2048
 namespace integer_pow
 
 /-- [integer_pow::test_pow_1]:
-    Source: 'src/lib.rs', lines 18:0-20:1
+    Source: 'src/lib.rs', lines 19:0-21:1
     Visibility: public -/
 def test_pow_1 : Result Unit := do
   let left_val ← pow 2 3
   massert (left_val = 8)
 
 /-- [integer_pow::test_pow_2]:
-    Source: 'src/lib.rs', lines 22:0-24:1
+    Source: 'src/lib.rs', lines 23:0-25:1
     Visibility: public -/
 def test_pow_2 : Result Unit := do
   let left_val ← pow 4 12
   massert (left_val = 16777216)
 
 /-- [integer_pow::test_pow_3]:
-    Source: 'src/lib.rs', lines 26:0-28:1
+    Source: 'src/lib.rs', lines 27:0-29:1
     Visibility: public -/
 def test_pow_3 : Result Unit := do
   let left_val ← pow 6 12
   massert (left_val = 2176782336)
 
 /-- [integer_pow::test_pow_4]:
-    Source: 'src/lib.rs', lines 30:0-32:1
+    Source: 'src/lib.rs', lines 31:0-33:1
     Visibility: public -/
 def test_pow_4 : Result Unit := do
   let left_val ← pow 10 4
   massert (left_val = 10000)
 
 /-- [integer_pow::test_pow_5]:
-    Source: 'src/lib.rs', lines 34:0-36:1
+    Source: 'src/lib.rs', lines 35:0-37:1
     Visibility: public -/
 def test_pow_5 : Result Unit := do
   let left_val ← pow 20 3
   massert (left_val = 8000)
 
 /-- [integer_pow::test_pow_6]:
-    Source: 'src/lib.rs', lines 38:0-40:1
+    Source: 'src/lib.rs', lines 39:0-41:1
     Visibility: public -/
 def test_pow_6 : Result Unit := do
   let left_val ← pow 3 21
   massert (left_val = 10460353203)
 
 /-- [integer_pow::test_pow_zero]:
-    Source: 'src/lib.rs', lines 42:0-46:1
+    Source: 'src/lib.rs', lines 43:0-47:1
     Visibility: public -/
 def test_pow_zero : Result Unit := do
   let left_val ← pow 0 0
