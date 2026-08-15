@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace integer_extended_gcd
 
 /-- [integer_extended_gcd::test_basic_1]:
-    Source: 'src/lib.rs', lines 27:0-32:1
+    Source: 'src/lib.rs', lines 28:0-33:1
     Visibility: public -/
 def test_basic_1 : Result Unit := do
   let (g, x, y) ← extended_gcd 101 13
@@ -29,7 +29,7 @@ def test_basic_1 : Result Unit := do
   massert b2
 
 /-- [integer_extended_gcd::test_basic_2]:
-    Source: 'src/lib.rs', lines 34:0-39:1
+    Source: 'src/lib.rs', lines 35:0-40:1
     Visibility: public -/
 def test_basic_2 : Result Unit := do
   let (g, x, y) ← extended_gcd 123 19
@@ -41,7 +41,7 @@ def test_basic_2 : Result Unit := do
   massert b2
 
 /-- [integer_extended_gcd::test_basic_3]:
-    Source: 'src/lib.rs', lines 41:0-46:1
+    Source: 'src/lib.rs', lines 42:0-47:1
     Visibility: public -/
 def test_basic_3 : Result Unit := do
   let (g, x, y) ← extended_gcd 25 36
@@ -53,7 +53,7 @@ def test_basic_3 : Result Unit := do
   massert b2
 
 /-- [integer_extended_gcd::test_composite_gcd]:
-    Source: 'src/lib.rs', lines 48:0-53:1
+    Source: 'src/lib.rs', lines 49:0-54:1
     Visibility: public -/
 def test_composite_gcd : Result Unit := do
   let (g, x, y) ← extended_gcd 69 54
@@ -65,7 +65,7 @@ def test_composite_gcd : Result Unit := do
   massert b2
 
 /-- [integer_extended_gcd::test_large]:
-    Source: 'src/lib.rs', lines 55:0-60:1
+    Source: 'src/lib.rs', lines 56:0-61:1
     Visibility: public -/
 def test_large : Result Unit := do
   let (g, x, y) ← extended_gcd 55 79
@@ -77,7 +77,7 @@ def test_large : Result Unit := do
   massert b2
 
 /-- [integer_extended_gcd::test_common_factor]:
-    Source: 'src/lib.rs', lines 62:0-67:1
+    Source: 'src/lib.rs', lines 63:0-68:1
     Visibility: public -/
 def test_common_factor : Result Unit := do
   let (g, x, y) ← extended_gcd 50 70

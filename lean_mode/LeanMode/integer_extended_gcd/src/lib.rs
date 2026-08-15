@@ -1,4 +1,5 @@
 //! Extended Euclidean algorithm — computes `gcd(a, b)` together with the
+//! Source: num-integer `src/lib.rs` (extended_gcd).
 //! Bézout coefficients `(x, y)` such that `a * x + b * y = gcd(a, b)`.
 
 /// Returns `(gcd, x, y)` satisfying Bézout's identity `a * x + b * y = gcd`.

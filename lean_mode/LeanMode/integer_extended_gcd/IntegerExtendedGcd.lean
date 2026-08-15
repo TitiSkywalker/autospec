@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 
 namespace integer_extended_gcd
 /-- [integer_extended_gcd::extended_gcd]: loop 0:
-    Source: 'src/lib.rs', lines 12:4-23:5
+    Source: 'src/lib.rs', lines 13:4-24:5
     Visibility: public -/
 @[rust_loop]
 def extended_gcd_loop
@@ -38,7 +38,7 @@ def extended_gcd_loop
 partial_fixpoint
 
 /-- [integer_extended_gcd::extended_gcd]:
-    Source: 'src/lib.rs', lines 5:0-25:1
+    Source: 'src/lib.rs', lines 6:0-26:1
     Visibility: public -/
 @[reducible]
 def extended_gcd
