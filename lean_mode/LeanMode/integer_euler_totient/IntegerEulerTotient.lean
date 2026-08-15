@@ -20,7 +20,7 @@ namespace integer_euler_totient
     Visibility: public -/
 @[rust_loop]
 def euler_totient_loop0_loop0
-  (num : Int) (p : Int) : Result Int := do
+  (num : Nat) (p : Nat) : Result Nat := do
   let i := num % p
   if i = 0
   then let num1 := num / p
@@ -33,8 +33,8 @@ partial_fixpoint
     Visibility: public -/
 @[rust_loop]
 def euler_totient_loop0
-  (result : Int) (num : Int) (p : Int) :
-  Result (Int × Int)
+  (result : Nat) (num : Nat) (p : Nat) :
+  Result (Nat × Nat)
   := do
   let i := p * p
   if i <= num
@@ -55,7 +55,7 @@ partial_fixpoint
 /-- [integer_euler_totient::euler_totient]:
     Source: 'src/lib.rs', lines 5:0-22:1
     Visibility: public -/
-def euler_totient (n : Int) : Result Int := do
+def euler_totient (n : Nat) : Result Nat := do
   let (result, num) ← euler_totient_loop0 n n 2
   if num > 1
   then let i := result / num

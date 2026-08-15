@@ -14,7 +14,7 @@ square-and-multiply (requires `modulus > 0`).
 -/
 
 /-- Correctness of modular exponentiation. -/
-theorem mod_pow_correct (base exp modulus result : Int)
+theorem mod_pow_correct (base exp modulus result : Nat)
     (h : mod_pow base exp modulus = ok result) :
-    result = (base ^ exp.toNat) % modulus := by
+    result = (base ^ exp) % modulus := by
   sorry

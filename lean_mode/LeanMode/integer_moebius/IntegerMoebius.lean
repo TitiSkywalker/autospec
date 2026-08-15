@@ -19,8 +19,8 @@ namespace integer_moebius
     Visibility: public -/
 @[rust_loop]
 def moebius_loop
-  (num : Int) (result : Int) (p : Int) :
-  Result (Int × Int)
+  (num : Nat) (result : Int) (p : Nat) :
+  Result (Nat × Int)
   := do
   let i := p * p
   if i <= num
@@ -46,7 +46,7 @@ partial_fixpoint
 /-- [integer_moebius::moebius]:
     Source: 'src/lib.rs', lines 8:0-26:1
     Visibility: public -/
-def moebius (n : Int) : Result Int := do
+def moebius (n : Nat) : Result Int := do
   let (num, result) ← moebius_loop n 1 2
   if num > 1
   then ok (-result)

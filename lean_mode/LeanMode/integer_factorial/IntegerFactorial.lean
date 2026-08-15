@@ -20,7 +20,7 @@ namespace integer_factorial
     Visibility: public -/
 @[rust_loop]
 def factorial_loop
-  (n : Int) (result : Int) (i : Int) : Result Int := do
+  (n : Nat) (result : Nat) (i : Nat) : Result Nat := do
   if i <= n
   then
     let result1 := result * i
@@ -33,7 +33,7 @@ partial_fixpoint
     Source: 'src/lib.rs', lines 5:0-13:1
     Visibility: public -/
 @[reducible]
-def factorial (n : Int) : Result Int := do
+def factorial (n : Nat) : Result Nat := do
   factorial_loop n 1 1
 
 end integer_factorial

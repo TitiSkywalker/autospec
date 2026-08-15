@@ -20,8 +20,8 @@ namespace integer_mod_pow
     Visibility: public -/
 @[rust_loop]
 def mod_pow_loop
-  (modulus : Int) (result : Int) (b : Int) (e : Int) :
-  Result Int
+  (modulus : Nat) (result : Nat) (b : Nat) (e : Nat) :
+  Result Nat
   := do
   if e > 0
   then
@@ -43,7 +43,7 @@ partial_fixpoint
     Source: 'src/lib.rs', lines 5:0-18:1
     Visibility: public -/
 def mod_pow
-  (base : Int) (exp : Int) (modulus : Int) : Result Int := do
+  (base : Nat) (exp : Nat) (modulus : Nat) : Result Nat := do
   massert (modulus > 0)
   let b := base % modulus
   mod_pow_loop modulus 1 b exp

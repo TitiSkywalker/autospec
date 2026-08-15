@@ -13,7 +13,7 @@ set_option linter.unusedVariables false
 -/
 
 /-- Correctness of the iterative factorial. -/
-theorem factorial_correct (n result : Int)
+theorem factorial_correct (n result : Nat)
     (h : factorial n = ok result) :
-    result = (Nat.factorial n.toNat : Int) := by
+    result = Nat.factorial n := by
   sorry

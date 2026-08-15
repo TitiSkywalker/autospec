@@ -13,7 +13,7 @@ set_option linter.unusedVariables false
 -/
 
 /-- Correctness of binary exponentiation. -/
-theorem pow_correct (a e result : Int)
+theorem pow_correct (a e result : Nat)
     (h : pow a e = ok result) :
-    result = a ^ e.toNat := by
+    result = a ^ e := by
   sorry

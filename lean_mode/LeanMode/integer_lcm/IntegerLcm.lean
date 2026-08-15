@@ -19,7 +19,7 @@ namespace integer_lcm
     Source: 'src/lib.rs', lines 11:8-15:9
     Visibility: public -/
 @[rust_loop]
-def lcm_loop (x : Int) (y : Int) : Result Int := do
+def lcm_loop (x : Nat) (y : Nat) : Result Nat := do
   if y != 0
   then let y1 := x % y
        lcm_loop y y1
@@ -29,7 +29,7 @@ partial_fixpoint
 /-- [integer_lcm::lcm]:
     Source: 'src/lib.rs', lines 5:0-18:1
     Visibility: public -/
-def lcm (a : Int) (b : Int) : Result Int := do
+def lcm (a : Nat) (b : Nat) : Result Nat := do
   if a = 0
   then ok 0
   else

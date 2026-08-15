@@ -25,6 +25,29 @@ from pipeline.lean_post import write_lean_output, NonComputableError
 from pipeline.extract_test import translate_test_file
 
 
+def _read_int_model(project_path: Path) -> str | None:
+    """Read ``[package.metadata.autospec].int-model`` from a crate's Cargo.toml.
+
+    Returns the configured integer model (``"int"`` / ``"nat"`` / ``"bitvec"``),
+    or ``None`` when no model is configured or the file can't be parsed.
+    """
+    cargo = project_path / "Cargo.toml"
+    if not cargo.exists():
+        return None
+    try:
+        import tomllib
+
+        data = tomllib.loads(cargo.read_text())
+        return (
+            data.get("package", {})
+            .get("metadata", {})
+            .get("autospec", {})
+            .get("int-model")
+        )
+    except Exception:
+        return None
+
+
 class Translator:
     """Translate Rust projects to Lean via Charon + Aeneas."""
 
@@ -35,7 +58,7 @@ class Translator:
         verbose: bool = False,
         target: str = "Rat",
         loops_to_rec: bool = True,
-        int_model: str = "int",
+        int_model: str | None = None,
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
@@ -68,6 +91,11 @@ class Translator:
         if not (project_path / "Cargo.toml").exists():
             fail("validate", f"no Cargo.toml in {project_path}")
             return False
+
+        # Resolve the integer model: explicit CLI flag wins, otherwise read
+        # ``[package.metadata.autospec].int-model``, falling back to "int".
+        if self.int_model is None:
+            self.int_model = _read_int_model(project_path) or "int"
 
         print(f"autospec  \033[1m{project_path.name}\033[0m  →  {output_path}")
 
@@ -236,9 +264,10 @@ if __name__ == "__main__":
     )
     p.add_argument(
         "--int-model",
-        default="int",
+        default=None,
         choices=["int", "nat", "bitvec"],
-        help="Integer model: int (default, all → Int), nat (unsigned → Nat), bitvec (unsigned → BitVec w).",
+        help="Integer model: int (all → Int), nat (unsigned → Nat), bitvec (unsigned → BitVec w). "
+        "Default: [package.metadata.autospec].int-model from Cargo.toml, else int.",
     )
     args = p.parse_args()
 

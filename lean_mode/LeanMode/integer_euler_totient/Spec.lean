@@ -13,7 +13,7 @@ set_option linter.unusedVariables false
 -/
 
 /-- Correctness of Euler's totient function. -/
-theorem euler_totient_correct (n result : Int)
+theorem euler_totient_correct (n result : Nat)
     (h : euler_totient n = ok result) :
-    result = (Nat.totient n.toNat : Int) := by
+    result = Nat.totient n := by
   sorry

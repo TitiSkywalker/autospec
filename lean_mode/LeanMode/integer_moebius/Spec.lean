@@ -19,12 +19,12 @@ def has_square_factor (n : Nat) : Prop :=
   ∃ p : Nat, Nat.Prime p ∧ p * p ∣ n
 
 /-- The Möbius function is always one of `-1`, `0`, or `1`. -/
-theorem moebius_range (n result : Int) (h : moebius n = ok result) :
+theorem moebius_range (n : Nat) (result : Int) (h : moebius n = ok result) :
     result = -1 ∨ result = 0 ∨ result = 1 := by
   sorry
 
 /-- `moebius n = 0` exactly when `n` has a square factor (for `n > 0`). -/
-theorem moebius_square_free (n result : Int) (hn : 0 < n)
+theorem moebius_square_free (n : Nat) (result : Int) (hn : 0 < n)
     (h : moebius n = ok result) :
-    (result = 0) ↔ has_square_factor n.toNat := by
+    (result = 0) ↔ has_square_factor n := by
   sorry

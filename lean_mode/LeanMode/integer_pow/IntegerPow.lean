@@ -20,7 +20,7 @@ namespace integer_pow
     Visibility: public -/
 @[rust_loop]
 def pow_loop
-  (result : Int) (base : Int) (exp : Int) : Result Int := do
+  (result : Nat) (base : Nat) (exp : Nat) : Result Nat := do
   if exp > 0
   then
     let i := exp % 2
@@ -37,7 +37,7 @@ partial_fixpoint
     Source: 'src/lib.rs', lines 5:0-17:1
     Visibility: public -/
 @[reducible]
-def pow (a : Int) (e : Int) : Result Int := do
+def pow (a : Nat) (e : Nat) : Result Nat := do
   pow_loop 1 a e
 
 end integer_pow

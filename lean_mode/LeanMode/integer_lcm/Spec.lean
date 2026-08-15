@@ -14,7 +14,7 @@ set_option linter.unusedVariables false
 -/
 
 /-- Correctness of the least common multiple: `lcm * gcd = a * b`. -/
-theorem lcm_correct (a b result : Int)
+theorem lcm_correct (a b result : Nat)
     (h : integer_lcm.lcm a b = ok result) :
-    result * (Int.gcd a b : Int) = a * b := by
+    result * (Nat.gcd a b) = a * b := by
   sorry
