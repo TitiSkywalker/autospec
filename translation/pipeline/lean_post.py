@@ -236,127 +236,256 @@ def lean_f64_to_real(content: str) -> str:
     return result
 
 
-# Integer types that Aeneas translates (all → Int) and their literal suffixes.
-_INT_TYPES: list[tuple[str, str]] = [
-    ("Std.I8", "#i8"),
-    ("Std.I16", "#i16"),
-    ("Std.I32", "#i32"),
-    ("Std.I64", "#i64"),
-    ("Std.I128", "#i128"),
-    ("Std.Isize", "#isize"),
-    ("Std.U8", "#u8"),
-    ("Std.U16", "#u16"),
-    ("Std.U32", "#u32"),
-    ("Std.U64", "#u64"),
-    ("Std.U128", "#u128"),
+# Integer types that Aeneas translates, with literal suffix, bit width, signedness.
+_INT_TYPES: list[tuple[str, str, int | None, bool]] = [
+    ("Std.I8", "#i8", 8, True),
+    ("Std.I16", "#i16", 16, True),
+    ("Std.I32", "#i32", 32, True),
+    ("Std.I64", "#i64", 64, True),
+    ("Std.I128", "#i128", 128, True),
+    ("Std.Isize", "#isize", None, True),
+    ("Std.U8", "#u8", 8, False),
+    ("Std.U16", "#u16", 16, False),
+    ("Std.U32", "#u32", 32, False),
+    ("Std.U64", "#u64", 64, False),
+    ("Std.U128", "#u128", 128, False),
     # Std.Usize is intentionally excluded — used for array indexing.
 ]
 
+_INT_MODELS = ("int", "nat", "bitvec")
+
+
+def _int_target_type(is_signed: bool, width: int | None, model: str) -> str:
+    """Lean type a Rust integer maps to under *model*."""
+    if model == "int":
+        return "Int"
+    if model == "nat":
+        return "Int" if is_signed else "Nat"
+    if model == "bitvec":
+        return "Int" if is_signed else f"BitVec {width}"
+    raise ValueError(f"unknown int model: {model}")
+
+
+def _int_helper_stem(target_type: str) -> str:
+    """Identifier-safe stem for a target type (``Int``→``Int``, ``BitVec 64``→``BitVec64``)."""
+    return target_type.replace(" ", "")
+
+
+def _type_arg(target_type: str) -> str:
+    """Parenthesize a type used as an argument (``BitVec 64`` → ``(BitVec 64)``)."""
+    return f"({target_type})" if " " in target_type else target_type
+
+
+def _is_int_literal(tok: str) -> bool:
+    """Whether *tok* is an integer literal after type replacement.
+
+    Accepts ``6`` (Int/Nat) and ``(1 : BitVec 64)`` (bitvec).
+    """
+    t = tok.strip()
+    if t.isdigit():
+        return True
+    return bool(re.fullmatch(r"\(\d+\s*:\s*BitVec\s+\d+\)", t))
+
 
 def lean_integers_to_int(content: str) -> str:
-    """Replace Aeneas integer types (I8–I128, U8–U128, Isize) with Int.
+    """Backward-compatible wrapper: every integer → Int."""
+    return lean_integers_to_model(content, "int")
 
-    Like ``F64→Rat``, this eliminates bit-width / overflow concerns so
-    verification focuses on algorithmic correctness.
+
+def lean_integers_to_model(content: str, model: str = "int") -> str:
+    """Replace Aeneas integer types with ``Int`` / ``Nat`` / ``BitVec``.
+
+    *model* selects the integer semantics:
+
+    * ``"int"`` — every integer → ``Int`` (unbounded signed).
+    * ``"nat"`` — unsigned → ``Nat``, signed → ``Int``.
+    * ``"bitvec"`` — unsigned → ``BitVec w`` (fixed-width wrapping),
+      signed → ``Int``.
 
     ``Std.Usize`` is **not** replaced — it is used for array indexing.
     """
-    # Check for any integer-related tokens (types, literals, trait instances)
+    if model not in _INT_MODELS:
+        raise ValueError(f"unknown int model: {model}")
+
     _INT_MARKERS = (
-        [t for t, _ in _INT_TYPES]
-        + [s for _, s in _INT_TYPES]
-        + [
-            "PartialEqI8",
-            "PartialEqI16",
-            "PartialEqI32",
-            "PartialEqI64",
-            "PartialEqI128",
-            "PartialEqIsize",
-            "PartialEqU8",
-            "PartialEqU16",
-            "PartialEqU32",
-            "PartialEqU64",
-            "PartialEqU128",
-        ]
+        [t for t, _, _, _ in _INT_TYPES]
+        + [s for _, s, _, _ in _INT_TYPES]
+        + [f"PartialEq{t.replace('Std.', '')}" for t, _, _, _ in _INT_TYPES]
     )
     if not any(m in content for m in _INT_MARKERS):
         return content
 
-    for ty, suffix in _INT_TYPES:
-        # Replace the type itself
-        content = content.replace(ty, "Int")
-        # Replace the clone instance: core.clone.CloneI32 → IntClone
+    # Set of pure integer target types for this model (used for type tracking
+    # in the monadic→pure conversion).
+    produced: set[str] = {
+        _int_target_type(is_signed, width, model)
+        for _, _, width, is_signed in _INT_TYPES
+    }
+
+    for ty, suffix, width, is_signed in _INT_TYPES:
+        tgt = _int_target_type(is_signed, width, model)
+        clone_helper = f"{_int_helper_stem(tgt)}Clone"
+        peq_helper = f"PartialEq{_int_helper_stem(tgt)}"
         clone_name = ty.replace("Std.", "")
-        content = content.replace(f"core.clone.Clone{clone_name}", "IntClone")
-        # Replace PartialEq instance: core.cmp.PartialEqI32 → PartialEqInt
-        content = content.replace(f"core.cmp.PartialEq{clone_name}", "PartialEqInt")
-        # Strip literal suffixes: 5#i32 → 5, (-5)#i32 → (-5)
-        content = re.sub(rf"{re.escape(suffix)}\b", "", content)
+        content = content.replace(ty, _type_arg(tgt))
+        content = content.replace(f"core.clone.Clone{clone_name}", clone_helper)
+        content = content.replace(f"core.cmp.PartialEq{clone_name}", peq_helper)
+        # Literal handling: bitvec keeps the width for unsigned literals
+        # (5#u64 → (5 : BitVec 64)); other models just strip the suffix.
+        if model == "bitvec" and not is_signed:
+            content = re.sub(
+                rf"(\d+){re.escape(suffix)}\b",
+                rf"(\1 : BitVec {width})",
+                content,
+            )
+        else:
+            content = re.sub(rf"{re.escape(suffix)}\b", "", content)
 
-    # After type replacement, arithmetic ops that were monadic on
-    # Std.U64/Std.I32/I64 (returning Result) are now pure Int operations.
-    # Convert ``let x ← a op b`` → ``let x := a op b``.
-    #
-    # Must NOT convert Usize arithmetic.  Two guards:
-    # 1. (?!#usize) lookahead — exclude literal #usize suffixes
-    # 2. Int-context check — at least one operand appeared near ``Int`` in
-    #    the previous 5 lines, indicating it came from Vec/Slice Int.
-    for op in ["%", "+"]:
-        escaped = re.escape(op)
-        for m in re.finditer(
-            rf"(let\s+(\w+)\s+)←\s+(\w+(?!#usize))\s*{escaped}\s*(\w+(?!#usize))",
-            content,
-        ):
-            # Guard 1: any literal #usize in the match → Usize, skip
-            if "#usize" in m.group(0):
-                continue
-            prefix, target, lhs, rhs = m.group(1), m.group(2), m.group(3), m.group(4)
-            # Guard 2: Int context heuristic — at least one operand appears
-            # near ``Int`` in the previous 5 lines (not necessarily same line).
-            before = content[:m.start()]
-            recent = "\n".join(before.split("\n")[-5:])
-            has_int_lhs = "Int" in recent and lhs in recent
-            has_int_rhs = "Int" in recent and rhs in recent
-            if has_int_lhs or has_int_rhs:
-                old = m.group(0)
-                new = f"{prefix}:= {lhs} {op} {rhs}"
-                content = content.replace(old, new, 1)
+    # Convert monadic `let x ← <int-expr>` → `let x := <int-expr>` for ops that
+    # became pure after replacement.  usize arithmetic stays monadic
+    # (Std.Usize is untouched), so track integer- vs usize-typed identifiers.
+    content = _monadic_ops_to_pure(content, sorted(produced))
 
+    # Helper definitions for distinct target types actually referenced.
+    # Clone and PartialEq are defined *together* for a type: the impl file is
+    # imported by the tests, which may need the PartialEq helper even when the
+    # impl itself only uses Clone.
     extras: list[str] = []
-    # Define helpers when Int-related types were replaced in this file.
-    # IntClone is always needed; PartialEqInt is needed by tests (assert_eq!).
-    # Define both helpers when integer types were replaced.
-    # IntClone is needed in impl files (to_vec); PartialEqInt is needed
-    # in test files (assert_eq!).  Since tests import the impl module,
-    # we always define both together so tests can find them.
-    need_clone = "def IntClone.clone" not in content and "IntClone" in content
-    need_peq = "def PartialEqInt.eq" not in content and "PartialEqInt" in content
-    if need_clone or need_peq:
-        if "def IntClone.clone" not in content:
-            extras.append(
-                "/- Integer types replaced with Int by autospec -/\n"
-                "def IntClone.clone (x : Int) : Result Int := ok x\n"
-                "\n"
-                "@[reducible]\n"
-                "def IntClone : core.clone.Clone Int := {\n"
-                "  clone := IntClone.clone\n"
-                "}\n"
-            )
-        if "def PartialEqInt.eq" not in content:
-            extras.append(
-                "def PartialEqInt.eq (x y : Int) : Result Bool := ok (x = y)\n"
-                "\n"
-                "@[reducible]\n"
-                "def PartialEqInt : core.cmp.PartialEq Int Int := {\n"
-                "  eq := PartialEqInt.eq\n"
-                "}\n"
-            )
+    for tgt in sorted(produced):
+        stem = _int_helper_stem(tgt)
+        clone_helper = f"{stem}Clone"
+        peq_helper = f"PartialEq{stem}"
+        need_clone = clone_helper in content and f"def {clone_helper}.clone" not in content
+        need_peq = peq_helper in content and f"def {peq_helper}.eq" not in content
+        if need_clone or need_peq:
+            if f"def {clone_helper}.clone" not in content:
+                extras.append(
+                    f"/- Integer types replaced with {tgt} by autospec -/\n"
+                    f"def {clone_helper}.clone (x : {_type_arg(tgt)}) : "
+                    f"Result {_type_arg(tgt)} := ok x\n"
+                    "\n"
+                    f"@[reducible]\n"
+                    f"def {clone_helper} : core.clone.Clone {_type_arg(tgt)} := {{\n"
+                    f"  clone := {clone_helper}.clone\n"
+                    "}\n"
+                )
+            if f"def {peq_helper}.eq" not in content:
+                extras.append(
+                    f"def {peq_helper}.eq (x y : {_type_arg(tgt)}) : "
+                    "Result Bool := ok (x = y)\n"
+                    "\n"
+                    f"@[reducible]\n"
+                    f"def {peq_helper} : core.cmp.PartialEq {_type_arg(tgt)} {_type_arg(tgt)} := {{\n"
+                    f"  eq := {peq_helper}.eq\n"
+                    "}\n"
+                )
 
     if extras:
         block = "\n".join(extras)
         content = re.sub(r"(namespace \w+\n)", r"\1\n" + block, content, count=1)
 
     return content
+
+
+def _monadic_ops_to_pure(content: str, ctx_types: list[str]) -> str:
+    """Rewrite ``let x ← <int-expr>`` → ``let x := <int-expr>`` for pure-int ops.
+
+    Tracks integer- vs usize-typed identifiers so that usize arithmetic (still
+    monadic on ``Std.Usize``) is left untouched.
+    """
+    int_vars: set[str] = set()
+    usize_vars: set[str] = set()
+
+    # Seed from signature parameters: (a : Int), (lo : Std.Usize), (a : (BitVec 64)).
+    for m in re.finditer(r"\((\w+)\s*:\s*([^)]*)\)", content):
+        name, ty = m.group(1), m.group(2).strip().lstrip("(")
+        if ty == "Std.Usize":
+            usize_vars.add(name)
+        elif ty in ctx_types:
+            int_vars.add(name)
+
+    # Seed from `let X ← if … then ok LIT else ok LIT` (integer literals) —
+    # X is integer-typed even though the `if` itself stays monadic.
+    for m in re.finditer(
+        r"let\s+(\w+)\s+←\s+if\b.*?\bthen\s+ok\s+([^\n]+)\n\s*else\s+ok\s+([^\n]+)",
+        content,
+        re.DOTALL,
+    ):
+        name, lit1, lit2 = m.group(1), m.group(2), m.group(3)
+        if _is_int_literal(lit1) and _is_int_literal(lit2):
+            int_vars.add(name)
+
+    out: list[str] = []
+    for line in content.split("\n"):
+        out.append(_convert_let_line(line, int_vars, usize_vars))
+    return "\n".join(out)
+
+
+def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> str:
+    """Convert one ``let x ← A op B`` line to ``:=`` if A, B are integer-typed.
+
+    Handles ``let`` at line start or after ``then``/``else`` (aeneas indents
+    ``then let x ← …`` on its own line).
+    """
+
+    def is_int(tok: str) -> bool:
+        return tok in int_vars or tok.isdigit()
+
+    def is_usize(tok: str) -> bool:
+        return tok in usize_vars
+
+    def apply(prefix: str, x: str, a: str, op: str, b: str) -> str:
+        if is_int(a) and is_int(b) and not is_usize(a) and not is_usize(b):
+            int_vars.add(x)
+            return f"{prefix}:= {a} {op} {b}"
+        if is_usize(a) or is_usize(b):
+            usize_vars.add(x)
+        return line
+
+    _prefix = r"^(\s*(?:then\s+|else\s+)?let\s+(\w+)\s+)←\s+"
+
+    # arithmetic: let x ← A op B
+    m = re.match(_prefix + r"(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
+    if m:
+        return apply(*m.groups())
+
+    # bitwise: let x ← lift (A &&& B)
+    m = re.match(
+        _prefix + r"lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line
+    )
+    if m:
+        return apply(*m.groups())
+
+    # shift: let x ← A <<< B
+    m = re.match(_prefix + r"(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
+    if m:
+        return apply(*m.groups())
+
+    # Tail-position pure integer expression (no `let`): wrap in `ok (...)`.
+    def tail_ok(a: str, op: str, b: str) -> str | None:
+        if is_int(a) and is_int(b) and not is_usize(a) and not is_usize(b):
+            return f"ok ({a} {op} {b})"
+        return None
+
+    # arithmetic tail: A op B
+    m = re.match(r"^(\s*)(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
+    if m:
+        r = tail_ok(m.group(2), m.group(3), m.group(4))
+        return m.group(1) + r if r else line
+
+    # bitwise tail: lift (A &&& B)
+    m = re.match(r"^(\s*)lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line)
+    if m:
+        r = tail_ok(m.group(2), m.group(3), m.group(4))
+        return m.group(1) + r if r else line
+
+    # shift tail: A <<< B
+    m = re.match(r"^(\s*)(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
+    if m:
+        r = tail_ok(m.group(2), m.group(3), m.group(4))
+        return m.group(1) + r if r else line
+
+    return line
 
 
 def _mark_noncomputable_defs(text: str) -> str:
@@ -497,6 +626,7 @@ def write_lean_output(
     *,
     label: str = "",
     target: str = "Rat",
+    int_model: str = "int",
 ) -> tuple[int, list[str]]:
     """Post-process and copy Lean files from *workdir* to *output_path*.
 
@@ -505,6 +635,9 @@ def write_lean_output(
     target:
         ``"Rat"`` (default) — replace f64 with Rat; sqrt is noncomputable.
         ``"Real"`` — replace f64 with ℝ; sqrt is computable via Real.sqrt.
+    int_model:
+        ``"int"`` (default) — integers → Int.  ``"nat"`` — unsigned → Nat.
+        ``"bitvec"`` — unsigned → BitVec w (fixed-width wrapping).
     """
     lean_files = sorted(f for f in os.listdir(str(workdir)) if f.endswith(".lean"))
     def_count = 0
@@ -526,7 +659,7 @@ def write_lean_output(
                 text = lean_f64_to_rat(text)
             except NonComputableError:
                 raise
-        text = lean_integers_to_int(text)
+        text = lean_integers_to_model(text, int_model)
         text = inline_f64_helpers(text)
         text = inline_i64_helpers(text)
         if _use_real:

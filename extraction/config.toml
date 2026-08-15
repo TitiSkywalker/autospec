@@ -33,6 +33,17 @@ url = "https://github.com/rust-ndarray/ndarray.git"
 [[repo]]
 url = "https://github.com/TheAlgorithms/Rust.git"
 
+# ── production number theory / big-integer (rust-num) ── Int ──
+#   Extract the *core* algorithms; strip trait/macro wrappers (see local/integer_target.md §F).
+[[repo]]
+url = "https://github.com/rust-num/num-integer.git"
+
+[[repo]]
+url = "https://github.com/rust-num/num-bigint.git"
+
+[[repo]]
+url = "https://github.com/uutils/num-prime.git"
+
 # ── polynomial arithmetic (add, mul, eval) ── Polynomial ──
 [[repo]]
 url = "https://github.com/deepsafe/polynomials.git"

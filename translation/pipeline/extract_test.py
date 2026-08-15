@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 from .log import phase, warn
-from .lean_post import lean_f64_to_rat, lean_f64_to_real, lean_integers_to_int, NonComputableError
+from .lean_post import lean_f64_to_rat, lean_f64_to_real, lean_integers_to_model, NonComputableError
 from .utils import read_crate_name, capitalize_first, find_lake_root
 
 # Import from sibling tools package
@@ -28,6 +28,7 @@ def translate_test_file(
     test_file: Path,
     *,
     target: str = "Rat",
+    int_model: str = "int",
 ) -> int | None:
     """Append test functions to the main crate, translate, extract test defs.
 
@@ -101,7 +102,7 @@ def translate_test_file(
                         combined_text = lean_f64_to_rat(combined_text)
                     except NonComputableError:
                         raise
-                combined_text = lean_integers_to_int(combined_text)
+                combined_text = lean_integers_to_model(combined_text, int_model)
                 combined_text = inline_f64_helpers(combined_text)
                 combined_text = inline_i64_helpers(combined_text)
                 if _use_real:

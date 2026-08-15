@@ -35,6 +35,7 @@ class Translator:
         verbose: bool = False,
         target: str = "Rat",
         loops_to_rec: bool = True,
+        int_model: str = "int",
     ):
         _root = Path(__file__).resolve().parent
         self.charon = str(
@@ -44,6 +45,7 @@ class Translator:
         self.verbose = verbose
         self.target = target
         self.loops_to_rec = loops_to_rec
+        self.int_model = int_model
 
     # ── public API ──────────────────────────────────────────────────────────
 
@@ -123,6 +125,7 @@ class Translator:
                         output_path,
                         test_file,
                         target=self.target,
+                        int_model=self.int_model,
                     )
                     if test_defs is not None:
                         results.append(
@@ -193,6 +196,7 @@ class Translator:
                 workdir,
                 output_path,
                 target=target if target is not None else self.target,
+                int_model=self.int_model,
             )
             if def_count == 0:
                 fail("output", "no definitions written")
@@ -230,6 +234,12 @@ if __name__ == "__main__":
         default=True,
         help="Pass -loops-to-rec to aeneas (default: True). Use --no-loops-to-rec for loop combinator.",
     )
+    p.add_argument(
+        "--int-model",
+        default="int",
+        choices=["int", "nat", "bitvec"],
+        help="Integer model: int (default, all → Int), nat (unsigned → Nat), bitvec (unsigned → BitVec w).",
+    )
     args = p.parse_args()
 
     t = Translator(
@@ -238,6 +248,7 @@ if __name__ == "__main__":
         verbose=args.verbose,
         target=args.target,
         loops_to_rec=args.loops_to_rec,
+        int_model=args.int_model,
     )
     ok = t.translate(args.project_dir, args.output_dir)
     raise SystemExit(0 if ok else 1)
