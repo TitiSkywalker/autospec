@@ -1,4 +1,5 @@
 //! Modular exponentiation — computes `base^exp mod modulus` (square-and-multiply).
+//! Source: num-bigint `src/biguint/power.rs` (modpow).
 
 /// Computes `base^exp mod modulus` for `modulus > 0`.
 pub fn mod_pow(base: u64, exp: u64, modulus: u64) -> u64 {

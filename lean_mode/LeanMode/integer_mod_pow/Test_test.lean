@@ -17,35 +17,35 @@ set_option maxRecDepth 2048
 namespace integer_mod_pow
 
 /-- [integer_mod_pow::test_mod_pow_1]:
-    Source: 'src/lib.rs', lines 19:0-21:1
+    Source: 'src/lib.rs', lines 20:0-22:1
     Visibility: public -/
 def test_mod_pow_1 : Result Unit := do
   let left_val ← mod_pow 2 3 5
   massert (left_val = 3)
 
 /-- [integer_mod_pow::test_mod_pow_2]:
-    Source: 'src/lib.rs', lines 23:0-25:1
+    Source: 'src/lib.rs', lines 24:0-26:1
     Visibility: public -/
 def test_mod_pow_2 : Result Unit := do
   let left_val ← mod_pow 7 2 13
   massert (left_val = 10)
 
 /-- [integer_mod_pow::test_mod_pow_3]:
-    Source: 'src/lib.rs', lines 27:0-29:1
+    Source: 'src/lib.rs', lines 28:0-30:1
     Visibility: public -/
 def test_mod_pow_3 : Result Unit := do
   let left_val ← mod_pow 5 5 31
   massert (left_val = 25)
 
 /-- [integer_mod_pow::test_mod_pow_4]:
-    Source: 'src/lib.rs', lines 31:0-33:1
+    Source: 'src/lib.rs', lines 32:0-34:1
     Visibility: public -/
 def test_mod_pow_4 : Result Unit := do
   let left_val ← mod_pow 10 8 11
   massert (left_val = 1)
 
 /-- [integer_mod_pow::test_mod_pow_5]:
-    Source: 'src/lib.rs', lines 35:0-37:1
+    Source: 'src/lib.rs', lines 36:0-38:1
     Visibility: public -/
 def test_mod_pow_5 : Result Unit := do
   let left_val ← mod_pow 123 45 67

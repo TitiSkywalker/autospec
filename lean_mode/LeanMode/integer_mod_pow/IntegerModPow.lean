@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_mod_pow
 
 /-- [integer_mod_pow::mod_pow]: loop 0:
-    Source: 'src/lib.rs', lines 9:4-15:5
+    Source: 'src/lib.rs', lines 10:4-16:5
     Visibility: public -/
 @[rust_loop]
 def mod_pow_loop
@@ -40,7 +40,7 @@ def mod_pow_loop
 partial_fixpoint
 
 /-- [integer_mod_pow::mod_pow]:
-    Source: 'src/lib.rs', lines 4:0-17:1
+    Source: 'src/lib.rs', lines 5:0-18:1
     Visibility: public -/
 def mod_pow
   (base : Int) (exp : Int) (modulus : Int) : Result Int := do
