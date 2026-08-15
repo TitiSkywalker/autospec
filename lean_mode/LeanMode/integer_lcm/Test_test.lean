@@ -17,42 +17,42 @@ set_option maxRecDepth 2048
 namespace integer_lcm
 
 /-- [integer_lcm::test_lcm_coprime]:
-    Source: 'src/lib.rs', lines 19:0-21:1
+    Source: 'src/lib.rs', lines 20:0-22:1
     Visibility: public -/
 def test_lcm_coprime : Result Unit := do
   let left_val ← lcm 7 13
   massert (left_val = 91)
 
 /-- [integer_lcm::test_lcm_divisor]:
-    Source: 'src/lib.rs', lines 23:0-25:1
+    Source: 'src/lib.rs', lines 24:0-26:1
     Visibility: public -/
 def test_lcm_divisor : Result Unit := do
   let left_val ← lcm 100 25
   massert (left_val = 100)
 
 /-- [integer_lcm::test_lcm_1]:
-    Source: 'src/lib.rs', lines 27:0-29:1
+    Source: 'src/lib.rs', lines 28:0-30:1
     Visibility: public -/
 def test_lcm_1 : Result Unit := do
   let left_val ← lcm 4 6
   massert (left_val = 12)
 
 /-- [integer_lcm::test_lcm_2]:
-    Source: 'src/lib.rs', lines 31:0-33:1
+    Source: 'src/lib.rs', lines 32:0-34:1
     Visibility: public -/
 def test_lcm_2 : Result Unit := do
   let left_val ← lcm 12 18
   massert (left_val = 36)
 
 /-- [integer_lcm::test_lcm_large]:
-    Source: 'src/lib.rs', lines 35:0-37:1
+    Source: 'src/lib.rs', lines 36:0-38:1
     Visibility: public -/
 def test_lcm_large : Result Unit := do
   let left_val ← lcm 21 110
   massert (left_val = 2310)
 
 /-- [integer_lcm::test_lcm_zero]:
-    Source: 'src/lib.rs', lines 39:0-43:1
+    Source: 'src/lib.rs', lines 40:0-44:1
     Visibility: public -/
 def test_lcm_zero : Result Unit := do
   let left_val ← lcm 0 5

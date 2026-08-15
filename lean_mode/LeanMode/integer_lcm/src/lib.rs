@@ -1,4 +1,5 @@
 //! Least common multiple of two non-negative integers.
+//! Source: num-integer `src/lib.rs` (lcm).
 
 /// Computes `lcm(a, b) = a * b / gcd(a, b)`.
 pub fn lcm(a: u64, b: u64) -> u64 {

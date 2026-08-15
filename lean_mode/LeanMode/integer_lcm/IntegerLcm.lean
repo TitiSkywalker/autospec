@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_lcm
 
 /-- [integer_lcm::lcm]: loop 0:
-    Source: 'src/lib.rs', lines 10:8-14:9
+    Source: 'src/lib.rs', lines 11:8-15:9
     Visibility: public -/
 @[rust_loop]
 def lcm_loop (x : Int) (y : Int) : Result Int := do
@@ -27,7 +27,7 @@ def lcm_loop (x : Int) (y : Int) : Result Int := do
 partial_fixpoint
 
 /-- [integer_lcm::lcm]:
-    Source: 'src/lib.rs', lines 4:0-17:1
+    Source: 'src/lib.rs', lines 5:0-18:1
     Visibility: public -/
 def lcm (a : Int) (b : Int) : Result Int := do
   if a = 0
