@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 
 namespace integer_div_mod
 /-- [integer_div_mod::div_floor]:
-    Source: 'src/lib.rs', lines 8:0-17:1
+    Source: 'src/lib.rs', lines 9:0-18:1
     Visibility: public -/
 def div_floor (a : Int) (b : Int) : Result Int := do
   let b1 := b ≠ 0
@@ -48,7 +48,7 @@ def div_floor (a : Int) (b : Int) : Result Int := do
     else ok d
 
 /-- [integer_div_mod::mod_floor]:
-    Source: 'src/lib.rs', lines 20:0-28:1
+    Source: 'src/lib.rs', lines 21:0-29:1
     Visibility: public -/
 def mod_floor (a : Int) (b : Int) : Result Int := do
   let b1 := b ≠ 0
@@ -80,7 +80,7 @@ def mod_floor (a : Int) (b : Int) : Result Int := do
     else ok r
 
 /-- [integer_div_mod::div_ceil]:
-    Source: 'src/lib.rs', lines 31:0-40:1
+    Source: 'src/lib.rs', lines 32:0-41:1
     Visibility: public -/
 def div_ceil (a : Int) (b : Int) : Result Int := do
   let b1 := b ≠ 0

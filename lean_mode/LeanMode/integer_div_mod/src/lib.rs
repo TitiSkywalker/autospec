@@ -1,4 +1,5 @@
 //! Euclidean (floored) division and modulo, and ceiling division.
+//! Source: num-integer `src/lib.rs` (div_floor / mod_floor / div_ceil).
 //!
 //! These use the Daan Leijen algorithm (Division and Modulus for Computer
 //! Scientists, 2001) to derive floored/ceiled results from truncating

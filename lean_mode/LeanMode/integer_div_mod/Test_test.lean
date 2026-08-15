@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace integer_div_mod
 
 /-- [integer_div_mod::test_pos_pos]:
-    Source: 'src/lib.rs', lines 42:0-46:1
+    Source: 'src/lib.rs', lines 43:0-47:1
     Visibility: public -/
 def test_pos_pos : Result Unit := do
   let left_val ← div_floor 7 3
@@ -31,7 +31,7 @@ def test_pos_pos : Result Unit := do
   massert b2
 
 /-- [integer_div_mod::test_neg_pos]:
-    Source: 'src/lib.rs', lines 48:0-52:1
+    Source: 'src/lib.rs', lines 49:0-53:1
     Visibility: public -/
 def test_neg_pos : Result Unit := do
   let left_val ← div_floor (-7) 3
@@ -45,7 +45,7 @@ def test_neg_pos : Result Unit := do
   massert b2
 
 /-- [integer_div_mod::test_pos_neg]:
-    Source: 'src/lib.rs', lines 54:0-58:1
+    Source: 'src/lib.rs', lines 55:0-59:1
     Visibility: public -/
 def test_pos_neg : Result Unit := do
   let left_val ← div_floor 7 (-3)
@@ -59,7 +59,7 @@ def test_pos_neg : Result Unit := do
   massert b2
 
 /-- [integer_div_mod::test_neg_neg]:
-    Source: 'src/lib.rs', lines 60:0-64:1
+    Source: 'src/lib.rs', lines 61:0-65:1
     Visibility: public -/
 def test_neg_neg : Result Unit := do
   let left_val ← div_floor (-7) (-3)
@@ -73,7 +73,7 @@ def test_neg_neg : Result Unit := do
   massert b2
 
 /-- [integer_div_mod::test_exact_div]:
-    Source: 'src/lib.rs', lines 66:0-73:1
+    Source: 'src/lib.rs', lines 67:0-74:1
     Visibility: public -/
 def test_exact_div : Result Unit := do
   let left_val ← div_floor 6 3
