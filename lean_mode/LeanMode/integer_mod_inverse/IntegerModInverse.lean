@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 
 namespace integer_mod_inverse
 /-- [integer_mod_inverse::mod_inverse]: loop 0:
-    Source: 'src/lib.rs', lines 11:4-19:5
+    Source: 'src/lib.rs', lines 12:4-20:5
     Visibility: public -/
 @[rust_loop]
 def mod_inverse_loop
@@ -35,7 +35,7 @@ def mod_inverse_loop
 partial_fixpoint
 
 /-- [integer_mod_inverse::mod_inverse]:
-    Source: 'src/lib.rs', lines 6:0-23:1
+    Source: 'src/lib.rs', lines 7:0-24:1
     Visibility: public -/
 def mod_inverse (b : Int) (m : Int) : Result Int := do
   let (old_r, old_s) ← mod_inverse_loop b m 1 0

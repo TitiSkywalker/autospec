@@ -1,4 +1,5 @@
 //! Modular multiplicative inverse — computes `b⁻¹ mod m` when `gcd(b, m) = 1`.
+//! Source: num-bigint `src/biguint.rs` (modinv).
 
 /// Returns the modular inverse of `b` modulo `m` (requires `gcd(b, m) = 1`).
 ///

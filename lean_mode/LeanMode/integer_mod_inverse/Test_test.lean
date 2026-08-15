@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace integer_mod_inverse
 
 /-- [integer_mod_inverse::test_inverse_1]:
-    Source: 'src/lib.rs', lines 25:0-27:1
+    Source: 'src/lib.rs', lines 26:0-28:1
     Visibility: public -/
 def test_inverse_1 : Result Unit := do
   let left_val ← mod_inverse 7 13
@@ -25,7 +25,7 @@ def test_inverse_1 : Result Unit := do
   massert b
 
 /-- [integer_mod_inverse::test_inverse_2]:
-    Source: 'src/lib.rs', lines 29:0-31:1
+    Source: 'src/lib.rs', lines 30:0-32:1
     Visibility: public -/
 def test_inverse_2 : Result Unit := do
   let left_val ← mod_inverse 5 31
@@ -33,7 +33,7 @@ def test_inverse_2 : Result Unit := do
   massert b
 
 /-- [integer_mod_inverse::test_inverse_3]:
-    Source: 'src/lib.rs', lines 33:0-35:1
+    Source: 'src/lib.rs', lines 34:0-36:1
     Visibility: public -/
 def test_inverse_3 : Result Unit := do
   let left_val ← mod_inverse 10 11
@@ -41,7 +41,7 @@ def test_inverse_3 : Result Unit := do
   massert b
 
 /-- [integer_mod_inverse::test_inverse_4]:
-    Source: 'src/lib.rs', lines 37:0-39:1
+    Source: 'src/lib.rs', lines 38:0-40:1
     Visibility: public -/
 def test_inverse_4 : Result Unit := do
   let left_val ← mod_inverse 123 67
@@ -49,7 +49,7 @@ def test_inverse_4 : Result Unit := do
   massert b
 
 /-- [integer_mod_inverse::test_inverse_5]:
-    Source: 'src/lib.rs', lines 41:0-43:1
+    Source: 'src/lib.rs', lines 42:0-44:1
     Visibility: public -/
 def test_inverse_5 : Result Unit := do
   let left_val ← mod_inverse 9 17
