@@ -9,13 +9,12 @@ set_option linter.unusedVariables false
 /-!
 # Specification: Integer GCD
 
-`compute_gcd` computes the greatest common divisor of two integers
-using the Euclidean algorithm.  The result is always non-negative
-and matches `Int.gcd` from Mathlib.
+`compute_gcd` computes the greatest common divisor of two natural numbers
+using the Euclidean algorithm.  The result matches `Nat.gcd` from Mathlib.
 -/
 
-/-- Correctness of GCD: the result matches `Int.gcd`. -/
-theorem compute_gcd_correct (a b result : Int)
+/-- Correctness of GCD: the result matches `Nat.gcd`. -/
+theorem compute_gcd_correct (a b result : Nat)
     (h : compute_gcd a b = ok result) :
-    result = Int.gcd a b := by
+    result = Nat.gcd a b := by
   sorry

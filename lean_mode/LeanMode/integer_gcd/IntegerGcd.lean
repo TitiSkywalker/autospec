@@ -19,7 +19,7 @@ namespace integer_gcd
     Source: 'src/lib.rs', lines 5:4-9:5
     Visibility: public -/
 @[rust_loop]
-def compute_gcd_loop (a : Int) (b : Int) : Result Int := do
+def compute_gcd_loop (a : Nat) (b : Nat) : Result Nat := do
   if b != 0
   then let b1 := a % b
        compute_gcd_loop b b1
@@ -30,7 +30,7 @@ partial_fixpoint
     Source: 'src/lib.rs', lines 4:0-11:1
     Visibility: public -/
 @[reducible]
-def compute_gcd (a : Int) (b : Int) : Result Int := do
+def compute_gcd (a : Nat) (b : Nat) : Result Nat := do
   compute_gcd_loop a b
 
 end integer_gcd
