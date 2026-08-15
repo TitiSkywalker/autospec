@@ -111,14 +111,34 @@ During translation, `f64` is replaced:
 Rule of thumb: does the algorithm use `sqrt`/transcendental functions? No → Rat (has
 `Test_test.lean`); yes → Real (impl + Spec only).
 
-### Integers → Int
+### Integers: `Int` vs `Nat` (the `--int-model` flag)
 
-Analogous to `f64 → Rat`, integer types (`i32`, `u64`, …) are replaced by Lean's `Int`
-(via the i64 adapter) to sidestep bit-width / overflow concerns. `usize` is **not**
-replaced (it is used for array indexing). So you can use `i32`/`i64`/`u64` freely in Rust;
-they become `Int` in the generated Lean. Existing examples: `array_bubble_sort` /
-`array_binary_search` use `i32`, `graph_dijkstra` / `graph_bellman_ford` use `i64`,
-`integer_gcd` uses `u64`.
+The translator has `--int-model {int,nat,bitvec}`:
+
+- **`int` (default)** — every integer type (`i32`/`i64`/`u32`/`u64`/…) → `Int`
+  (unbounded signed), sidestepping bit-width / overflow. `usize` is **not**
+  replaced (it is used for array indexing).
+- **`nat`** — **unsigned** types (`u32`/`u64`/…) → `Nat`; **signed** (`i32`/`i64`) → `Int`.
+- **`bitvec`** — unsigned → `BitVec w` (fixed-width wrapping); signed → `Int`.
+
+**Prefer `nat` for purely non-negative algorithms** (gcd, lcm, factorial, totient,
+`pow`, `mod_pow`, …): the spec is then stated over `Nat` (`result = Nat.factorial n`,
+`result = Nat.gcd a b`) instead of `Int` + `.toNat`, avoiding negative-value edge cases
+and the `Int.toNat` truncation footgun. Set it per testcase in `Cargo.toml` — no CLI
+flag needed, `translate.py` reads it and `translate_all.py` respects it:
+
+```toml
+[package.metadata.autospec]
+int-model = "nat"
+```
+
+Mixed directions work: Möbius `μ(n)` uses `u64 → Nat` for its input but
+`i64 → Int` for its `-1/0/1` result.
+
+Existing examples: `array_bubble_sort` / `array_binary_search` use `i32`,
+`graph_dijkstra` / `graph_bellman_ford` use `i64`; the `integer_*` testcases use
+`u64` + `nat` except `extended_gcd` / `mod_inverse` / `div_mod`, which need `i64`
+(signed Bézout coefficients / intermediate negatives).
 
 ---
 
@@ -241,6 +261,17 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   loop flattening, but flat `while` loops are safest.
 - **`f64` comparison inside an `if` condition** can trigger binop errors — hoist it:
   `let cond = a > b; if cond { ... }`.
+- **Rust `%`/`/` (truncating) vs Lean `%`/`/` (Euclidean)**: Rust's `%` and `/` truncate
+  toward zero (sign follows the dividend); Lean's `Int` `%`/`/` are Euclidean
+  (`emod`/`ediv`, remainder always `≥ 0`). They agree on non-negative operands but differ
+  on negatives — Rust `(-5) % 3 == -2`, Lean `(-5) % 3 == 1`. This is why the Daan Leijen
+  `div_floor`/`mod_floor`/`div_ceil` formulas and the `(x % m + m) % m` normalization are
+  written to survive both semantics. When in doubt, keep inputs non-negative (use `nat`).
+- **Integer spec helpers** (`Int`/`Nat` gcd, division): `Int.gcd : Int → Int → Nat`
+  returns `Nat` (so under `int` model `result = Int.gcd a b` coerces the RHS to `Int`;
+  under `nat` use `Nat.gcd`). Core Lean also exposes `Int.fdiv` (floor) / `Int.tdiv`
+  (trunc) / `Int.ediv` (Euclid) with matching `fmod`/`tmod`/`emod`, plus `Int.natAbs`,
+  `Nat.gcd`, `Nat.factorial`, `Nat.totient`. Ceiling division: `⌈a/b⌉ = -(Int.fdiv (-a) b)`.
 
 ---
 
