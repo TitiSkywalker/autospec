@@ -17,14 +17,14 @@ set_option maxRecDepth 2048
 namespace integer_euler_totient
 
 /-- [integer_euler_totient::test_totient_one]:
-    Source: 'src/lib.rs', lines 23:0-25:1
+    Source: 'src/lib.rs', lines 24:0-26:1
     Visibility: public -/
 def test_totient_one : Result Unit := do
   let left_val ← euler_totient 1
   massert (left_val = 1)
 
 /-- [integer_euler_totient::test_totient_prime]:
-    Source: 'src/lib.rs', lines 27:0-31:1
+    Source: 'src/lib.rs', lines 28:0-32:1
     Visibility: public -/
 def test_totient_prime : Result Unit := do
   let left_val ← euler_totient 2
@@ -35,7 +35,7 @@ def test_totient_prime : Result Unit := do
   massert (left_val2 = 12)
 
 /-- [integer_euler_totient::test_totient_composite]:
-    Source: 'src/lib.rs', lines 33:0-37:1
+    Source: 'src/lib.rs', lines 34:0-38:1
     Visibility: public -/
 def test_totient_composite : Result Unit := do
   let left_val ← euler_totient 10
@@ -46,7 +46,7 @@ def test_totient_composite : Result Unit := do
   massert (left_val2 = 8)
 
 /-- [integer_euler_totient::test_totient_large]:
-    Source: 'src/lib.rs', lines 39:0-42:1
+    Source: 'src/lib.rs', lines 40:0-43:1
     Visibility: public -/
 def test_totient_large : Result Unit := do
   let left_val ← euler_totient 100

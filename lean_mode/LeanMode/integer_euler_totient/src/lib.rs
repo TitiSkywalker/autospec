@@ -1,4 +1,5 @@
 //! Euler's totient function φ(n).
+//! Source: TheAlgorithms/Rust `src/number_theory/euler_totient.rs`.
 
 /// Computes φ(n) = n * Π_{p|n} (1 - 1/p) via trial division.
 pub fn euler_totient(n: u64) -> u64 {

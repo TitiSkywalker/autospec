@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_euler_totient
 
 /-- [integer_euler_totient::euler_totient]: loop 1:
-    Source: 'src/lib.rs', lines 10:12-12:13
+    Source: 'src/lib.rs', lines 11:12-13:13
     Visibility: public -/
 @[rust_loop]
 def euler_totient_loop0_loop0
@@ -29,7 +29,7 @@ def euler_totient_loop0_loop0
 partial_fixpoint
 
 /-- [integer_euler_totient::euler_totient]: loop 0:
-    Source: 'src/lib.rs', lines 8:4-16:5
+    Source: 'src/lib.rs', lines 9:4-17:5
     Visibility: public -/
 @[rust_loop]
 def euler_totient_loop0
@@ -53,7 +53,7 @@ def euler_totient_loop0
 partial_fixpoint
 
 /-- [integer_euler_totient::euler_totient]:
-    Source: 'src/lib.rs', lines 4:0-21:1
+    Source: 'src/lib.rs', lines 5:0-22:1
     Visibility: public -/
 def euler_totient (n : Int) : Result Int := do
   let (result, num) ← euler_totient_loop0 n n 2
