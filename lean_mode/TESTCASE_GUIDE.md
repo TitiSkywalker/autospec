@@ -272,6 +272,18 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   under `nat` use `Nat.gcd`). Core Lean also exposes `Int.fdiv` (floor) / `Int.tdiv`
   (trunc) / `Int.ediv` (Euclid) with matching `fmod`/`tmod`/`emod`, plus `Int.natAbs`,
   `Nat.gcd`, `Nat.factorial`, `Nat.totient`. Ceiling division: `⌈a/b⌉ = -(Int.fdiv (-a) b)`.
+- **Indexed write with an arithmetic RHS fails** (`usize`/`Std.Usize`): `v[i] = x + y`,
+  `v[i] = x * y`, `v[i] = x - y` (add/sub/mul directly in a `Vec` index-mut write) raise
+  Aeneas "Unimplemented binary operation" — these lower to the *checked* ops
+  (`AddChecked`/`SubChecked`/`MulChecked`) which the symbolic evaluator can't handle.
+  `v[i] = x / y` (division) and `v[i] = <var>`/`<literal>` are fine. Fix: hoist the
+  arithmetic into a `let` first — `let t = x + y; v[i] = t;`. (This is why
+  `integer_euler_totient_sieve` writes `let pm1 = p - 1; phi[p] = pm1;`.)
+- **`assert_eq!` on `Vec<u64>` fails** (`PartialEqNat` unknown): comparing two `Vec<u64>`
+  (→ `alloc.vec.Vec Nat`) with `assert_eq!` in `tests/test.rs` fails to compile — `Nat`'s
+  `PartialEq` isn't imported under that name. `Vec<usize>` (→ `Vec Std.Usize`) compares
+  fine. Fix: compare element-by-element — `assert_eq!(f.len(), n)` + `assert_eq!(f[0], x)`
+  etc. (see `integer_factors` / `integer_prime_factors` tests).
 
 ---
 
