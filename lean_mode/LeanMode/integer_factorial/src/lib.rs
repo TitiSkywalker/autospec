@@ -1,4 +1,5 @@
 //! Factorial of a non-negative integer.
+//! Source: TheAlgorithms/Rust `src/math/factorial.rs`.
 
 /// Computes `n!` iteratively.
 pub fn factorial(n: u64) -> u64 {

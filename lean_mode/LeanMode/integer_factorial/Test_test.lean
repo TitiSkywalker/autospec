@@ -17,21 +17,21 @@ set_option maxRecDepth 2048
 namespace integer_factorial
 
 /-- [integer_factorial::test_factorial_zero]:
-    Source: 'src/lib.rs', lines 14:0-16:1
+    Source: 'src/lib.rs', lines 15:0-17:1
     Visibility: public -/
 def test_factorial_zero : Result Unit := do
   let left_val ← factorial 0
   massert (left_val = 1)
 
 /-- [integer_factorial::test_factorial_one]:
-    Source: 'src/lib.rs', lines 18:0-20:1
+    Source: 'src/lib.rs', lines 19:0-21:1
     Visibility: public -/
 def test_factorial_one : Result Unit := do
   let left_val ← factorial 1
   massert (left_val = 1)
 
 /-- [integer_factorial::test_factorial_small]:
-    Source: 'src/lib.rs', lines 22:0-25:1
+    Source: 'src/lib.rs', lines 23:0-26:1
     Visibility: public -/
 def test_factorial_small : Result Unit := do
   let left_val ← factorial 5
@@ -40,7 +40,7 @@ def test_factorial_small : Result Unit := do
   massert (left_val1 = 720)
 
 /-- [integer_factorial::test_factorial_ten]:
-    Source: 'src/lib.rs', lines 27:0-29:1
+    Source: 'src/lib.rs', lines 28:0-30:1
     Visibility: public -/
 def test_factorial_ten : Result Unit := do
   let left_val ← factorial 10

@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_factorial
 
 /-- [integer_factorial::factorial]: loop 0:
-    Source: 'src/lib.rs', lines 7:4-10:5
+    Source: 'src/lib.rs', lines 8:4-11:5
     Visibility: public -/
 @[rust_loop]
 def factorial_loop
@@ -30,7 +30,7 @@ def factorial_loop
 partial_fixpoint
 
 /-- [integer_factorial::factorial]:
-    Source: 'src/lib.rs', lines 4:0-12:1
+    Source: 'src/lib.rs', lines 5:0-13:1
     Visibility: public -/
 @[reducible]
 def factorial (n : Int) : Result Int := do
