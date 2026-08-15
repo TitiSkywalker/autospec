@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace integer_div_mod
 
 /-- [integer_div_mod::test_pos_pos]:
-    Source: 'src/lib.rs', lines 43:0-47:1
+    Source: 'src/lib.rs', lines 30:0-33:1
     Visibility: public -/
 def test_pos_pos : Result Unit := do
   let left_val ← div_floor 7 3
@@ -26,12 +26,9 @@ def test_pos_pos : Result Unit := do
   let left_val1 ← mod_floor 7 3
   let b1 := left_val1 = 1
   massert b1
-  let left_val2 ← div_ceil 7 3
-  let b2 := left_val2 = 3
-  massert b2
 
 /-- [integer_div_mod::test_neg_pos]:
-    Source: 'src/lib.rs', lines 49:0-53:1
+    Source: 'src/lib.rs', lines 35:0-38:1
     Visibility: public -/
 def test_neg_pos : Result Unit := do
   let left_val ← div_floor (-7) 3
@@ -40,12 +37,9 @@ def test_neg_pos : Result Unit := do
   let left_val1 ← mod_floor (-7) 3
   let b1 := left_val1 = 2
   massert b1
-  let left_val2 ← div_ceil (-7) 3
-  let b2 := left_val2 = (-2)
-  massert b2
 
 /-- [integer_div_mod::test_pos_neg]:
-    Source: 'src/lib.rs', lines 55:0-59:1
+    Source: 'src/lib.rs', lines 40:0-43:1
     Visibility: public -/
 def test_pos_neg : Result Unit := do
   let left_val ← div_floor 7 (-3)
@@ -54,12 +48,9 @@ def test_pos_neg : Result Unit := do
   let left_val1 ← mod_floor 7 (-3)
   let b1 := left_val1 = (-2)
   massert b1
-  let left_val2 ← div_ceil 7 (-3)
-  let b2 := left_val2 = (-2)
-  massert b2
 
 /-- [integer_div_mod::test_neg_neg]:
-    Source: 'src/lib.rs', lines 61:0-65:1
+    Source: 'src/lib.rs', lines 45:0-48:1
     Visibility: public -/
 def test_neg_neg : Result Unit := do
   let left_val ← div_floor (-7) (-3)
@@ -68,12 +59,9 @@ def test_neg_neg : Result Unit := do
   let left_val1 ← mod_floor (-7) (-3)
   let b1 := left_val1 = (-1)
   massert b1
-  let left_val2 ← div_ceil (-7) (-3)
-  let b2 := left_val2 = 3
-  massert b2
 
 /-- [integer_div_mod::test_exact_div]:
-    Source: 'src/lib.rs', lines 67:0-74:1
+    Source: 'src/lib.rs', lines 50:0-55:1
     Visibility: public -/
 def test_exact_div : Result Unit := do
   let left_val ← div_floor 6 3
@@ -82,18 +70,12 @@ def test_exact_div : Result Unit := do
   let left_val1 ← mod_floor 6 3
   let b1 := left_val1 = 0
   massert b1
-  let left_val2 ← div_ceil 6 3
-  let b2 := left_val2 = 2
+  let left_val2 ← div_floor (-6) 3
+  let b2 := left_val2 = (-2)
   massert b2
-  let left_val3 ← div_floor (-6) 3
-  let b3 := left_val3 = (-2)
+  let left_val3 ← mod_floor (-6) 3
+  let b3 := left_val3 = 0
   massert b3
-  let left_val4 ← mod_floor (-6) 3
-  let b4 := left_val4 = 0
-  massert b4
-  let left_val5 ← div_ceil (-6) 3
-  let b5 := left_val5 = (-2)
-  massert b5
 
 #eval test_exact_div
 
