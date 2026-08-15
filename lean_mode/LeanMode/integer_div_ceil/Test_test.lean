@@ -17,35 +17,35 @@ set_option maxRecDepth 2048
 namespace integer_div_ceil
 
 /-- [integer_div_ceil::test_div_ceil_1]:
-    Source: 'src/lib.rs', lines 15:0-17:1
+    Source: 'src/lib.rs', lines 16:0-18:1
     Visibility: public -/
 def test_div_ceil_1 : Result Unit := do
   let left_val ← div_ceil_u64 7 3
   massert (left_val = 3)
 
 /-- [integer_div_ceil::test_div_ceil_exact]:
-    Source: 'src/lib.rs', lines 19:0-21:1
+    Source: 'src/lib.rs', lines 20:0-22:1
     Visibility: public -/
 def test_div_ceil_exact : Result Unit := do
   let left_val ← div_ceil_u64 6 3
   massert (left_val = 2)
 
 /-- [integer_div_ceil::test_div_ceil_zero]:
-    Source: 'src/lib.rs', lines 23:0-25:1
+    Source: 'src/lib.rs', lines 24:0-26:1
     Visibility: public -/
 def test_div_ceil_zero : Result Unit := do
   let left_val ← div_ceil_u64 0 3
   massert (left_val = 0)
 
 /-- [integer_div_ceil::test_div_ceil_one]:
-    Source: 'src/lib.rs', lines 27:0-29:1
+    Source: 'src/lib.rs', lines 28:0-30:1
     Visibility: public -/
 def test_div_ceil_one : Result Unit := do
   let left_val ← div_ceil_u64 1 3
   massert (left_val = 1)
 
 /-- [integer_div_ceil::test_div_ceil_large]:
-    Source: 'src/lib.rs', lines 31:0-33:1
+    Source: 'src/lib.rs', lines 32:0-34:1
     Visibility: public -/
 def test_div_ceil_large : Result Unit := do
   let left_val ← div_ceil_u64 100 7

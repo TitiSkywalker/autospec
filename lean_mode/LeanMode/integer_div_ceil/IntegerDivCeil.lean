@@ -16,7 +16,7 @@ set_option maxRecDepth 2048
 namespace integer_div_ceil
 
 /-- [integer_div_ceil::div_ceil_u64]:
-    Source: 'src/lib.rs', lines 4:0-13:1
+    Source: 'src/lib.rs', lines 5:0-14:1
     Visibility: public -/
 def div_ceil_u64 (lhs : Int) (rhs : Int) : Result Int := do
   massert (rhs > 0)

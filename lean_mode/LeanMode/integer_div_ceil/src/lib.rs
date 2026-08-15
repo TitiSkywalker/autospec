@@ -1,4 +1,5 @@
 //! Ceiling division for unsigned integers: `ceil(lhs / rhs)`.
+//! Source: num-prime `src/util.rs` (div_ceil_u64).
 
 /// Computes `ceil(lhs / rhs)` for `rhs > 0`.
 pub fn div_ceil_u64(lhs: u64, rhs: u64) -> u64 {
