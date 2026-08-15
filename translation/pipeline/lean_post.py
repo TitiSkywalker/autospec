@@ -434,6 +434,13 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     def is_usize(tok: str) -> bool:
         return tok in usize_vars
 
+    def track(x: str, a: str, b: str) -> None:
+        """Record ``x``'s type based on its operands (for later lines)."""
+        if is_usize(a) or is_usize(b):
+            usize_vars.add(x)
+        elif is_int(a) and is_int(b):
+            int_vars.add(x)
+
     def apply(prefix: str, x: str, a: str, op: str, b: str) -> str:
         if is_int(a) and is_int(b) and not is_usize(a) and not is_usize(b):
             int_vars.add(x)
@@ -461,29 +468,40 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     if m:
         return apply(*m.groups())
 
+    # Pure let-binding: let x := A op B — already pure, just record x's type
+    # so that subsequent ``let y ← … x …`` / ``then x op …`` can be converted.
+    m = re.match(
+        r"^\s*(?:then\s+|else\s+)?let\s+(\w+)\s+:=\s+(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$",
+        line,
+    )
+    if m:
+        x, a, _op, b = m.groups()
+        track(x, a, b)
+        return line
+
     # Tail-position pure integer expression (no `let`): wrap in `ok (...)`.
     def tail_ok(a: str, op: str, b: str) -> str | None:
         if is_int(a) and is_int(b) and not is_usize(a) and not is_usize(b):
             return f"ok ({a} {op} {b})"
         return None
 
-    # arithmetic tail: A op B
-    m = re.match(r"^(\s*)(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
+    # arithmetic tail: A op B (optionally after then/else)
+    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
     if m:
-        r = tail_ok(m.group(2), m.group(3), m.group(4))
-        return m.group(1) + r if r else line
+        r = tail_ok(m.group(3), m.group(4), m.group(5))
+        return m.group(1) + m.group(2) + r if r else line
 
-    # bitwise tail: lift (A &&& B)
-    m = re.match(r"^(\s*)lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line)
+    # bitwise tail: lift (A &&& B) (optionally after then/else)
+    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line)
     if m:
-        r = tail_ok(m.group(2), m.group(3), m.group(4))
-        return m.group(1) + r if r else line
+        r = tail_ok(m.group(3), m.group(4), m.group(5))
+        return m.group(1) + m.group(2) + r if r else line
 
-    # shift tail: A <<< B
-    m = re.match(r"^(\s*)(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
+    # shift tail: A <<< B (optionally after then/else)
+    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
     if m:
-        r = tail_ok(m.group(2), m.group(3), m.group(4))
-        return m.group(1) + r if r else line
+        r = tail_ok(m.group(3), m.group(4), m.group(5))
+        return m.group(1) + m.group(2) + r if r else line
 
     return line
 

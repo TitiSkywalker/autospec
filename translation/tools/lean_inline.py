@@ -247,17 +247,19 @@ def inline_i64_helpers(content: str) -> str:
         content,
     )
 
-    # Step 8: tail-position calls (return value of do block)
+    # Step 8: tail-position calls (return value of do block).
+    # AENEAS may emit the call on its own line, optionally after ``then`` /
+    # ``else`` (e.g. ``then i64_helpers.sub d 1``), so accept that prefix.
     for name, op in _I64_BINARY.items():
         content = re.sub(
-            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
             rf"\1\2ok (\3 {op} \4)",
             content,
             flags=re.MULTILINE,
         )
     for name, op in _I64_COMPARISON.items():
         content = re.sub(
-            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+            rf"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
             rf"\1\2ok (\3 {op} \4)",
             content,
             flags=re.MULTILINE,
@@ -265,35 +267,38 @@ def inline_i64_helpers(content: str) -> str:
     for name, (func, needs_val) in _I64_BITWISE.items():
         if needs_val:
             content = re.sub(
-                rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+                rf"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
                 rf"\1\2ok ({func} \3 \4.val)",
                 content,
                 flags=re.MULTILINE,
             )
         else:
             content = re.sub(
-                rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
+                rf"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.{name}\s+(\S+)\s+(\S+)[ \t]*$",
                 rf"\1\2ok ({func} \3 \4)",
                 content,
                 flags=re.MULTILINE,
             )
     for name, (prefix, suffix) in _I64_UNARY.items():
         content = re.sub(
-            rf"(^|\n)(\s+)i64_helpers\.{name}\s+(\S+)[ \t]*$",
+            rf"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.{name}\s+(\S+)[ \t]*$",
             rf"\1\2ok ({prefix}\3{suffix})",
             content,
             flags=re.MULTILINE,
         )
     content = re.sub(
-        r"(^|\n)(\s+)i64_helpers\.from_usize\s+(\S+)[ \t]*$",
+        r"(^|\n)([ \t]*(?:then[ \t]+|else[ \t]+)?)i64_helpers\.from_usize\s+(\S+)[ \t]*$",
         r"\1\2ok ((\3.val : Int))",
         content,
         flags=re.MULTILINE,
     )
 
-    # Step 9: handle i64_helpers calls outside a let binding
-    content = re.sub(r"i64_helpers\.neg\s+(\S+)", r"ok (-\1)", content)
-    content = re.sub(r"i64_helpers\.not\s+(\S+)", r"ok (-(\1 + 1))", content)
+    # Step 9: handle i64_helpers calls outside a let binding.
+    # ``(?!:)`` avoids matching the ``axiom i64_helpers.neg : …`` definition
+    # line (its ``\S+`` would otherwise capture ``:`` and corrupt the type,
+    # which then defeats ``_remove_helper_defs``'s regex).
+    content = re.sub(r"i64_helpers\.neg\s+(?!:)(\S+)", r"ok (-\1)", content)
+    content = re.sub(r"i64_helpers\.not\s+(?!:)(\S+)", r"ok (-(\1 + 1))", content)
 
     # Step 10: remove now-unused ``def i64_helpers.*`` definitions
     content = _remove_i64_helper_defs(content)
