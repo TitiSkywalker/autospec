@@ -17,7 +17,7 @@ set_option maxRecDepth 2048
 namespace integer_moebius
 
 /-- [integer_moebius::test_moebius_one]:
-    Source: 'src/lib.rs', lines 27:0-29:1
+    Source: 'src/lib.rs', lines 28:0-30:1
     Visibility: public -/
 def test_moebius_one : Result Unit := do
   let left_val ← moebius 1
@@ -25,7 +25,7 @@ def test_moebius_one : Result Unit := do
   massert b
 
 /-- [integer_moebius::test_moebius_prime]:
-    Source: 'src/lib.rs', lines 31:0-35:1
+    Source: 'src/lib.rs', lines 32:0-36:1
     Visibility: public -/
 def test_moebius_prime : Result Unit := do
   let left_val ← moebius 2
@@ -39,7 +39,7 @@ def test_moebius_prime : Result Unit := do
   massert b2
 
 /-- [integer_moebius::test_moebius_square]:
-    Source: 'src/lib.rs', lines 37:0-41:1
+    Source: 'src/lib.rs', lines 38:0-42:1
     Visibility: public -/
 def test_moebius_square : Result Unit := do
   let left_val ← moebius 4
@@ -53,7 +53,7 @@ def test_moebius_square : Result Unit := do
   massert b2
 
 /-- [integer_moebius::test_moebius_two_factors]:
-    Source: 'src/lib.rs', lines 43:0-47:1
+    Source: 'src/lib.rs', lines 44:0-48:1
     Visibility: public -/
 def test_moebius_two_factors : Result Unit := do
   let left_val ← moebius 6
@@ -67,7 +67,7 @@ def test_moebius_two_factors : Result Unit := do
   massert b2
 
 /-- [integer_moebius::test_moebius_three_factors]:
-    Source: 'src/lib.rs', lines 49:0-52:1
+    Source: 'src/lib.rs', lines 50:0-53:1
     Visibility: public -/
 def test_moebius_three_factors : Result Unit := do
   let left_val ← moebius 30

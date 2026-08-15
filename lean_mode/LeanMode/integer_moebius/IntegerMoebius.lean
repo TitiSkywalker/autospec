@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 
 namespace integer_moebius
 /-- [integer_moebius::moebius]: loop 0:
-    Source: 'src/lib.rs', lines 11:4-20:5
+    Source: 'src/lib.rs', lines 12:4-21:5
     Visibility: public -/
 @[rust_loop]
 def moebius_loop
@@ -44,7 +44,7 @@ def moebius_loop
 partial_fixpoint
 
 /-- [integer_moebius::moebius]:
-    Source: 'src/lib.rs', lines 7:0-25:1
+    Source: 'src/lib.rs', lines 8:0-26:1
     Visibility: public -/
 def moebius (n : Int) : Result Int := do
   let (num, result) ← moebius_loop n 1 2

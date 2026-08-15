@@ -1,4 +1,5 @@
 //! Möbius function μ(n).
+//! Source: num-prime `src/nt_funcs.rs` (moebius_factorized).
 //!
 //! μ(n) = 0 if n has a square factor, otherwise (-1)^k where k is the number
 //! of distinct prime factors of n.
