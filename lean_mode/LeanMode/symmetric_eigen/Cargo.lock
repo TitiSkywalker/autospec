@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "matrix_eigen"
+name = "symmetric_eigen"
 version = "0.1.0"
