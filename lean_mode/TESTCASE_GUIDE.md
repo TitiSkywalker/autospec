@@ -201,11 +201,17 @@ Key points:
    from, **change the Rust**.
 3. `Vec → Slice` is `alloc.vec.Vec.deref`; length is `(alloc.vec.Vec.deref v).length`.
 4. Proving with `sorry` is the convention (`check_all.py` only requires it to compile).
-5. **Encode preconditions with `assert!`, not `Result`/empty output.** If the theorem only
-   holds under some condition (e.g. `det ≠ 0` for invertibility), `assert!` in Rust so that
-   an `ok` result *implies* the condition. Then the Spec can state it unconditionally on the
-   `ok` result, instead of carrying the condition as a separate hypothesis. This is the
-   `matrix_inverse`/`matrix_inverse_2x2` pattern.
+5. **Preconditions: prefer an explicit hypothesis for simple constraints; fall back on
+   `assert!` only when the condition is awkward to state.** Two cases:
+   - **Simple mathematical constraint** (e.g. `nrows ≥ ncols` for upper bidiagonalization) →
+     state it explicitly as a theorem hypothesis (`h_ge : nrows.val >= ncols.val`). It is
+     self-documenting, needs no knowledge of `massert` semantics, and still works if the Rust
+     changes. The `assert!` in Rust remains as a runtime double-check but the Spec does not
+     rely on it. See `matrix_bidiagonal`.
+   - **Hard-to-write condition** (e.g. `det ≠ 0` for invertibility) → encode it with `assert!`
+     in Rust so an `ok` result *implies* the condition, and state the theorem unconditionally
+     on the `ok` result instead of carrying the condition as a separate hypothesis. This is the
+     `matrix_inverse`/`matrix_inverse_2x2` pattern.
 
 ---
 
