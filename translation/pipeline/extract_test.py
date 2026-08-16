@@ -27,7 +27,7 @@ def translate_test_file(
     output_path: Path,
     test_file: Path,
     *,
-    target: str = "Rat",
+    float_model: str = "Rat",
     int_model: str = "int",
 ) -> int | None:
     """Append test functions to the main crate, translate, extract test defs.
@@ -91,7 +91,7 @@ def translate_test_file(
                 re.findall(r"pub\s+fn\s+(\w+)", raw)
             )
 
-            _use_real = target == "Real"
+            _use_real = float_model == "Real"
 
             for lf in sorted(combined_output.glob("*.lean")):
                 combined_text = lf.read_text()

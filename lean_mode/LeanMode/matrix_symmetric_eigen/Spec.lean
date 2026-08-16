@@ -1,8 +1,8 @@
-import LeanMode.symmetric_eigen.SymmetricEigen
+import LeanMode.matrix_symmetric_eigen.MatrixSymmetricEigen
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open symmetric_eigen
+open matrix_symmetric_eigen
 open Matrix
 
 set_option linter.unusedVariables false

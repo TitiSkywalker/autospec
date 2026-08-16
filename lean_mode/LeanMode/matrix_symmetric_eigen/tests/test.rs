@@ -1,4 +1,4 @@
-use symmetric_eigen::*;
+use matrix_symmetric_eigen::*;
 
 /// Element at (row, col) of a column-major n×n matrix.
 fn at(m: &[f64], n: usize, row: usize, col: usize) -> f64 {

@@ -14,14 +14,14 @@ from lean_inline import inline_f64_helpers, inline_i64_helpers  # noqa: E402
 
 
 class NonComputableError(Exception):
-    """Rat target cannot handle non-computable operations like sqrt."""
+    """Rat float-model cannot handle non-computable operations like sqrt."""
 
 
 def lean_f64_to_rat(content: str) -> str:
     """Replace F64 opaque type with Rat (computable rational arithmetic).
 
     Raises NonComputableError if the code uses sqrt, which is not
-    computable for Rat — the caller should retry with ``--target Real``.
+    computable for Rat — the caller should retry with ``--float-model Real``.
     """
     # Clean up any stray noncomputable section marker (aeneas adds this
     # when there are external definitions).  Must happen before the early
@@ -643,14 +643,14 @@ def write_lean_output(
     output_path: Path,
     *,
     label: str = "",
-    target: str = "Rat",
+    float_model: str = "Rat",
     int_model: str = "int",
 ) -> tuple[int, list[str]]:
     """Post-process and copy Lean files from *workdir* to *output_path*.
 
     Parameters
     ----------
-    target:
+    float_model:
         ``"Rat"`` (default) — replace f64 with Rat; sqrt is noncomputable.
         ``"Real"`` — replace f64 with ℝ; sqrt is computable via Real.sqrt.
     int_model:
@@ -661,7 +661,7 @@ def write_lean_output(
     def_count = 0
     written: list[str] = []
 
-    _use_real = target == "Real"
+    _use_real = float_model == "Real"
 
     for f in lean_files:
         text = (workdir / f).read_text()

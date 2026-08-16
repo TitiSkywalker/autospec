@@ -98,12 +98,12 @@ the Rust. **Write `src/lib.rs` using only this subset:**
 
 During translation, `f64` is replaced:
 
-- **Default `--target Rat`**: `f64 → Rat` (computable, `#eval` works).
+- **Default `--float-model Rat`**: `f64 → Rat` (computable, `#eval` works).
 - **When the code uses `sqrt / exp / sin` etc.**, `lean_f64_to_rat` raises
-  `NonComputableError`, and `translate.py` **auto-switches to `--target Real`**:
+  `NonComputableError`, and `translate.py` **auto-switches to `--float-model Real`**:
   - `f64 → ℝ`, `sqrt` becomes `Real.sqrt`.
   - The generated file gains `import Mathlib` and `noncomputable section` at the top.
-- **Under the Real target, `tests/test.rs` is NOT translated** (`translate.py` skips it,
+- **Under the Real float-model, `tests/test.rs` is NOT translated** (`translate.py` skips it,
   because `Real.sqrt` cannot be `#eval`'d). So sqrt-based testcases have only
   `<Crate>.lean` + `Spec.lean` — **no `Test_test.lean`** (cf. `vector_norm`,
   `tensor_softmax_1d`, `matrix_qr`).
@@ -277,7 +277,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   not inlined by `lean_inline.py` (its regex only catches `let ← f64_helpers.le …` and
   tail-position calls), leaving an `Unknown identifier 'f64_helpers.le'`. Rewrite with `>`/`<`
   and flip the branch — e.g. `od == 0.0 || od <= threshold` → `let is_large = od > threshold;`
-  then branch on `is_large` (see `symmetric_eigen`).
+  then branch on `is_large` (see `matrix_symmetric_eigen`).
 - **Rust `%`/`/` (truncating) vs Lean `%`/`/` (Euclidean)**: Rust's `%` and `/` truncate
   toward zero (sign follows the dividend); Lean's `Int` `%`/`/` are Euclidean
   (`emod`/`ediv`, remainder always `≥ 0`). They agree on non-negative operands but differ
@@ -304,7 +304,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 
 ---
 
-## 10. Implemented testcases by target
+## 10. Implemented testcases by float-model
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
   `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
@@ -313,7 +313,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 - **`failure/`**: testcases the translator can't handle (e.g. `matrix_bidiagonal`) — excluded
   from `translate_all.py` / `check_all.py`.
 - **Avoid `sqrt` by reformulating**: Cholesky was switched to LDLᵀ (no `sqrt`) so it stays
-  in the computable Rat target — prefer this when possible.
+  in the computable Rat float-model — prefer this when possible.
 
 ---
 

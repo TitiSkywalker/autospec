@@ -2,6 +2,7 @@
 """Re-translate all Rust test cases in LeanMode/ concurrently (skip failure/)."""
 
 import argparse
+import re
 import subprocess
 import sys
 import threading
@@ -11,6 +12,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LEAN_MODE = ROOT / "lean_mode" / "LeanMode"
 TRANSLATE = ROOT / "translation" / "translate.py"
+
+
+def _parse_model(stdout: str) -> str:
+    """Extract the resolved integer model from translate.py's stdout."""
+    m = re.search(r"int-model=(\w+)", stdout)
+    return m.group(1) if m else "?"
+
+
+def _parse_float_model(stdout: str) -> str:
+    """Extract the resolved float-model (Rat/Real) from translate.py's stdout.
+
+    The final value lives in the ``done`` line (after any auto-switch to Real),
+    so take the last ``float-model=…`` occurrence.
+    """
+    m = re.findall(r"float-model=(\w+)", stdout)
+    return m[-1] if m else "?"
 
 
 def main() -> None:
@@ -24,7 +41,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    dirs = sorted(d for d in LEAN_MODE.iterdir() if d.is_dir() and d.name != "failure")
+    dirs = sorted(
+        d
+        for d in LEAN_MODE.iterdir()
+        if d.is_dir() and d.name != "failure" and (d / "Cargo.toml").exists()
+    )
 
     passed: list[str] = []
     failed: list[str] = []
@@ -41,9 +62,14 @@ def main() -> None:
             text=True,
         )
         ok = result.returncode == 0
+        model = _parse_model(result.stdout)
+        float_model = _parse_float_model(result.stdout)
         with lock:
             status = "OK" if ok else "FAIL"
-            print(f"{d.name:<30} {status}", flush=True)
+            print(
+                f"{d.name:<30} int-model={model:<6} float-model={float_model:<4} {status}",
+                flush=True,
+            )
             if not ok:
                 for line in result.stderr.splitlines():
                     if "FAIL" in line or "Error" in line or "error" in line:

@@ -25,11 +25,12 @@ from pipeline.lean_post import write_lean_output, NonComputableError
 from pipeline.extract_test import translate_test_file
 
 
-def _read_int_model(project_path: Path) -> str | None:
-    """Read ``[package.metadata.autospec].int-model`` from a crate's Cargo.toml.
+def _read_autospec_key(project_path: Path, key: str) -> str | None:
+    """Read ``[package.metadata.autospec].<key>`` from a crate's Cargo.toml.
 
-    Returns the configured integer model (``"int"`` / ``"nat"`` / ``"bitvec"``),
-    or ``None`` when no model is configured or the file can't be parsed.
+    Returns the configured value (``"int"`` / ``"nat"`` / ``"bitvec"`` for
+    ``int-model``; ``"Rat"`` / ``"Real"`` for ``float-model``), or ``None`` when
+    the key is absent or the file can't be parsed.
     """
     cargo = project_path / "Cargo.toml"
     if not cargo.exists():
@@ -38,12 +39,7 @@ def _read_int_model(project_path: Path) -> str | None:
         import tomllib
 
         data = tomllib.loads(cargo.read_text())
-        return (
-            data.get("package", {})
-            .get("metadata", {})
-            .get("autospec", {})
-            .get("int-model")
-        )
+        return data.get("package", {}).get("metadata", {}).get("autospec", {}).get(key)
     except Exception:
         return None
 
@@ -56,7 +52,7 @@ class Translator:
         charon_bin: str | Path | None = None,
         aeneas_bin: str | Path | None = None,
         verbose: bool = False,
-        target: str = "Rat",
+        float_model: str | None = None,
         loops_to_rec: bool = True,
         int_model: str | None = None,
     ):
@@ -66,7 +62,7 @@ class Translator:
         )
         self.aeneas = str(aeneas_bin or _root.parent / "aeneas" / "bin" / "aeneas")
         self.verbose = verbose
-        self.target = target
+        self.float_model = float_model
         self.loops_to_rec = loops_to_rec
         self.int_model = int_model
 
@@ -92,10 +88,15 @@ class Translator:
             fail("validate", f"no Cargo.toml in {project_path}")
             return False
 
-        # Resolve the integer model: explicit CLI flag wins, otherwise read
-        # ``[package.metadata.autospec].int-model``, falling back to "int".
+        # Resolve the two models: explicit CLI flag wins, otherwise read
+        # ``[package.metadata.autospec].int-model`` / ``.float-model``,
+        # falling back to "int" / "Rat".
         if self.int_model is None:
-            self.int_model = _read_int_model(project_path) or "int"
+            self.int_model = _read_autospec_key(project_path, "int-model") or "int"
+        if self.float_model is None:
+            self.float_model = _read_autospec_key(project_path, "float-model") or "Rat"
+
+        phase("model", f"int-model={self.int_model} float-model={self.float_model}")
 
         print(f"autospec  \033[1m{project_path.name}\033[0m  →  {output_path}")
 
@@ -118,13 +119,13 @@ class Translator:
             if outcome is None:
                 return False
         except NonComputableError as e:
-            warn(f"{e}; auto-switching to --target Real")
-            self.target = "Real"
+            warn(f"{e}; auto-switching to --float-model Real")
+            self.float_model = "Real"
             outcome = self._translate_inner(
                 project_path,
                 output_path,
                 flatten=False,
-                target="Real",
+                float_model="Real",
             )
             if outcome is None:
                 warn("retrying with flatten-loops")
@@ -132,7 +133,7 @@ class Translator:
                     project_path,
                     output_path,
                     flatten=True,
-                    target="Real",
+                    float_model="Real",
                 )
             if outcome is None:
                 return False
@@ -143,7 +144,7 @@ class Translator:
 
         # 2. Translate each test file in tests/  (skip for Real: sqrt is
         #    noncomputable so #eval cannot execute anyway)
-        if self.target != "Real":
+        if self.float_model != "Real":
             tests_dir = project_path / "tests"
             if tests_dir.is_dir():
                 for test_file in sorted(tests_dir.glob("*.rs")):
@@ -152,7 +153,7 @@ class Translator:
                         project_path,
                         output_path,
                         test_file,
-                        target=self.target,
+                        float_model=self.float_model,
                         int_model=self.int_model,
                     )
                     if test_defs is not None:
@@ -165,7 +166,7 @@ class Translator:
             phase(tag, f"{filename}  {count} defs")
         total_files = len(results)
         total_defs = sum(r[2] for r in results)
-        phase("done", f"{total_files} file(s), {total_defs} defs")
+        phase("done", f"{total_files} file(s), {total_defs} defs, float-model={self.float_model}")
         return True
 
     # ── core pipeline ───────────────────────────────────────────────────────
@@ -176,14 +177,14 @@ class Translator:
         output_path: Path,
         *,
         flatten: bool,
-        target: str | None = None,
+        float_model: str | None = None,
     ) -> tuple[int, list[str]] | None:
         """Run the full charon→adapter→aeneas pipeline on a copy of the project.
 
         When *flatten* is True nested loops are extracted into separate
         functions *before* charon/aeneas (best-effort).
 
-        *target* overrides ``self.target`` for this invocation only.
+        *float_model* overrides ``self.float_model`` for this invocation only.
 
         Returns ``(def_count, written_filenames)``, or *None* on failure.
         """
@@ -223,7 +224,7 @@ class Translator:
             def_count, written = write_lean_output(
                 workdir,
                 output_path,
-                target=target if target is not None else self.target,
+                float_model=float_model if float_model is not None else self.float_model,
                 int_model=self.int_model,
             )
             if def_count == 0:
@@ -251,10 +252,11 @@ if __name__ == "__main__":
     p.add_argument("--charon", default=None)
     p.add_argument("--aeneas", default=None)
     p.add_argument(
-        "--target",
-        default="Rat",
+        "--float-model",
+        default=None,
         choices=["Rat", "Real"],
-        help="Replace f64 with Rat (default) or ℝ (computable sqrt)",
+        help="Float model: Rat (computable, default) or Real (computable sqrt). "
+        "Default: [package.metadata.autospec].float-model from Cargo.toml, else Rat.",
     )
     p.add_argument(
         "--loops-to-rec",
@@ -275,7 +277,7 @@ if __name__ == "__main__":
         charon_bin=args.charon,
         aeneas_bin=args.aeneas,
         verbose=args.verbose,
-        target=args.target,
+        float_model=args.float_model,
         loops_to_rec=args.loops_to_rec,
         int_model=args.int_model,
     )
