@@ -267,6 +267,12 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   loop flattening, but flat `while` loops are safest.
 - **`f64` comparison inside an `if` condition** can trigger binop errors — hoist it:
   `let cond = a > b; if cond { ... }`.
+- **Don't mix `||`/`&&` with `<=`/`>=` on `f64`.** `x <= 0.0 || y <= t` short-circuits into
+  `if … then ok true else f64_helpers.le y t`; the `f64_helpers.le` in the `else` branch is
+  not inlined by `lean_inline.py` (its regex only catches `let ← f64_helpers.le …` and
+  tail-position calls), leaving an `Unknown identifier 'f64_helpers.le'`. Rewrite with `>`/`<`
+  and flip the branch — e.g. `od == 0.0 || od <= threshold` → `let is_large = od > threshold;`
+  then branch on `is_large` (see `symmetric_eigen`).
 - **Rust `%`/`/` (truncating) vs Lean `%`/`/` (Euclidean)**: Rust's `%` and `/` truncate
   toward zero (sign follows the dividend); Lean's `Int` `%`/`/` are Euclidean
   (`emod`/`ediv`, remainder always `≥ 0`). They agree on non-negative operands but differ
