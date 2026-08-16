@@ -261,6 +261,11 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   handle, and the whole test becomes noncomputable. Don't print in `src/lib.rs` or `tests/test.rs`.
 - **Don't `assert_eq!` two `Vec`/`Slice` values directly** — AENEAS has no `PartialEq` on
   `Vec` (`Rat.Insts.CoreCmpPartialEqRat` error). Compare element-by-element in a loop.
+- **Don't call `.is_empty()` on a *struct field* in `tests/test.rs`** — `r.l.is_empty()` gets
+  mis-translated to `(alloc.vec.Vec.deref r).length = 0.l` (the field name `.l` is dropped and
+  re-attached to the `0` literal), so `#eval` aborts with "depends on `sorry`". `.is_empty()` on
+  a plain `Vec` *variable* is fine. Fix: use `r.l.len() == 0` (translates to
+  `alloc.vec.Vec.len r.l`). See `matrix_lblt`.
 - **Function pointers / closures as function inputs are unsupported** (e.g. a `diff(f, x)`
   taking a function `f`) — such testcases were abandoned.
 - **Nested `for` loops** can leave `sorry` bodies in AENEAS; the pipeline auto-retries with
