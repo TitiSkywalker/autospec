@@ -117,9 +117,9 @@ def lean_f64_to_real(content: str) -> str:
 
     Unlike Rat, ``Real.sqrt`` is computable (via Cauchy sequences in
     mathlib), so modules using ``sqrt`` do NOT need ``noncomputable``.
-    ``sqrt`` and ``exp`` are both rewritten to the concrete Mathlib
-    functions (``Real.sqrt`` / ``Real.exp``) so impl and spec share the
-    same definition; other transcendentals stay as opaque axioms.
+    ``sqrt`` / ``exp`` / ``ln`` are rewritten to the concrete Mathlib
+    functions (``Real.sqrt`` / ``Real.exp`` / ``Real.log``) so impl and
+    spec share the same definition; other transcendentals stay as opaque axioms.
     """
     if "F64" not in content:
         return content
@@ -235,6 +235,33 @@ def lean_f64_to_real(content: str) -> str:
         result = re.sub(
             r"(^|\n)([ \t]+)std\.f64\.ℝ\.exp[ \t]+(\S+)[ \t]*$",
             r"\1\2ok (Real.exp \3)",
+            result,
+            flags=re.MULTILINE,
+        )
+
+    # ln: replace axiom + call sites with Real.log (natural log, same as exp)
+    if "std.f64.ℝ.ln" in result:
+        # Remove the axiom definition block (doc comment + attribute + axiom)
+        # and the preceding blank lines so no gap is left behind.
+        result = re.sub(
+            r"\n*/-- \[std::f64::\{f64\}::ln\]:.*?\n"
+            r"(?:.*?\n)*?"
+            r"@\[rust_fun \"std::f64::\{f64\}::ln\"\] "
+            r"(?:noncomputable )?axiom std\.f64\.ℝ\.ln : ℝ → Result ℝ\n",
+            "\n",
+            result,
+            flags=re.DOTALL,
+        )
+        # Replace call sites (let-binding)
+        result = re.sub(
+            r"\blet\s+(\w+)\s+←\s+std\.f64\.ℝ\.ln\s+(\S+)",
+            r"let \1 := Real.log \2",
+            result,
+        )
+        # Replace tail-position calls  (use [ \t] not \s — \s eats \n)
+        result = re.sub(
+            r"(^|\n)([ \t]+)std\.f64\.ℝ\.ln[ \t]+(\S+)[ \t]*$",
+            r"\1\2ok (Real.log \3)",
             result,
             flags=re.MULTILINE,
         )
