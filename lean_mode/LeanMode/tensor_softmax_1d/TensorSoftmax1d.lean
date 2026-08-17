@@ -25,12 +25,6 @@ def RealClone : core.clone.Clone ℝ := {
   clone := RealClone.clone
 }
 
-/-- [std::f64::{f64}::exp]:
-    Source: '/rustc/library/std/src/num/f64.rs', lines 413:4-413:27
-    Name pattern: [std::f64::{f64}::exp]
-    Visibility: public -/
-@[rust_fun "std::f64::{f64}::exp"] axiom std.f64.ℝ.exp : ℝ → Result ℝ
-
 /-- [tensor_softmax_1d::softmax]: loop 0:
     Source: 'src/lib.rs', lines 17:4-21:5
     Visibility: public -/
@@ -46,7 +40,7 @@ def softmax_loop0
   | none => ok (sum, out)
   | some i =>
     let fl ← Slice.index_usize input i
-    let e ← std.f64.ℝ.exp fl
+    let e := Real.exp fl
     let sum1 := sum + e
     let (_, index_mut_back) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ) out i
