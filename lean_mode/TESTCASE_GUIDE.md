@@ -158,6 +158,18 @@ wrapping add/sub/mul/neg, bitwise `& | ^ !`, shifts `<< >>`, and popcount. Notes
 - `_mark_noncomputable_defs` strips doc comments before reference-matching, so a
   name appearing only in a neighboring docstring doesn't over-mark `noncomputable`.
 - Scalar `assert_eq!` on a `BitVec` works (`massert (a = b)` via `DecidableEq (BitVec w)`).
+- **`as` casts don't translate under `bitvec`** — `u8 as usize`, `u8 as u32`, `u32 as u8`
+  lower to `UScalar.cast`/`IScalar.cast` (typed on Aeneas's own `UScalar`, not `BitVec`),
+  the same class of mismatch as the `core.num.U*.*` scalar ops. Write **cast-free** code:
+  keep a single integer width, and index arrays with `usize` loop counters.
+- **Crypto kernels can be table-free and cast-free** — `bitvec_aes` computes the AES S-box
+  arithmetically (`affine(gf_inv(x))` in GF(2⁸); inverse by square-and-multiply, affine
+  `x <<< 1 ^ x <<< 2 ^ x <<< 3 ^ x <<< 4 ^ 0x63`; inverse affine `x <<< 1 ^ x <<< 3 ^ x <<< 6
+  ^ 0x05`), MixColumns via `xtime`, so it needs no lookup tables and no `as`. The full
+  encrypt+decrypt roundtrip `#eval`s in Lean.
+- **`const [u8; N]` / `[[u8; N]; M]` fixed tables do translate** (→ `Array (BitVec 8) N#usize`,
+  indexed via `Array.index_usize`), but table *indexing* (`SBOX[x as usize]`) still pulls in
+  the broken cast — lookup tables and casts go together, arithmetic avoids both.
 
 This is the model the crypto kernels (`rotate_right`/`wrapping_add`/bitwise) need.
 
@@ -322,6 +334,15 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `PartialEq` isn't imported under that name. `Vec<usize>` (→ `Vec Std.Usize`) compares
   fine. Fix: compare element-by-element — `assert_eq!(f.len(), n)` + `assert_eq!(f[0], x)`
   etc. (see `integer_factors` / `integer_prime_factors` tests).
+- **Integer casts (`as`) fail under `bitvec`** — `u8 as usize` (a lookup-table index),
+  `u8 as u32` / `u32 as u8` (byte↔word packing) lower to `UScalar.cast`/`IScalar.cast`
+  (Aeneas's scalar type, not `BitVec`) and don't typecheck. AES/DES reference impls are
+  full of them. Restructure instead: one integer width + `usize` loop counters, or compute
+  the S-box/GF tables arithmetically (see §5 `bitvec` + `bitvec_aes`).
+- **Verify crypto test vectors against the authoritative source** — a failing `cargo test` /
+  `#eval` can be your memory of the vector, not the code. During `bitvec_aes` I swapped
+  SP 800-38A block-2's ciphertext for block-4's plaintext (they coincide as `f69f2445…`);
+  the code was right, the vector wasn't. Web-check the FIPS/NIST table before debugging.
 
 ---
 
@@ -329,6 +350,9 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
   `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
+- **`bitvec`** (Rat, unsigned → `BitVec w`, has `Test_test.lean`): `bitvec_ops`
+  (rotate / wrapping arithmetic / bitwise / shifts / popcount), `bitvec_aes`
+  (AES-128 encrypt+decrypt, table-free & cast-free, conformance + roundtrip).
 - **Real (no `Test_test.lean`)**: `vector_norm`, `tensor_softmax_1d`, `tensor_softmax_2d`,
   `matrix_qr` (use `sqrt`/`exp`).
 - **`failure/`**: testcases the translator can't handle (e.g. `matrix_bidiagonal`) — excluded
