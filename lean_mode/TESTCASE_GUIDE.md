@@ -140,6 +140,27 @@ Existing examples: `array_bubble_sort` / `array_binary_search` use `i32`,
 `u64` + `nat` except `extended_gcd` / `mod_inverse` / `div_mod`, which need `i64`
 (signed Bézout coefficients / intermediate negatives).
 
+**`bitvec`** — `bitvec_ops` uses `u32` + `bitvec` (→ `BitVec 32`), covering rotate,
+wrapping add/sub/mul/neg, bitwise `& | ^ !`, shifts `<< >>`, and popcount. Notes:
+
+- Aeneas's named scalar methods are rewritten by `lean_post._bitvec_ops_to_bv`:
+  `x.rotate_left(n)` → `BitVec.rotateLeft x n.toNat` (the shift arg stays `BitVec w`
+  and must be `.toNat`-coerced), `a.wrapping_add/sub/mul(b)` → `a +/ -/ * b` (BitVec
+  arithmetic already wraps). `usize` is untouched (stays `Std.Usize` for indexing).
+- Aeneas only scalar-lowers `wrapping_add/sub/mul/shl/shr`; `wrapping_neg`, `div`,
+  `rem`, `count_ones`, `leading_zeros` have **no** scalar lowering — they become
+  opaque `rust_fun` axioms (noncomputable, no `#eval`). Write them out instead, e.g.
+  `wrapping_neg(x)` → `0u32.wrapping_sub(x)`.
+- Plain bitwise/shift ops (`a & b`, `a << b`, …) come through Aeneas's *symbolic*
+  path (`a &&& b`, `a <<< b`, …) which is already valid `BitVec` notation; the
+  typings are the `(n : BitVec w)` literal form, so `_convert_let_line`'s operands
+  accept parenthesized literals.
+- `_mark_noncomputable_defs` strips doc comments before reference-matching, so a
+  name appearing only in a neighboring docstring doesn't over-mark `noncomputable`.
+- Scalar `assert_eq!` on a `BitVec` works (`massert (a = b)` via `DecidableEq (BitVec w)`).
+
+This is the model the crypto kernels (`rotate_right`/`wrapping_add`/bitwise) need.
+
 ---
 
 ## 6. How to write Spec.lean

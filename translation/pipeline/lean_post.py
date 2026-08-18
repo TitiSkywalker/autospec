@@ -485,8 +485,13 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     ``then let x ← …`` on its own line).
     """
 
+    # Operand: bare identifier/numeral (int/nat models) or a typed
+    # ``(n : BitVec w)`` literal (bitvec model).
+    _op = r"(?:\w+|\([^()]*\))"
+    _cap = rf"({_op})"
+
     def is_int(tok: str) -> bool:
-        return tok in int_vars or tok.isdigit()
+        return tok in int_vars or _is_int_literal(tok)
 
     def is_usize(tok: str) -> bool:
         return tok in usize_vars
@@ -509,30 +514,30 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     _prefix = r"^(\s*(?:then\s+|else\s+)?let\s+(\w+)\s+)←\s+"
 
     # arithmetic: let x ← A op B
-    m = re.match(_prefix + r"(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
+    m = re.match(_prefix + rf"{_cap}\s*([+\-*/%])\s*{_cap}\s*$", line)
     if m:
         return apply(*m.groups())
 
     # bitwise: let x ← lift (A &&& B)
     m = re.match(
-        _prefix + r"lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line
+        _prefix + rf"lift\s*\(\s*{_cap}\s*(&&&|\|\|\||\^\^\^)\s*{_cap}\s*\)\s*$", line
     )
     if m:
         return apply(*m.groups())
 
     # shift: let x ← A <<< B
-    m = re.match(_prefix + r"(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
+    m = re.match(_prefix + rf"{_cap}\s*(<<<|>>>)\s*{_cap}\s*$", line)
     if m:
         return apply(*m.groups())
 
     # Pure let-binding: let x := A op B — already pure, just record x's type
     # so that subsequent ``let y ← … x …`` / ``then x op …`` can be converted.
     m = re.match(
-        r"^\s*(?:then\s+|else\s+)?let\s+(\w+)\s+:=\s+(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$",
+        rf"^\s*(?:then\s+|else\s+)?let\s+(\w+)\s+:=\s+{_cap}\s*([+\-*/%])\s*{_cap}\s*$",
         line,
     )
     if m:
-        x, a, _op, b = m.groups()
+        x, a, _opx, b = m.groups()
         track(x, a, b)
         return line
 
@@ -543,19 +548,19 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
         return None
 
     # arithmetic tail: A op B (optionally after then/else)
-    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)(\w+|\d+)\s*([+\-*/%])\s*(\w+|\d+)\s*$", line)
+    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?){_cap}\s*([+\-*/%])\s*{_cap}\s*$", line)
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
 
     # bitwise tail: lift (A &&& B) (optionally after then/else)
-    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)lift\s*\(\s*(\w+)\s*(&&&|\|\|\||\^\^\^)\s*(\w+)\s*\)\s*$", line)
+    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?)lift\s*\(\s*{_cap}\s*(&&&|\|\|\||\^\^\^)\s*{_cap}\s*\)\s*$", line)
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
 
     # shift tail: A <<< B (optionally after then/else)
-    m = re.match(r"^(\s*)((?:then\s+|else\s+)?)(\w+)\s*(<<<|>>>)\s*(\w+|\d+)\s*$", line)
+    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?){_cap}\s*(<<<|>>>)\s*{_cap}\s*$", line)
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
@@ -599,6 +604,10 @@ def _mark_noncomputable_defs(text: str) -> str:
         )
         body_end = body_start + next_decl.start() if next_decl else len(text)
         body = text[body_start:body_end]
+        # Strip block comments (/-- doc comments of the *next* decl, etc.) so
+        # that reference matching below keys on real code, not on names that
+        # merely appear in a doc comment.
+        body = re.sub(r"/-.*?-/", "", body, flags=re.DOTALL)
         decls.append((name, body, m.start(), m.end()))
         if is_noncomp:
             axiom_names.add(name)
@@ -695,6 +704,54 @@ def _fix_vec_is_empty(text: str) -> str:
     return text
 
 
+def _bitvec_ops_to_bv(content: str) -> str:
+    """Rewrite Aeneas scalar ops ``core.num.U<w>.*`` to ``BitVec`` ops.
+
+    The ``bitvec`` int-model rewrites ``Std.U<w>`` *types* to ``BitVec w``, but
+    Aeneas's named scalar methods (``rotate_left``, ``wrapping_add``, …) still
+    target Aeneas's own ``U<w>`` scalar type and would be type-incompatible with
+    ``BitVec w``.  Under ``BitVec w`` the equivalent is:
+
+    * wrapping arithmetic → the plain operator (``BitVec`` ``+ - * / %`` wrap),
+    * ``rotate_left/right``  → ``BitVec.rotateLeft/rotateRight <x> <n>.toNat``
+      (the shift argument is ``BitVec w``, but the BitVec rotate takes ``Nat``).
+
+    Only unsigned widths (``u8/u16/u32/u64/u128``) are handled; ``usize``
+    operates on ``Std.Usize`` and is left untouched.
+    """
+    if "core.num.U" not in content:
+        return content
+
+    # Operand: bare/dotted ident, or a non-nested parenthesized expr (e.g. a
+    # scalar literal ``(7 : BitVec 32)`` produced by lean_integers_to_model).
+    # Aeneas's symbolic evaluator materializes complex sub-expressions into
+    # `let` bindings first, so scalar-op operands are always this simple.
+    arg = r"(?:\([^()]*\)|[\w.]+)"
+
+    # Aeneas scalar-lowers only wrapping add/sub/mul/shl/shr (see
+    # Aeneas/Std/Scalar/WrappingOps/); div/rem/neg stay as opaque rust_fun
+    # axioms and are not rewritten here.
+    for fn, op in (
+        ("wrapping_add", "+"),
+        ("wrapping_sub", "-"),
+        ("wrapping_mul", "*"),
+    ):
+        content = re.sub(
+            rf"core\.num\.U(?:8|16|32|64|128)\.{fn}\s+({arg})\s+({arg})",
+            rf"\1 {op} \2",
+            content,
+        )
+
+    for fn, bv in (("rotate_left", "rotateLeft"), ("rotate_right", "rotateRight")):
+        content = re.sub(
+            rf"core\.num\.U(?:8|16|32|64|128)\.{fn}\s+({arg})\s+({arg})",
+            rf"BitVec.{bv} \1 \2.toNat",
+            content,
+        )
+
+    return content
+
+
 def write_lean_output(
     workdir: Path,
     output_path: Path,
@@ -735,6 +792,8 @@ def write_lean_output(
             except NonComputableError:
                 raise
         text = lean_integers_to_model(text, int_model)
+        if int_model == "bitvec":
+            text = _bitvec_ops_to_bv(text)
         text = inline_f64_helpers(text)
         text = inline_i64_helpers(text)
         if _use_real:

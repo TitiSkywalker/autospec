@@ -13,6 +13,14 @@ max_workers = 4
 [[repo]]
 url = "https://github.com/dimforge/nalgebra.git"
 
+# ── sparse linear algebra (LDLᵀ / Cholesky) ──
+#   Workspace contains `sprs` + `sprs-ldl` + `sprs-triangular`. Extract sparse LDLᵀ
+#   numeric factorization + triangular solve (spec L·D·Lᵀ = PᵀAP), see local/linear_algebra_libraries_survey.md §2.3.
+#   Core is pure Rust (num-traits + sprs); optional suitesparse backends are C/prefix-only, exclude.
+#   License: LGPL-2.1.
+[[repo]]
+url = "https://github.com/sparsemat/sprs.git"
+
 # ── FFT ──
 [[repo]]
 url = "https://github.com/ejmahler/RustFFT.git"
