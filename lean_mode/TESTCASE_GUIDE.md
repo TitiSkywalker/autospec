@@ -107,6 +107,14 @@ During translation, `f64` is replaced:
   because `Real.sqrt` cannot be `#eval`'d). So sqrt-based testcases have only
   `<Crate>.lean` + `Spec.lean` — **no `Test_test.lean`** (cf. `vector_norm`,
   `tensor_softmax_1d`, `matrix_qr`).
+- **Mark Real testcases explicitly**: set `float-model = "Real"` per testcase in
+  `Cargo.toml` (mirrors `int-model` below); `translate.py` reads it and skips the
+  auto-switch:
+
+```toml
+[package.metadata.autospec]
+float-model = "Real"
+```
 
 Rule of thumb: does the algorithm use `sqrt`/transcendental functions? No → Rat (has
 `Test_test.lean`); yes → Real (impl + Spec only).
@@ -158,18 +166,14 @@ wrapping add/sub/mul/neg, bitwise `& | ^ !`, shifts `<< >>`, and popcount. Notes
 - `_mark_noncomputable_defs` strips doc comments before reference-matching, so a
   name appearing only in a neighboring docstring doesn't over-mark `noncomputable`.
 - Scalar `assert_eq!` on a `BitVec` works (`massert (a = b)` via `DecidableEq (BitVec w)`).
-- **`as` casts don't translate under `bitvec`** — `u8 as usize`, `u8 as u32`, `u32 as u8`
-  lower to `UScalar.cast`/`IScalar.cast` (typed on Aeneas's own `UScalar`, not `BitVec`),
-  the same class of mismatch as the `core.num.U*.*` scalar ops. Write **cast-free** code:
-  keep a single integer width, and index arrays with `usize` loop counters.
-- **Crypto kernels can be table-free and cast-free** — `bitvec_aes` computes the AES S-box
-  arithmetically (`affine(gf_inv(x))` in GF(2⁸); inverse by square-and-multiply, affine
-  `x <<< 1 ^ x <<< 2 ^ x <<< 3 ^ x <<< 4 ^ 0x63`; inverse affine `x <<< 1 ^ x <<< 3 ^ x <<< 6
-  ^ 0x05`), MixColumns via `xtime`, so it needs no lookup tables and no `as`. The full
-  encrypt+decrypt roundtrip `#eval`s in Lean.
+- **`as` casts between unsigned integers are now supported under `bitvec`** — `u8 as usize`,
+  `u8 as u32`, `u32 as u8` lower to `UScalar.cast`/`IScalar.cast`, which
+  `_bitvec_ops_to_bv` rewrites to `BitVec.ofNat` / `BitVec.ofInt` / `UScalar.mk`
+  conversions.  This means table indexing (`SBOX[x as usize]`) works.
 - **`const [u8; N]` / `[[u8; N]; M]` fixed tables do translate** (→ `Array (BitVec 8) N#usize`,
-  indexed via `Array.index_usize`), but table *indexing* (`SBOX[x as usize]`) still pulls in
-  the broken cast — lookup tables and casts go together, arithmetic avoids both.
+  indexed via `Array.index_usize`).  Combined with cast support, table-driven crypto kernels
+  are now viable — `bitvec_aes` uses the official S-box / Rcon tables, `bitvec_des` uses
+  permutation and S-box tables (both `#eval` in Lean).
 
 This is the model the crypto kernels (`rotate_right`/`wrapping_add`/bitwise) need.
 
@@ -334,11 +338,10 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `PartialEq` isn't imported under that name. `Vec<usize>` (→ `Vec Std.Usize`) compares
   fine. Fix: compare element-by-element — `assert_eq!(f.len(), n)` + `assert_eq!(f[0], x)`
   etc. (see `integer_factors` / `integer_prime_factors` tests).
-- **Integer casts (`as`) fail under `bitvec`** — `u8 as usize` (a lookup-table index),
-  `u8 as u32` / `u32 as u8` (byte↔word packing) lower to `UScalar.cast`/`IScalar.cast`
-  (Aeneas's scalar type, not `BitVec`) and don't typecheck. AES/DES reference impls are
-  full of them. Restructure instead: one integer width + `usize` loop counters, or compute
-  the S-box/GF tables arithmetically (see §5 `bitvec` + `bitvec_aes`).
+- **Integer casts (`as`) between unsigned types are supported under `bitvec`** —
+  `u8 as usize`, `u8 as u32`, `u32 as u8` etc. lower to `UScalar.cast`/`IScalar.cast`
+  and are rewritten to `BitVec` conversions by `_bitvec_ops_to_bv` (see §5 `bitvec`).
+  `bitvec_aes` and `bitvec_des` exercise this with table lookups (e.g. `SBOX[x as usize]`).
 - **Verify crypto test vectors against the authoritative source** — a failing `cargo test` /
   `#eval` can be your memory of the vector, not the code. During `bitvec_aes` I swapped
   SP 800-38A block-2's ciphertext for block-4's plaintext (they coincide as `f69f2445…`);
@@ -352,13 +355,18 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
 - **`bitvec`** (Rat, unsigned → `BitVec w`, has `Test_test.lean`): `bitvec_ops`
   (rotate / wrapping arithmetic / bitwise / shifts / popcount), `bitvec_aes`
-  (AES-128 encrypt+decrypt, table-free & cast-free, conformance + roundtrip).
-- **Real (no `Test_test.lean`)**: `vector_norm`, `tensor_softmax_1d`, `tensor_softmax_2d`,
-  `matrix_qr` (use `sqrt`/`exp`).
-- **`failure/`**: testcases the translator can't handle (e.g. `matrix_bidiagonal`) — excluded
-  from `translate_all.py` / `check_all.py`.
-- **Avoid `sqrt` by reformulating**: Cholesky was switched to LDLᵀ (no `sqrt`) so it stays
-  in the computable Rat float-model — prefer this when possible.
+  (AES-128 encrypt+decrypt, table-driven, conformance + roundtrip), `bitvec_des`
+  (DES single-block encrypt+decrypt, FIPS PUB 46-3).
+- **Real (no `Test_test.lean`)**: `matrix_bidiagonal`, `matrix_cholesky`,
+  `matrix_hessenberg`, `matrix_qr`, `matrix_svd`, `matrix_symmetric_eigen`,
+  `tensor_softmax_1d`, `tensor_softmax_2d`, `vector_norm` (use `sqrt`/`exp`; each
+  carries `float-model = "Real"` in its `Cargo.toml`).
+- **`failure/`**: testcases the translator can't handle — `random_integer` and a stale
+  `matrix_bidiagonal` copy (the `isize`+`continue` version, superseded by the working
+  top-level `matrix_bidiagonal`) — excluded from `translate_all.py` / `check_all.py`.
+- **Avoid `sqrt` by reformulating**: LDLᵀ (`matrix_ldlt`, Rat) is the `sqrt`-free
+  alternative to Cholesky (`matrix_cholesky`, Real) — prefer this when a `sqrt`-free
+  reformulation exists.
 
 ---
 
