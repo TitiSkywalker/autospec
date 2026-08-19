@@ -509,6 +509,15 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
             return f"{prefix}:= {a} {op} {b}"
         if is_usize(a) or is_usize(b):
             usize_vars.add(x)
+        # If one operand is int-typed and the other is an unknown bare
+        # identifier, it was likely assigned from a function call (e.g.
+        # ``let ip ← permute ...``) that returns a BitVec/Int — seed it.
+        if is_int(a) and not is_int(b) and not is_usize(b) and re.match(r"^\w+$", b):
+            int_vars.add(b); int_vars.add(x)
+            return f"{prefix}:= {a} {op} {b}"
+        if not is_int(a) and is_int(b) and not is_usize(a) and re.match(r"^\w+$", a):
+            int_vars.add(a); int_vars.add(x)
+            return f"{prefix}:= {a} {op} {b}"
         return line
 
     _prefix = r"^(\s*(?:then\s+|else\s+)?let\s+(\w+)\s+)←\s+"
@@ -719,7 +728,7 @@ def _bitvec_ops_to_bv(content: str) -> str:
     Only unsigned widths (``u8/u16/u32/u64/u128``) are handled; ``usize``
     operates on ``Std.Usize`` and is left untouched.
     """
-    if "core.num.U" not in content:
+    if "core.num.U" not in content and "UScalar.cast" not in content and "IScalar.cast" not in content:
         return content
 
     # Operand: bare/dotted ident, or a non-nested parenthesized expr (e.g. a
@@ -748,6 +757,29 @@ def _bitvec_ops_to_bv(content: str) -> str:
             rf"BitVec.{bv} \1 \2.toNat",
             content,
         )
+
+    # Integer casts (u8 as usize, u8 as u32, u32 as u8, …) lower to
+    # UScalar.cast/IScalar.cast which are typed on Aeneas's own UScalar/IScalar,
+    # not BitVec w.  Rewrite to BitVec conversions.
+    if "UScalar.cast" in content or "IScalar.cast" in content:
+        # u8 as usize → UScalar.mk (UScalarTy.Usize) (BitVec.ofNat ...)
+        content = re.sub(
+            rf"UScalar\.cast\s+\.Usize\s+({arg})",
+            r"UScalar.mk (BitVec.ofNat (UScalarTy.Usize.numBits) \1.toNat)",
+            content,
+        )
+        for w in (8, 16, 32, 64, 128):
+            content = re.sub(
+                rf"UScalar\.cast\s+\.U{w}\s+({arg})",
+                rf"(BitVec.ofNat {w} \1.toNat)",
+                content,
+            )
+        for w in (8, 16, 32, 64, 128):
+            content = re.sub(
+                rf"IScalar\.cast\s+\.I{w}\s+({arg})",
+                rf"(BitVec.ofInt {w} \1.toInt)",
+                content,
+            )
 
     return content
 
