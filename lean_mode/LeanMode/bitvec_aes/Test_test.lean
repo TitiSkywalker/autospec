@@ -19,7 +19,7 @@ namespace bitvec_aes
 /- Integer types replaced with BitVec 8 by autospec -/
 
 /-- [bitvec_aes::test_aes_128_fips197_c1]:
-    Source: 'src/lib.rs', lines 269:0-290:1
+    Source: 'src/lib.rs', lines 211:0-232:1
     Visibility: public -/
 def test_aes_128_fips197_c1 : Result Unit := do
   let s ←
@@ -101,7 +101,7 @@ def test_aes_128_fips197_c1 : Result Unit := do
   massert (left_val15 = (90 : BitVec 8))
 
 /-- [bitvec_aes::test_aes_128_sp800_38a_block1]:
-    Source: 'src/lib.rs', lines 293:0-314:1
+    Source: 'src/lib.rs', lines 235:0-256:1
     Visibility: public -/
 def test_aes_128_sp800_38a_block1 : Result Unit := do
   let s ←
@@ -183,7 +183,7 @@ def test_aes_128_sp800_38a_block1 : Result Unit := do
   massert (left_val15 = (151 : BitVec 8))
 
 /-- [bitvec_aes::test_aes_128_sp800_38a_block2]:
-    Source: 'src/lib.rs', lines 316:0-337:1
+    Source: 'src/lib.rs', lines 258:0-279:1
     Visibility: public -/
 def test_aes_128_sp800_38a_block2 : Result Unit := do
   let s ←
@@ -265,7 +265,7 @@ def test_aes_128_sp800_38a_block2 : Result Unit := do
   massert (left_val15 = (175 : BitVec 8))
 
 /-- [bitvec_aes::test_aes_128_sp800_38a_block3]:
-    Source: 'src/lib.rs', lines 339:0-360:1
+    Source: 'src/lib.rs', lines 281:0-302:1
     Visibility: public -/
 def test_aes_128_sp800_38a_block3 : Result Unit := do
   let s ←
@@ -347,7 +347,7 @@ def test_aes_128_sp800_38a_block3 : Result Unit := do
   massert (left_val15 = (136 : BitVec 8))
 
 /-- [bitvec_aes::test_sbox]:
-    Source: 'src/lib.rs', lines 363:0-367:1
+    Source: 'src/lib.rs', lines 305:0-309:1
     Visibility: public -/
 def test_sbox : Result Unit := do
   let left_val ← sbox (0 : BitVec 8)
@@ -358,7 +358,7 @@ def test_sbox : Result Unit := do
   massert (left_val2 = (237 : BitVec 8))
 
 /-- [bitvec_aes::test_xtime]:
-    Source: 'src/lib.rs', lines 370:0-373:1
+    Source: 'src/lib.rs', lines 312:0-315:1
     Visibility: public -/
 def test_xtime : Result Unit := do
   let left_val ← xtime (128 : BitVec 8)
@@ -367,7 +367,7 @@ def test_xtime : Result Unit := do
   massert (left_val1 = (0 : BitVec 8))
 
 /-- [bitvec_aes::test_aes_roundtrip]: loop 0:
-    Source: 'src/lib.rs', lines 382:10-383:33
+    Source: 'src/lib.rs', lines 324:10-325:33
     Visibility: public -/
 @[rust_loop]
 def test_aes_roundtrip_loop
@@ -386,7 +386,7 @@ def test_aes_roundtrip_loop
 partial_fixpoint
 
 /-- [bitvec_aes::test_aes_roundtrip]:
-    Source: 'src/lib.rs', lines 376:0-386:1
+    Source: 'src/lib.rs', lines 318:0-328:1
     Visibility: public -/
 def test_aes_roundtrip : Result Unit := do
   let s ←
@@ -417,7 +417,7 @@ def test_aes_roundtrip : Result Unit := do
       ]) back 0#usize
 
 /-- [bitvec_aes::test_aes_128_decrypt_sp800_block1]:
-    Source: 'src/lib.rs', lines 389:0-410:1
+    Source: 'src/lib.rs', lines 331:0-352:1
     Visibility: public -/
 def test_aes_128_decrypt_sp800_block1 : Result Unit := do
   let s ←
@@ -499,7 +499,7 @@ def test_aes_128_decrypt_sp800_block1 : Result Unit := do
   massert (left_val15 = (42 : BitVec 8))
 
 /-- [bitvec_aes::test_aes_128_decrypt_sp800_block2]:
-    Source: 'src/lib.rs', lines 413:0-434:1
+    Source: 'src/lib.rs', lines 355:0-376:1
     Visibility: public -/
 def test_aes_128_decrypt_sp800_block2 : Result Unit := do
   let s ←

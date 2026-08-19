@@ -1,18 +1,58 @@
-//! AES-128 single-block encryption (FIPS-197), **table-free and cast-free**.
+//! AES-128 single-block encryption and decryption (FIPS-197), **table-driven**.
 //!
-//! Everything is `u8` → `BitVec 8` under the `bitvec` int-model.  The S-box is
-//! computed arithmetically (GF(2^8) multiplicative inverse + affine transform)
-//! and MixColumns uses `xtime` — no lookup tables, no `as` casts.
+//! Uses the official S-box / inverse S-box / Rcon tables indexed via `as usize`
+//! (exercises the `UScalar.cast` fix in the `bitvec` int-model).  MixColumns
+//! still uses `xtime` / `gf_mul` (arithmetic GF(2⁸) multiplication).
+
+// ── tables ─────────────────────────────────────────────────────────────────
+
+const SBOX: [u8; 256] = [
+    0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
+    0xca,0x82,0xc9,0x7d,0xfa,0x59,0x47,0xf0,0xad,0xd4,0xa2,0xaf,0x9c,0xa4,0x72,0xc0,
+    0xb7,0xfd,0x93,0x26,0x36,0x3f,0xf7,0xcc,0x34,0xa5,0xe5,0xf1,0x71,0xd8,0x31,0x15,
+    0x04,0xc7,0x23,0xc3,0x18,0x96,0x05,0x9a,0x07,0x12,0x80,0xe2,0xeb,0x27,0xb2,0x75,
+    0x09,0x83,0x2c,0x1a,0x1b,0x6e,0x5a,0xa0,0x52,0x3b,0xd6,0xb3,0x29,0xe3,0x2f,0x84,
+    0x53,0xd1,0x00,0xed,0x20,0xfc,0xb1,0x5b,0x6a,0xcb,0xbe,0x39,0x4a,0x4c,0x58,0xcf,
+    0xd0,0xef,0xaa,0xfb,0x43,0x4d,0x33,0x85,0x45,0xf9,0x02,0x7f,0x50,0x3c,0x9f,0xa8,
+    0x51,0xa3,0x40,0x8f,0x92,0x9d,0x38,0xf5,0xbc,0xb6,0xda,0x21,0x10,0xff,0xf3,0xd2,
+    0xcd,0x0c,0x13,0xec,0x5f,0x97,0x44,0x17,0xc4,0xa7,0x7e,0x3d,0x64,0x5d,0x19,0x73,
+    0x60,0x81,0x4f,0xdc,0x22,0x2a,0x90,0x88,0x46,0xee,0xb8,0x14,0xde,0x5e,0x0b,0xdb,
+    0xe0,0x32,0x3a,0x0a,0x49,0x06,0x24,0x5c,0xc2,0xd3,0xac,0x62,0x91,0x95,0xe4,0x79,
+    0xe7,0xc8,0x37,0x6d,0x8d,0xd5,0x4e,0xa9,0x6c,0x56,0xf4,0xea,0x65,0x7a,0xae,0x08,
+    0xba,0x78,0x25,0x2e,0x1c,0xa6,0xb4,0xc6,0xe8,0xdd,0x74,0x1f,0x4b,0xbd,0x8b,0x8a,
+    0x70,0x3e,0xb5,0x66,0x48,0x03,0xf6,0x0e,0x61,0x35,0x57,0xb9,0x86,0xc1,0x1d,0x9e,
+    0xe1,0xf8,0x98,0x11,0x69,0xd9,0x8e,0x94,0x9b,0x1e,0x87,0xe9,0xce,0x55,0x28,0xdf,
+    0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16,
+];
+
+const INV_SBOX: [u8; 256] = [
+    0x52,0x09,0x6a,0xd5,0x30,0x36,0xa5,0x38,0xbf,0x40,0xa3,0x9e,0x81,0xf3,0xd7,0xfb,
+    0x7c,0xe3,0x39,0x82,0x9b,0x2f,0xff,0x87,0x34,0x8e,0x43,0x44,0xc4,0xde,0xe9,0xcb,
+    0x54,0x7b,0x94,0x32,0xa6,0xc2,0x23,0x3d,0xee,0x4c,0x95,0x0b,0x42,0xfa,0xc3,0x4e,
+    0x08,0x2e,0xa1,0x66,0x28,0xd9,0x24,0xb2,0x76,0x5b,0xa2,0x49,0x6d,0x8b,0xd1,0x25,
+    0x72,0xf8,0xf6,0x64,0x86,0x68,0x98,0x16,0xd4,0xa4,0x5c,0xcc,0x5d,0x65,0xb6,0x92,
+    0x6c,0x70,0x48,0x50,0xfd,0xed,0xb9,0xda,0x5e,0x15,0x46,0x57,0xa7,0x8d,0x9d,0x84,
+    0x90,0xd8,0xab,0x00,0x8c,0xbc,0xd3,0x0a,0xf7,0xe4,0x58,0x05,0xb8,0xb3,0x45,0x06,
+    0xd0,0x2c,0x1e,0x8f,0xca,0x3f,0x0f,0x02,0xc1,0xaf,0xbd,0x03,0x01,0x13,0x8a,0x6b,
+    0x3a,0x91,0x11,0x41,0x4f,0x67,0xdc,0xea,0x97,0xf2,0xcf,0xce,0xf0,0xb4,0xe6,0x73,
+    0x96,0xac,0x74,0x22,0xe7,0xad,0x35,0x85,0xe2,0xf9,0x37,0xe8,0x1c,0x75,0xdf,0x6e,
+    0x47,0xf1,0x1a,0x71,0x1d,0x29,0xc5,0x89,0x6f,0xb7,0x62,0x0e,0xaa,0x18,0xbe,0x1b,
+    0xfc,0x56,0x3e,0x4b,0xc6,0xd2,0x79,0x20,0x9a,0xdb,0xc0,0xfe,0x78,0xcd,0x5a,0xf4,
+    0x1f,0xdd,0xa8,0x33,0x88,0x07,0xc7,0x31,0xb1,0x12,0x10,0x59,0x27,0x80,0xec,0x5f,
+    0x60,0x51,0x7f,0xa9,0x19,0xb5,0x4a,0x0d,0x2d,0xe5,0x7a,0x9f,0x93,0xc9,0x9c,0xef,
+    0xa0,0xe0,0x3b,0x4d,0xae,0x2a,0xf5,0xb0,0xc8,0xeb,0xbb,0x3c,0x83,0x53,0x99,0x61,
+    0x17,0x2b,0x04,0x7e,0xba,0x77,0xd6,0x26,0xe1,0x69,0x14,0x63,0x55,0x21,0x0c,0x7d,
+];
+
+const RCON: [u8; 11] = [0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36];
+
+// ── GF(2^8) arithmetic ────────────────────────────────────────────────────
 
 /// `xtime(a)`: multiply by 2 in GF(2^8) (reduction polynomial x^8+x^4+x^3+x+1 = 0x11b).
 pub fn xtime(a: u8) -> u8 {
     let hi = a & 0x80;
     let t = a << 1;
-    if hi != 0 {
-        t ^ 0x1b
-    } else {
-        t
-    }
+    if hi != 0 { t ^ 0x1b } else { t }
 }
 
 /// Multiply two bytes in GF(2^8) (shift-and-add).
@@ -21,245 +61,147 @@ pub fn gf_mul(a: u8, b: u8) -> u8 {
     let mut x = a;
     let mut y = b;
     while y != 0 {
-        if y & 1 == 1 {
-            r = r ^ x;
-        }
+        if y & 1 == 1 { r = r ^ x; }
         x = xtime(x);
         y = y >> 1;
     }
     r
 }
 
-/// Multiplicative inverse in GF(2^8): `a^254` (the multiplicative group has order 255).
-pub fn gf_inv(a: u8) -> u8 {
-    let mut r = 1u8;
-    let mut base = a;
-    let mut e = 254u8;
-    while e > 0 {
-        if e & 1 == 1 {
-            r = gf_mul(r, base);
-        }
-        base = gf_mul(base, base);
-        e = e >> 1;
-    }
-    r
-}
+// ── table-driven S-box / key expansion ─────────────────────────────────────
 
-/// AES S-box: affine transform of the GF(2^8) multiplicative inverse.
+/// Forward S-box lookup.
 pub fn sbox(x: u8) -> u8 {
-    let p = gf_inv(x);
-    p ^ p.rotate_left(1) ^ p.rotate_left(2) ^ p.rotate_left(3) ^ p.rotate_left(4) ^ 0x63
+    SBOX[x as usize]
 }
 
-/// `rcon(j)` = 2^(j-1) in GF(2^8) (the round constant).
+/// Inverse S-box lookup.
+pub fn inv_sbox(x: u8) -> u8 {
+    INV_SBOX[x as usize]
+}
+
+/// Rcon[j] = 2^(j-1) in GF(2^8).
 pub fn rcon(j: usize) -> u8 {
-    let mut r = 1u8;
-    let mut k = 1usize;
-    while k < j {
-        r = xtime(r);
-        k = k + 1;
-    }
-    r
+    RCON[j]
 }
 
-/// AES-128 key expansion: 16-byte key → 176-byte round-key schedule (11 round keys).
+/// AES-128 key expansion: 16-byte key → 176-byte round-key schedule.
 pub fn key_expansion(key: &[u8]) -> Vec<u8> {
     let mut rk = vec![0u8; 176];
     let mut i = 0usize;
-    while i < 16 {
-        rk[i] = key[i];
-        i = i + 1;
-    }
-
+    while i < 16 { rk[i] = key[i]; i = i + 1; }
     let mut i = 4usize;
     while i < 44 {
         let t0 = rk[4 * (i - 1) + 0];
         let t1 = rk[4 * (i - 1) + 1];
         let t2 = rk[4 * (i - 1) + 2];
         let t3 = rk[4 * (i - 1) + 3];
-        let mut u0 = t0;
-        let mut u1 = t1;
-        let mut u2 = t2;
-        let mut u3 = t3;
+        let mut u0 = t0; let mut u1 = t1; let mut u2 = t2; let mut u3 = t3;
         if i % 4 == 0 {
-            // RotWord [t0,t1,t2,t3] -> [t1,t2,t3,t0], then SubWord, then xor Rcon.
-            let s0 = sbox(t1);
-            let s1 = sbox(t2);
-            let s2 = sbox(t3);
-            let s3 = sbox(t0);
-            u0 = s0 ^ rcon(i / 4);
-            u1 = s1;
-            u2 = s2;
-            u3 = s3;
+            u0 = sbox(t1) ^ rcon(i / 4);
+            u1 = sbox(t2);
+            u2 = sbox(t3);
+            u3 = sbox(t0);
         }
         let w0 = rk[4 * (i - 4) + 0] ^ u0;
         let w1 = rk[4 * (i - 4) + 1] ^ u1;
         let w2 = rk[4 * (i - 4) + 2] ^ u2;
         let w3 = rk[4 * (i - 4) + 3] ^ u3;
-        rk[4 * i + 0] = w0;
-        rk[4 * i + 1] = w1;
-        rk[4 * i + 2] = w2;
-        rk[4 * i + 3] = w3;
+        rk[4 * i + 0] = w0; rk[4 * i + 1] = w1; rk[4 * i + 2] = w2; rk[4 * i + 3] = w3;
         i = i + 1;
     }
     rk
 }
 
-/// XOR the 16-byte state with round key `round` (bytes `16*round .. 16*round+16` of `rk`).
+// ── round operations ───────────────────────────────────────────────────────
+
 pub fn add_round_key(state: Vec<u8>, rk: &[u8], round: usize) -> Vec<u8> {
     let mut out = state;
     let mut i = 0usize;
-    while i < 16 {
-        let t = out[i] ^ rk[16 * round + i];
-        out[i] = t;
-        i = i + 1;
-    }
+    while i < 16 { let t = out[i] ^ rk[16 * round + i]; out[i] = t; i = i + 1; }
     out
 }
 
-/// SubBytes: apply the S-box to every byte.
 pub fn sub_bytes(state: Vec<u8>) -> Vec<u8> {
     let mut out = vec![0u8; 16];
     let mut i = 0usize;
-    while i < 16 {
-        out[i] = sbox(state[i]);
-        i = i + 1;
-    }
+    while i < 16 { out[i] = sbox(state[i]); i = i + 1; }
     out
 }
 
-/// ShiftRows: rotate row `r` left by `r` positions (column-major 4x4 state).
 pub fn shift_rows(state: Vec<u8>) -> Vec<u8> {
     let mut out = vec![0u8; 16];
     let mut r = 0usize;
-    while r < 4 {
-        let mut c = 0usize;
-        while c < 4 {
-            out[r + 4 * c] = state[r + 4 * ((c + r) % 4)];
-            c = c + 1;
-        }
-        r = r + 1;
-    }
+    while r < 4 { let mut c = 0usize; while c < 4 { out[r + 4 * c] = state[r + 4 * ((c + r) % 4)]; c = c + 1; } r = r + 1; }
     out
 }
 
-/// MixColumns: each column multiplied in GF(2^8) by the fixed MDS matrix.
 pub fn mix_columns(state: Vec<u8>) -> Vec<u8> {
     let mut out = vec![0u8; 16];
     let mut c = 0usize;
     while c < 4 {
-        let a0 = state[0 + 4 * c];
-        let a1 = state[1 + 4 * c];
-        let a2 = state[2 + 4 * c];
-        let a3 = state[3 + 4 * c];
-        let b0 = xtime(a0) ^ (xtime(a1) ^ a1) ^ a2 ^ a3;
-        let b1 = a0 ^ xtime(a1) ^ (xtime(a2) ^ a2) ^ a3;
-        let b2 = a0 ^ a1 ^ xtime(a2) ^ (xtime(a3) ^ a3);
-        let b3 = (xtime(a0) ^ a0) ^ a1 ^ a2 ^ xtime(a3);
-        out[0 + 4 * c] = b0;
-        out[1 + 4 * c] = b1;
-        out[2 + 4 * c] = b2;
-        out[3 + 4 * c] = b3;
+        let a0 = state[0 + 4 * c]; let a1 = state[1 + 4 * c]; let a2 = state[2 + 4 * c]; let a3 = state[3 + 4 * c];
+        out[0 + 4 * c] = xtime(a0) ^ (xtime(a1) ^ a1) ^ a2 ^ a3;
+        out[1 + 4 * c] = a0 ^ xtime(a1) ^ (xtime(a2) ^ a2) ^ a3;
+        out[2 + 4 * c] = a0 ^ a1 ^ xtime(a2) ^ (xtime(a3) ^ a3);
+        out[3 + 4 * c] = (xtime(a0) ^ a0) ^ a1 ^ a2 ^ xtime(a3);
         c = c + 1;
     }
     out
 }
 
-/// AES-128 encrypt a single 16-byte block (FIPS-197 §5.1, 10 rounds).
+pub fn inv_sub_bytes(state: Vec<u8>) -> Vec<u8> {
+    let mut out = vec![0u8; 16];
+    let mut i = 0usize;
+    while i < 16 { out[i] = inv_sbox(state[i]); i = i + 1; }
+    out
+}
+
+pub fn inv_shift_rows(state: Vec<u8>) -> Vec<u8> {
+    let mut out = vec![0u8; 16];
+    let mut r = 0usize;
+    while r < 4 { let mut c = 0usize; while c < 4 { out[r + 4 * c] = state[r + 4 * ((c + 4 - r) % 4)]; c = c + 1; } r = r + 1; }
+    out
+}
+
+pub fn inv_mix_columns(state: Vec<u8>) -> Vec<u8> {
+    let mut out = vec![0u8; 16];
+    let mut c = 0usize;
+    while c < 4 {
+        let a0 = state[0 + 4 * c]; let a1 = state[1 + 4 * c]; let a2 = state[2 + 4 * c]; let a3 = state[3 + 4 * c];
+        out[0 + 4 * c] = gf_mul(a0, 14) ^ gf_mul(a1, 11) ^ gf_mul(a2, 13) ^ gf_mul(a3, 9);
+        out[1 + 4 * c] = gf_mul(a0, 9) ^ gf_mul(a1, 14) ^ gf_mul(a2, 11) ^ gf_mul(a3, 13);
+        out[2 + 4 * c] = gf_mul(a0, 13) ^ gf_mul(a1, 9) ^ gf_mul(a2, 14) ^ gf_mul(a3, 11);
+        out[3 + 4 * c] = gf_mul(a0, 11) ^ gf_mul(a1, 13) ^ gf_mul(a2, 9) ^ gf_mul(a3, 14);
+        c = c + 1;
+    }
+    out
+}
+
+// ── encrypt / decrypt ──────────────────────────────────────────────────────
+
 pub fn aes_encrypt(block: &[u8], key: &[u8]) -> Vec<u8> {
     let rk = key_expansion(key);
     let mut state = block.to_vec();
     state = add_round_key(state, &rk, 0);
     let mut round = 1usize;
     while round < 10 {
-        state = sub_bytes(state);
-        state = shift_rows(state);
-        state = mix_columns(state);
-        state = add_round_key(state, &rk, round);
+        state = sub_bytes(state); state = shift_rows(state); state = mix_columns(state); state = add_round_key(state, &rk, round);
         round = round + 1;
     }
-    state = sub_bytes(state);
-    state = shift_rows(state);
-    state = add_round_key(state, &rk, 10);
+    state = sub_bytes(state); state = shift_rows(state); state = add_round_key(state, &rk, 10);
     state
 }
 
-// ── decryption ─────────────────────────────────────────────────────────────
-
-/// Inverse affine transform: `L^-1(y) = y <<< 1 ^ y <<< 3 ^ y <<< 6 ^ 0x05`.
-pub fn inv_affine(x: u8) -> u8 {
-    x.rotate_left(1) ^ x.rotate_left(3) ^ x.rotate_left(6) ^ 0x05
-}
-
-/// Inverse S-box: apply the inverse affine, then take the GF(2^8) inverse.
-pub fn inv_sbox(x: u8) -> u8 {
-    gf_inv(inv_affine(x))
-}
-
-/// InvSubBytes: apply the inverse S-box to every byte.
-pub fn inv_sub_bytes(state: Vec<u8>) -> Vec<u8> {
-    let mut out = vec![0u8; 16];
-    let mut i = 0usize;
-    while i < 16 {
-        out[i] = inv_sbox(state[i]);
-        i = i + 1;
-    }
-    out
-}
-
-/// InvShiftRows: rotate row `r` right by `r` positions.
-pub fn inv_shift_rows(state: Vec<u8>) -> Vec<u8> {
-    let mut out = vec![0u8; 16];
-    let mut r = 0usize;
-    while r < 4 {
-        let mut c = 0usize;
-        while c < 4 {
-            out[r + 4 * c] = state[r + 4 * ((c + 4 - r) % 4)];
-            c = c + 1;
-        }
-        r = r + 1;
-    }
-    out
-}
-
-/// InvMixColumns: multiply each column by the inverse MDS matrix
-/// (coefficients 0e, 0b, 0d, 09 in GF(2^8)).
-pub fn inv_mix_columns(state: Vec<u8>) -> Vec<u8> {
-    let mut out = vec![0u8; 16];
-    let mut c = 0usize;
-    while c < 4 {
-        let a0 = state[0 + 4 * c];
-        let a1 = state[1 + 4 * c];
-        let a2 = state[2 + 4 * c];
-        let a3 = state[3 + 4 * c];
-        let b0 = gf_mul(a0, 14) ^ gf_mul(a1, 11) ^ gf_mul(a2, 13) ^ gf_mul(a3, 9);
-        let b1 = gf_mul(a0, 9) ^ gf_mul(a1, 14) ^ gf_mul(a2, 11) ^ gf_mul(a3, 13);
-        let b2 = gf_mul(a0, 13) ^ gf_mul(a1, 9) ^ gf_mul(a2, 14) ^ gf_mul(a3, 11);
-        let b3 = gf_mul(a0, 11) ^ gf_mul(a1, 13) ^ gf_mul(a2, 9) ^ gf_mul(a3, 14);
-        out[0 + 4 * c] = b0;
-        out[1 + 4 * c] = b1;
-        out[2 + 4 * c] = b2;
-        out[3 + 4 * c] = b3;
-        c = c + 1;
-    }
-    out
-}
-
-/// AES-128 decrypt a single 16-byte block (FIPS-197 §5.3, 10 rounds).
 pub fn aes_decrypt(block: &[u8], key: &[u8]) -> Vec<u8> {
     let rk = key_expansion(key);
     let mut state = block.to_vec();
     state = add_round_key(state, &rk, 10);
     let mut round = 9usize;
     while round > 0 {
-        state = inv_shift_rows(state);
-        state = inv_sub_bytes(state);
-        state = add_round_key(state, &rk, round);
-        state = inv_mix_columns(state);
+        state = inv_shift_rows(state); state = inv_sub_bytes(state); state = add_round_key(state, &rk, round); state = inv_mix_columns(state);
         round = round - 1;
     }
-    state = inv_shift_rows(state);
-    state = inv_sub_bytes(state);
-    state = add_round_key(state, &rk, 0);
+    state = inv_shift_rows(state); state = inv_sub_bytes(state); state = add_round_key(state, &rk, 0);
     state
 }

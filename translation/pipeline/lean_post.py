@@ -485,16 +485,16 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     ``then let x ← …`` on its own line).
     """
 
-    # Operand: bare identifier/numeral (int/nat models) or a typed
-    # ``(n : BitVec w)`` literal (bitvec model).
-    _op = r"(?:\w+|\([^()]*\))"
+    # Operand: bare identifier/numeral (int/nat models), a typed
+    # ``(n : BitVec w)`` literal (bitvec), or a ``N#usize`` literal.
+    _op = r"(?:\w+|\([^()]*\)|\d+#usize)"
     _cap = rf"({_op})"
 
     def is_int(tok: str) -> bool:
         return tok in int_vars or _is_int_literal(tok)
 
     def is_usize(tok: str) -> bool:
-        return tok in usize_vars
+        return tok in usize_vars or re.match(r"\d+#usize", tok) is not None
 
     def track(x: str, a: str, b: str) -> None:
         """Record ``x``'s type based on its operands (for later lines)."""
@@ -547,6 +547,11 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     )
     if m:
         x, a, _opx, b = m.groups()
+        if is_usize(a) or is_usize(b):
+            # usize arithmetic is monadic; Aeneas occasionally emits
+            # ``let x := a + b`` instead of ``←`` — fix it.
+            usize_vars.add(x)
+            return line.replace(":=", "←", 1)
         track(x, a, b)
         return line
 

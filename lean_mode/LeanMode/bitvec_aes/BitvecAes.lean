@@ -30,8 +30,84 @@ def PartialEqBitVec8 : core.cmp.PartialEq (BitVec 8) (BitVec 8) := {
   eq := PartialEqBitVec8.eq
 }
 
+/-- [bitvec_aes::SBOX]
+    Source: 'src/lib.rs', lines 9:0-26:2 -/
+@[global_simps, irreducible]
+def SBOX : Array (BitVec 8) 256#usize :=
+  Array.make 256#usize [
+    (99 : BitVec 8), (124 : BitVec 8), (119 : BitVec 8), (123 : BitVec 8), (242 : BitVec 8), (107 : BitVec 8), (111 : BitVec 8), (197 : BitVec 8), (48 : BitVec 8), (1 : BitVec 8),
+    (103 : BitVec 8), (43 : BitVec 8), (254 : BitVec 8), (215 : BitVec 8), (171 : BitVec 8), (118 : BitVec 8), (202 : BitVec 8), (130 : BitVec 8), (201 : BitVec 8),
+    (125 : BitVec 8), (250 : BitVec 8), (89 : BitVec 8), (71 : BitVec 8), (240 : BitVec 8), (173 : BitVec 8), (212 : BitVec 8), (162 : BitVec 8), (175 : BitVec 8),
+    (156 : BitVec 8), (164 : BitVec 8), (114 : BitVec 8), (192 : BitVec 8), (183 : BitVec 8), (253 : BitVec 8), (147 : BitVec 8), (38 : BitVec 8), (54 : BitVec 8),
+    (63 : BitVec 8), (247 : BitVec 8), (204 : BitVec 8), (52 : BitVec 8), (165 : BitVec 8), (229 : BitVec 8), (241 : BitVec 8), (113 : BitVec 8), (216 : BitVec 8),
+    (49 : BitVec 8), (21 : BitVec 8), (4 : BitVec 8), (199 : BitVec 8), (35 : BitVec 8), (195 : BitVec 8), (24 : BitVec 8), (150 : BitVec 8), (5 : BitVec 8), (154 : BitVec 8),
+    (7 : BitVec 8), (18 : BitVec 8), (128 : BitVec 8), (226 : BitVec 8), (235 : BitVec 8), (39 : BitVec 8), (178 : BitVec 8), (117 : BitVec 8), (9 : BitVec 8), (131 : BitVec 8),
+    (44 : BitVec 8), (26 : BitVec 8), (27 : BitVec 8), (110 : BitVec 8), (90 : BitVec 8), (160 : BitVec 8), (82 : BitVec 8), (59 : BitVec 8), (214 : BitVec 8), (179 : BitVec 8),
+    (41 : BitVec 8), (227 : BitVec 8), (47 : BitVec 8), (132 : BitVec 8), (83 : BitVec 8), (209 : BitVec 8), (0 : BitVec 8), (237 : BitVec 8), (32 : BitVec 8), (252 : BitVec 8),
+    (177 : BitVec 8), (91 : BitVec 8), (106 : BitVec 8), (203 : BitVec 8), (190 : BitVec 8), (57 : BitVec 8), (74 : BitVec 8), (76 : BitVec 8), (88 : BitVec 8), (207 : BitVec 8),
+    (208 : BitVec 8), (239 : BitVec 8), (170 : BitVec 8), (251 : BitVec 8), (67 : BitVec 8), (77 : BitVec 8), (51 : BitVec 8), (133 : BitVec 8), (69 : BitVec 8), (249 : BitVec 8),
+    (2 : BitVec 8), (127 : BitVec 8), (80 : BitVec 8), (60 : BitVec 8), (159 : BitVec 8), (168 : BitVec 8), (81 : BitVec 8), (163 : BitVec 8), (64 : BitVec 8), (143 : BitVec 8),
+    (146 : BitVec 8), (157 : BitVec 8), (56 : BitVec 8), (245 : BitVec 8), (188 : BitVec 8), (182 : BitVec 8), (218 : BitVec 8), (33 : BitVec 8), (16 : BitVec 8),
+    (255 : BitVec 8), (243 : BitVec 8), (210 : BitVec 8), (205 : BitVec 8), (12 : BitVec 8), (19 : BitVec 8), (236 : BitVec 8), (95 : BitVec 8), (151 : BitVec 8), (68 : BitVec 8),
+    (23 : BitVec 8), (196 : BitVec 8), (167 : BitVec 8), (126 : BitVec 8), (61 : BitVec 8), (100 : BitVec 8), (93 : BitVec 8), (25 : BitVec 8), (115 : BitVec 8), (96 : BitVec 8),
+    (129 : BitVec 8), (79 : BitVec 8), (220 : BitVec 8), (34 : BitVec 8), (42 : BitVec 8), (144 : BitVec 8), (136 : BitVec 8), (70 : BitVec 8), (238 : BitVec 8), (184 : BitVec 8),
+    (20 : BitVec 8), (222 : BitVec 8), (94 : BitVec 8), (11 : BitVec 8), (219 : BitVec 8), (224 : BitVec 8), (50 : BitVec 8), (58 : BitVec 8), (10 : BitVec 8), (73 : BitVec 8),
+    (6 : BitVec 8), (36 : BitVec 8), (92 : BitVec 8), (194 : BitVec 8), (211 : BitVec 8), (172 : BitVec 8), (98 : BitVec 8), (145 : BitVec 8), (149 : BitVec 8), (228 : BitVec 8),
+    (121 : BitVec 8), (231 : BitVec 8), (200 : BitVec 8), (55 : BitVec 8), (109 : BitVec 8), (141 : BitVec 8), (213 : BitVec 8), (78 : BitVec 8), (169 : BitVec 8),
+    (108 : BitVec 8), (86 : BitVec 8), (244 : BitVec 8), (234 : BitVec 8), (101 : BitVec 8), (122 : BitVec 8), (174 : BitVec 8), (8 : BitVec 8), (186 : BitVec 8),
+    (120 : BitVec 8), (37 : BitVec 8), (46 : BitVec 8), (28 : BitVec 8), (166 : BitVec 8), (180 : BitVec 8), (198 : BitVec 8), (232 : BitVec 8), (221 : BitVec 8),
+    (116 : BitVec 8), (31 : BitVec 8), (75 : BitVec 8), (189 : BitVec 8), (139 : BitVec 8), (138 : BitVec 8), (112 : BitVec 8), (62 : BitVec 8), (181 : BitVec 8),
+    (102 : BitVec 8), (72 : BitVec 8), (3 : BitVec 8), (246 : BitVec 8), (14 : BitVec 8), (97 : BitVec 8), (53 : BitVec 8), (87 : BitVec 8), (185 : BitVec 8), (134 : BitVec 8),
+    (193 : BitVec 8), (29 : BitVec 8), (158 : BitVec 8), (225 : BitVec 8), (248 : BitVec 8), (152 : BitVec 8), (17 : BitVec 8), (105 : BitVec 8), (217 : BitVec 8),
+    (142 : BitVec 8), (148 : BitVec 8), (155 : BitVec 8), (30 : BitVec 8), (135 : BitVec 8), (233 : BitVec 8), (206 : BitVec 8), (85 : BitVec 8), (40 : BitVec 8),
+    (223 : BitVec 8), (140 : BitVec 8), (161 : BitVec 8), (137 : BitVec 8), (13 : BitVec 8), (191 : BitVec 8), (230 : BitVec 8), (66 : BitVec 8), (104 : BitVec 8),
+    (65 : BitVec 8), (153 : BitVec 8), (45 : BitVec 8), (15 : BitVec 8), (176 : BitVec 8), (84 : BitVec 8), (187 : BitVec 8), (22 : BitVec 8)
+    ]
+
+/-- [bitvec_aes::INV_SBOX]
+    Source: 'src/lib.rs', lines 28:0-45:2 -/
+@[global_simps, irreducible]
+def INV_SBOX : Array (BitVec 8) 256#usize :=
+  Array.make 256#usize [
+    (82 : BitVec 8), (9 : BitVec 8), (106 : BitVec 8), (213 : BitVec 8), (48 : BitVec 8), (54 : BitVec 8), (165 : BitVec 8), (56 : BitVec 8), (191 : BitVec 8), (64 : BitVec 8),
+    (163 : BitVec 8), (158 : BitVec 8), (129 : BitVec 8), (243 : BitVec 8), (215 : BitVec 8), (251 : BitVec 8), (124 : BitVec 8), (227 : BitVec 8), (57 : BitVec 8),
+    (130 : BitVec 8), (155 : BitVec 8), (47 : BitVec 8), (255 : BitVec 8), (135 : BitVec 8), (52 : BitVec 8), (142 : BitVec 8), (67 : BitVec 8), (68 : BitVec 8), (196 : BitVec 8),
+    (222 : BitVec 8), (233 : BitVec 8), (203 : BitVec 8), (84 : BitVec 8), (123 : BitVec 8), (148 : BitVec 8), (50 : BitVec 8), (166 : BitVec 8), (194 : BitVec 8),
+    (35 : BitVec 8), (61 : BitVec 8), (238 : BitVec 8), (76 : BitVec 8), (149 : BitVec 8), (11 : BitVec 8), (66 : BitVec 8), (250 : BitVec 8), (195 : BitVec 8), (78 : BitVec 8),
+    (8 : BitVec 8), (46 : BitVec 8), (161 : BitVec 8), (102 : BitVec 8), (40 : BitVec 8), (217 : BitVec 8), (36 : BitVec 8), (178 : BitVec 8), (118 : BitVec 8), (91 : BitVec 8),
+    (162 : BitVec 8), (73 : BitVec 8), (109 : BitVec 8), (139 : BitVec 8), (209 : BitVec 8), (37 : BitVec 8), (114 : BitVec 8), (248 : BitVec 8), (246 : BitVec 8),
+    (100 : BitVec 8), (134 : BitVec 8), (104 : BitVec 8), (152 : BitVec 8), (22 : BitVec 8), (212 : BitVec 8), (164 : BitVec 8), (92 : BitVec 8), (204 : BitVec 8),
+    (93 : BitVec 8), (101 : BitVec 8), (182 : BitVec 8), (146 : BitVec 8), (108 : BitVec 8), (112 : BitVec 8), (72 : BitVec 8), (80 : BitVec 8), (253 : BitVec 8),
+    (237 : BitVec 8), (185 : BitVec 8), (218 : BitVec 8), (94 : BitVec 8), (21 : BitVec 8), (70 : BitVec 8), (87 : BitVec 8), (167 : BitVec 8), (141 : BitVec 8), (157 : BitVec 8),
+    (132 : BitVec 8), (144 : BitVec 8), (216 : BitVec 8), (171 : BitVec 8), (0 : BitVec 8), (140 : BitVec 8), (188 : BitVec 8), (211 : BitVec 8), (10 : BitVec 8),
+    (247 : BitVec 8), (228 : BitVec 8), (88 : BitVec 8), (5 : BitVec 8), (184 : BitVec 8), (179 : BitVec 8), (69 : BitVec 8), (6 : BitVec 8), (208 : BitVec 8), (44 : BitVec 8),
+    (30 : BitVec 8), (143 : BitVec 8), (202 : BitVec 8), (63 : BitVec 8), (15 : BitVec 8), (2 : BitVec 8), (193 : BitVec 8), (175 : BitVec 8), (189 : BitVec 8), (3 : BitVec 8),
+    (1 : BitVec 8), (19 : BitVec 8), (138 : BitVec 8), (107 : BitVec 8), (58 : BitVec 8), (145 : BitVec 8), (17 : BitVec 8), (65 : BitVec 8), (79 : BitVec 8), (103 : BitVec 8),
+    (220 : BitVec 8), (234 : BitVec 8), (151 : BitVec 8), (242 : BitVec 8), (207 : BitVec 8), (206 : BitVec 8), (240 : BitVec 8), (180 : BitVec 8), (230 : BitVec 8),
+    (115 : BitVec 8), (150 : BitVec 8), (172 : BitVec 8), (116 : BitVec 8), (34 : BitVec 8), (231 : BitVec 8), (173 : BitVec 8), (53 : BitVec 8), (133 : BitVec 8),
+    (226 : BitVec 8), (249 : BitVec 8), (55 : BitVec 8), (232 : BitVec 8), (28 : BitVec 8), (117 : BitVec 8), (223 : BitVec 8), (110 : BitVec 8), (71 : BitVec 8),
+    (241 : BitVec 8), (26 : BitVec 8), (113 : BitVec 8), (29 : BitVec 8), (41 : BitVec 8), (197 : BitVec 8), (137 : BitVec 8), (111 : BitVec 8), (183 : BitVec 8), (98 : BitVec 8),
+    (14 : BitVec 8), (170 : BitVec 8), (24 : BitVec 8), (190 : BitVec 8), (27 : BitVec 8), (252 : BitVec 8), (86 : BitVec 8), (62 : BitVec 8), (75 : BitVec 8), (198 : BitVec 8),
+    (210 : BitVec 8), (121 : BitVec 8), (32 : BitVec 8), (154 : BitVec 8), (219 : BitVec 8), (192 : BitVec 8), (254 : BitVec 8), (120 : BitVec 8), (205 : BitVec 8),
+    (90 : BitVec 8), (244 : BitVec 8), (31 : BitVec 8), (221 : BitVec 8), (168 : BitVec 8), (51 : BitVec 8), (136 : BitVec 8), (7 : BitVec 8), (199 : BitVec 8), (49 : BitVec 8),
+    (177 : BitVec 8), (18 : BitVec 8), (16 : BitVec 8), (89 : BitVec 8), (39 : BitVec 8), (128 : BitVec 8), (236 : BitVec 8), (95 : BitVec 8), (96 : BitVec 8), (81 : BitVec 8),
+    (127 : BitVec 8), (169 : BitVec 8), (25 : BitVec 8), (181 : BitVec 8), (74 : BitVec 8), (13 : BitVec 8), (45 : BitVec 8), (229 : BitVec 8), (122 : BitVec 8), (159 : BitVec 8),
+    (147 : BitVec 8), (201 : BitVec 8), (156 : BitVec 8), (239 : BitVec 8), (160 : BitVec 8), (224 : BitVec 8), (59 : BitVec 8), (77 : BitVec 8), (174 : BitVec 8),
+    (42 : BitVec 8), (245 : BitVec 8), (176 : BitVec 8), (200 : BitVec 8), (235 : BitVec 8), (187 : BitVec 8), (60 : BitVec 8), (131 : BitVec 8), (83 : BitVec 8),
+    (153 : BitVec 8), (97 : BitVec 8), (23 : BitVec 8), (43 : BitVec 8), (4 : BitVec 8), (126 : BitVec 8), (186 : BitVec 8), (119 : BitVec 8), (214 : BitVec 8), (38 : BitVec 8),
+    (225 : BitVec 8), (105 : BitVec 8), (20 : BitVec 8), (99 : BitVec 8), (85 : BitVec 8), (33 : BitVec 8), (12 : BitVec 8), (125 : BitVec 8)
+    ]
+
+/-- [bitvec_aes::RCON]
+    Source: 'src/lib.rs', lines 47:0-47:80 -/
+@[global_simps, irreducible]
+def RCON : Array (BitVec 8) 11#usize :=
+  Array.make 11#usize [
+    (0 : BitVec 8), (1 : BitVec 8), (2 : BitVec 8), (4 : BitVec 8), (8 : BitVec 8), (16 : BitVec 8), (32 : BitVec 8), (64 : BitVec 8), (128 : BitVec 8), (27 : BitVec 8), (54 : BitVec 8)
+    ]
+
 /-- [bitvec_aes::xtime]:
-    Source: 'src/lib.rs', lines 8:0-16:1
+    Source: 'src/lib.rs', lines 52:0-56:1
     Visibility: public -/
 def xtime (a : (BitVec 8)) : Result (BitVec 8) := do
   let hi := a &&& (128 : BitVec 8)
@@ -41,7 +117,7 @@ def xtime (a : (BitVec 8)) : Result (BitVec 8) := do
   else ok t
 
 /-- [bitvec_aes::gf_mul]: loop 0:
-    Source: 'src/lib.rs', lines 23:4-29:5
+    Source: 'src/lib.rs', lines 63:4-67:5
     Visibility: public -/
 @[rust_loop]
 def gf_mul_loop (r : (BitVec 8)) (x : (BitVec 8)) (y : (BitVec 8)) : Result (BitVec 8) := do
@@ -58,73 +134,34 @@ def gf_mul_loop (r : (BitVec 8)) (x : (BitVec 8)) (y : (BitVec 8)) : Result (Bit
 partial_fixpoint
 
 /-- [bitvec_aes::gf_mul]:
-    Source: 'src/lib.rs', lines 19:0-31:1
+    Source: 'src/lib.rs', lines 59:0-69:1
     Visibility: public -/
 @[reducible]
 def gf_mul (a : (BitVec 8)) (b : (BitVec 8)) : Result (BitVec 8) := do
   gf_mul_loop (0 : BitVec 8) a b
 
-/-- [bitvec_aes::gf_inv]: loop 0:
-    Source: 'src/lib.rs', lines 38:4-44:5
-    Visibility: public -/
-@[rust_loop]
-def gf_inv_loop (r : (BitVec 8)) (base : (BitVec 8)) (e : (BitVec 8)) : Result (BitVec 8) := do
-  if e > (0 : BitVec 8)
-  then
-    let i := e &&& (1 : BitVec 8)
-    let r1 ← if i = (1 : BitVec 8)
-               then gf_mul r base
-               else ok r
-    let base1 ← gf_mul base base
-    let e1 := e >>> 1
-    gf_inv_loop r1 base1 e1
-  else ok r
-partial_fixpoint
-
-/-- [bitvec_aes::gf_inv]:
-    Source: 'src/lib.rs', lines 34:0-46:1
-    Visibility: public -/
-@[reducible]
-def gf_inv (a : (BitVec 8)) : Result (BitVec 8) := do
-  gf_inv_loop (1 : BitVec 8) a (254 : BitVec 8)
-
 /-- [bitvec_aes::sbox]:
-    Source: 'src/lib.rs', lines 49:0-52:1
+    Source: 'src/lib.rs', lines 74:0-76:1
     Visibility: public -/
 def sbox (x : (BitVec 8)) : Result (BitVec 8) := do
-  let p ← gf_inv x
-  let i ← lift (BitVec.rotateLeft p (1 : BitVec 32).toNat)
-  let i1 ← lift (p ^^^ i)
-  let i2 ← lift (BitVec.rotateLeft p (2 : BitVec 32).toNat)
-  let i3 ← lift (i1 ^^^ i2)
-  let i4 ← lift (BitVec.rotateLeft p (3 : BitVec 32).toNat)
-  let i5 ← lift (i3 ^^^ i4)
-  let i6 ← lift (BitVec.rotateLeft p (4 : BitVec 32).toNat)
-  let i7 ← lift (i5 ^^^ i6)
-  ok (i7 ^^^ (99 : BitVec 8))
+  let i ← lift (UScalar.mk (BitVec.ofNat (UScalarTy.Usize.numBits) x.toNat))
+  Array.index_usize SBOX i
 
-/-- [bitvec_aes::rcon]: loop 0:
-    Source: 'src/lib.rs', lines 58:4-61:5
+/-- [bitvec_aes::inv_sbox]:
+    Source: 'src/lib.rs', lines 79:0-81:1
     Visibility: public -/
-@[rust_loop]
-def rcon_loop
-  (j : Std.Usize) (r : (BitVec 8)) (k : Std.Usize) : Result (BitVec 8) := do
-  if k < j
-  then let r1 ← xtime r
-       let k1 ← k + 1#usize
-       rcon_loop j r1 k1
-  else ok r
-partial_fixpoint
+def inv_sbox (x : (BitVec 8)) : Result (BitVec 8) := do
+  let i ← lift (UScalar.mk (BitVec.ofNat (UScalarTy.Usize.numBits) x.toNat))
+  Array.index_usize INV_SBOX i
 
 /-- [bitvec_aes::rcon]:
-    Source: 'src/lib.rs', lines 55:0-63:1
+    Source: 'src/lib.rs', lines 84:0-86:1
     Visibility: public -/
-@[reducible]
 def rcon (j : Std.Usize) : Result (BitVec 8) := do
-  rcon_loop j (1 : BitVec 8) 1#usize
+  Array.index_usize RCON j
 
 /-- [bitvec_aes::key_expansion]: loop 0:
-    Source: 'src/lib.rs', lines 69:4-72:5
+    Source: 'src/lib.rs', lines 92:4-92:47
     Visibility: public -/
 @[rust_loop]
 def key_expansion_loop0
@@ -144,7 +181,7 @@ def key_expansion_loop0
 partial_fixpoint
 
 /-- [bitvec_aes::key_expansion]: loop 1:
-    Source: 'src/lib.rs', lines 75:4-104:5
+    Source: 'src/lib.rs', lines 94:4-112:5
     Visibility: public -/
 @[rust_loop]
 def key_expansion_loop1
@@ -175,14 +212,14 @@ def key_expansion_loop1
       if i10 = 0#usize
       then
         do
-        let s0 ← sbox t1
-        let s1 ← sbox t2
-        let s2 ← sbox t3
-        let s3 ← sbox t0
-        let i11 ← i / 4#usize
-        let i12 ← rcon i11
-        let u01 ← lift (s0 ^^^ i12)
-        ok (u01, s1, s2, s3)
+        let i11 ← sbox t1
+        let i12 ← i / 4#usize
+        let i13 ← rcon i12
+        let u01 ← lift (i11 ^^^ i13)
+        let u11 ← sbox t2
+        let u21 ← sbox t3
+        let u31 ← sbox t0
+        ok (u01, u11, u21, u31)
       else ok (t0, t1, t2, t3)
     let i11 ← i - 4#usize
     let i12 ← 4#usize * i11
@@ -232,7 +269,7 @@ def key_expansion_loop1
 partial_fixpoint
 
 /-- [bitvec_aes::key_expansion]:
-    Source: 'src/lib.rs', lines 66:0-106:1
+    Source: 'src/lib.rs', lines 89:0-114:1
     Visibility: public -/
 def key_expansion (key : Slice (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
   let rk ← alloc.vec.from_elem BitVec8Clone (0 : BitVec 8) 176#usize
@@ -240,7 +277,7 @@ def key_expansion (key : Slice (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) :
   key_expansion_loop1 rk1 4#usize
 
 /-- [bitvec_aes::add_round_key]: loop 0:
-    Source: 'src/lib.rs', lines 112:4-116:5
+    Source: 'src/lib.rs', lines 121:4-121:80
     Visibility: public -/
 @[rust_loop]
 def add_round_key_loop
@@ -266,7 +303,7 @@ def add_round_key_loop
 partial_fixpoint
 
 /-- [bitvec_aes::add_round_key]:
-    Source: 'src/lib.rs', lines 109:0-118:1
+    Source: 'src/lib.rs', lines 118:0-123:1
     Visibility: public -/
 @[reducible]
 def add_round_key
@@ -276,7 +313,7 @@ def add_round_key
   add_round_key_loop rk round state 0#usize
 
 /-- [bitvec_aes::sub_bytes]: loop 0:
-    Source: 'src/lib.rs', lines 124:4-127:5
+    Source: 'src/lib.rs', lines 128:4-128:56
     Visibility: public -/
 @[rust_loop]
 def sub_bytes_loop
@@ -299,7 +336,7 @@ def sub_bytes_loop
 partial_fixpoint
 
 /-- [bitvec_aes::sub_bytes]:
-    Source: 'src/lib.rs', lines 121:0-129:1
+    Source: 'src/lib.rs', lines 125:0-130:1
     Visibility: public -/
 def sub_bytes
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
@@ -307,7 +344,7 @@ def sub_bytes
   sub_bytes_loop state out 0#usize
 
 /-- [bitvec_aes::shift_rows]: loop 1:
-    Source: 'src/lib.rs', lines 137:8-140:9
+    Source: 'src/lib.rs', lines 135:38-135:111
     Visibility: public -/
 @[rust_loop]
 def shift_rows_loop0_loop0
@@ -336,7 +373,7 @@ def shift_rows_loop0_loop0
 partial_fixpoint
 
 /-- [bitvec_aes::shift_rows]: loop 0:
-    Source: 'src/lib.rs', lines 135:4-142:5
+    Source: 'src/lib.rs', lines 135:4-135:124
     Visibility: public -/
 @[rust_loop]
 def shift_rows_loop0
@@ -352,7 +389,7 @@ def shift_rows_loop0
 partial_fixpoint
 
 /-- [bitvec_aes::shift_rows]:
-    Source: 'src/lib.rs', lines 132:0-144:1
+    Source: 'src/lib.rs', lines 132:0-137:1
     Visibility: public -/
 def shift_rows
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
@@ -360,7 +397,7 @@ def shift_rows
   shift_rows_loop0 state out 0#usize
 
 /-- [bitvec_aes::mix_columns]: loop 0:
-    Source: 'src/lib.rs', lines 150:4-164:5
+    Source: 'src/lib.rs', lines 142:4-149:5
     Visibility: public -/
 @[rust_loop]
 def mix_columns_loop
@@ -391,112 +428,56 @@ def mix_columns_loop
     let i7 ← lift (i6 ^^^ a1)
     let i8 ← lift (i5 ^^^ i7)
     let i9 ← lift (i8 ^^^ a2)
-    let b0 ← lift (i9 ^^^ a3)
-    let i10 ← lift (a0 ^^^ i6)
-    let i11 ← xtime a2
-    let i12 ← lift (i11 ^^^ a2)
-    let i13 ← lift (i10 ^^^ i12)
-    let b1 ← lift (i13 ^^^ a3)
-    let i14 ← lift (a0 ^^^ a1)
-    let i15 ← lift (i14 ^^^ i11)
-    let i16 ← xtime a3
-    let i17 ← lift (i16 ^^^ a3)
-    let b2 ← lift (i15 ^^^ i17)
-    let i18 ← lift (i5 ^^^ a0)
-    let i19 ← lift (i18 ^^^ a1)
-    let i20 ← lift (i19 ^^^ a2)
-    let b3 ← lift (i20 ^^^ i16)
-    let i21 ← 0#usize + i
+    let i10 ← 0#usize + i
     let (_, index_mut_back) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out i21
-    let out1 := index_mut_back b0
-    let i22 ← 1#usize + i
+        out i10
+    let i11 ← lift (i9 ^^^ a3)
+    let i12 ← lift (a0 ^^^ i6)
+    let i13 ← xtime a2
+    let i14 ← lift (i13 ^^^ a2)
+    let i15 ← lift (i12 ^^^ i14)
+    let out1 := index_mut_back i11
+    let i16 ← 1#usize + i
     let (_, index_mut_back1) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out1 i22
-    let out2 := index_mut_back1 b1
-    let i23 ← 2#usize + i
+        out1 i16
+    let i17 ← lift (i15 ^^^ a3)
+    let i18 ← lift (a0 ^^^ a1)
+    let i19 ← lift (i18 ^^^ i13)
+    let i20 ← xtime a3
+    let i21 ← lift (i20 ^^^ a3)
+    let out2 := index_mut_back1 i17
+    let i22 ← 2#usize + i
     let (_, index_mut_back2) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out2 i23
-    let out3 := index_mut_back2 b2
-    let i24 ← 3#usize + i
+        out2 i22
+    let i23 ← lift (i19 ^^^ i21)
+    let i24 ← lift (i5 ^^^ a0)
+    let i25 ← lift (i24 ^^^ a1)
+    let i26 ← lift (i25 ^^^ a2)
+    let out3 := index_mut_back2 i23
+    let i27 ← 3#usize + i
     let (_, index_mut_back3) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out3 i24
+        out3 i27
+    let i28 ← lift (i26 ^^^ i20)
     let c1 ← c + 1#usize
-    let out4 := index_mut_back3 b3
+    let out4 := index_mut_back3 i28
     mix_columns_loop state out4 c1
   else ok out
 partial_fixpoint
 
 /-- [bitvec_aes::mix_columns]:
-    Source: 'src/lib.rs', lines 147:0-166:1
+    Source: 'src/lib.rs', lines 139:0-151:1
     Visibility: public -/
 def mix_columns
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
   let out ← alloc.vec.from_elem BitVec8Clone (0 : BitVec 8) 16#usize
   mix_columns_loop state out 0#usize
 
-/-- [bitvec_aes::aes_encrypt]: loop 0:
-    Source: 'src/lib.rs', lines 174:4-180:5
-    Visibility: public -/
-@[rust_loop]
-def aes_encrypt_loop
-  (rk : alloc.vec.Vec (BitVec 8)) (state : alloc.vec.Vec (BitVec 8))
-  (round : Std.Usize) :
-  Result (alloc.vec.Vec (BitVec 8))
-  := do
-  if round < 10#usize
-  then
-    let state1 ← sub_bytes state
-    let state2 ← shift_rows state1
-    let state3 ← mix_columns state2
-    let s := alloc.vec.Vec.deref rk
-    let state4 ← add_round_key state3 s round
-    let round1 ← round + 1#usize
-    aes_encrypt_loop rk state4 round1
-  else ok state
-partial_fixpoint
-
-/-- [bitvec_aes::aes_encrypt]:
-    Source: 'src/lib.rs', lines 169:0-185:1
-    Visibility: public -/
-def aes_encrypt
-  (block : Slice (BitVec 8)) (key : Slice (BitVec 8)) :
-  Result (alloc.vec.Vec (BitVec 8))
-  := do
-  let rk ← key_expansion key
-  let state ← alloc.slice.Slice.to_vec BitVec8Clone block
-  let s := alloc.vec.Vec.deref rk
-  let state1 ← add_round_key state s 0#usize
-  let state2 ← aes_encrypt_loop rk state1 1#usize
-  let state3 ← sub_bytes state2
-  let state4 ← shift_rows state3
-  let s1 := alloc.vec.Vec.deref rk
-  add_round_key state4 s1 10#usize
-
-/-- [bitvec_aes::inv_affine]:
-    Source: 'src/lib.rs', lines 190:0-192:1
-    Visibility: public -/
-def inv_affine (x : (BitVec 8)) : Result (BitVec 8) := do
-  let i ← lift (BitVec.rotateLeft x (1 : BitVec 32).toNat)
-  let i1 ← lift (BitVec.rotateLeft x (3 : BitVec 32).toNat)
-  let i2 ← lift (i ^^^ i1)
-  let i3 ← lift (BitVec.rotateLeft x (6 : BitVec 32).toNat)
-  let i4 ← lift (i2 ^^^ i3)
-  ok (i4 ^^^ (5 : BitVec 8))
-
-/-- [bitvec_aes::inv_sbox]:
-    Source: 'src/lib.rs', lines 195:0-197:1
-    Visibility: public -/
-def inv_sbox (x : (BitVec 8)) : Result (BitVec 8) := do
-  let i ← inv_affine x
-  gf_inv i
-
 /-- [bitvec_aes::inv_sub_bytes]: loop 0:
-    Source: 'src/lib.rs', lines 203:4-206:5
+    Source: 'src/lib.rs', lines 156:4-156:60
     Visibility: public -/
 @[rust_loop]
 def inv_sub_bytes_loop
@@ -519,7 +500,7 @@ def inv_sub_bytes_loop
 partial_fixpoint
 
 /-- [bitvec_aes::inv_sub_bytes]:
-    Source: 'src/lib.rs', lines 200:0-208:1
+    Source: 'src/lib.rs', lines 153:0-158:1
     Visibility: public -/
 def inv_sub_bytes
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
@@ -527,7 +508,7 @@ def inv_sub_bytes
   inv_sub_bytes_loop state out 0#usize
 
 /-- [bitvec_aes::inv_shift_rows]: loop 1:
-    Source: 'src/lib.rs', lines 216:8-219:9
+    Source: 'src/lib.rs', lines 163:38-163:115
     Visibility: public -/
 @[rust_loop]
 def inv_shift_rows_loop0_loop0
@@ -557,7 +538,7 @@ def inv_shift_rows_loop0_loop0
 partial_fixpoint
 
 /-- [bitvec_aes::inv_shift_rows]: loop 0:
-    Source: 'src/lib.rs', lines 214:4-221:5
+    Source: 'src/lib.rs', lines 163:4-163:128
     Visibility: public -/
 @[rust_loop]
 def inv_shift_rows_loop0
@@ -573,7 +554,7 @@ def inv_shift_rows_loop0
 partial_fixpoint
 
 /-- [bitvec_aes::inv_shift_rows]:
-    Source: 'src/lib.rs', lines 211:0-223:1
+    Source: 'src/lib.rs', lines 160:0-165:1
     Visibility: public -/
 def inv_shift_rows
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
@@ -581,7 +562,7 @@ def inv_shift_rows
   inv_shift_rows_loop0 state out 0#usize
 
 /-- [bitvec_aes::inv_mix_columns]: loop 0:
-    Source: 'src/lib.rs', lines 230:4-244:5
+    Source: 'src/lib.rs', lines 170:4-177:5
     Visibility: public -/
 @[rust_loop]
 def inv_mix_columns_loop
@@ -613,63 +594,101 @@ def inv_mix_columns_loop
     let i8 ← gf_mul a2 (13 : BitVec 8)
     let i9 ← lift (i7 ^^^ i8)
     let i10 ← gf_mul a3 (9 : BitVec 8)
-    let b0 ← lift (i9 ^^^ i10)
-    let i11 ← gf_mul a0 (9 : BitVec 8)
-    let i12 ← gf_mul a1 (14 : BitVec 8)
-    let i13 ← lift (i11 ^^^ i12)
-    let i14 ← gf_mul a2 (11 : BitVec 8)
-    let i15 ← lift (i13 ^^^ i14)
-    let i16 ← gf_mul a3 (13 : BitVec 8)
-    let b1 ← lift (i15 ^^^ i16)
-    let i17 ← gf_mul a0 (13 : BitVec 8)
-    let i18 ← gf_mul a1 (9 : BitVec 8)
-    let i19 ← lift (i17 ^^^ i18)
-    let i20 ← gf_mul a2 (14 : BitVec 8)
-    let i21 ← lift (i19 ^^^ i20)
-    let i22 ← gf_mul a3 (11 : BitVec 8)
-    let b2 ← lift (i21 ^^^ i22)
-    let i23 ← gf_mul a0 (11 : BitVec 8)
-    let i24 ← gf_mul a1 (13 : BitVec 8)
-    let i25 ← lift (i23 ^^^ i24)
-    let i26 ← gf_mul a2 (9 : BitVec 8)
-    let i27 ← lift (i25 ^^^ i26)
-    let i28 ← gf_mul a3 (14 : BitVec 8)
-    let b3 ← lift (i27 ^^^ i28)
-    let i29 ← 0#usize + i
+    let i11 ← 0#usize + i
     let (_, index_mut_back) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out i29
-    let out1 := index_mut_back b0
-    let i30 ← 1#usize + i
+        out i11
+    let i12 ← lift (i9 ^^^ i10)
+    let i13 ← gf_mul a0 (9 : BitVec 8)
+    let i14 ← gf_mul a1 (14 : BitVec 8)
+    let i15 ← lift (i13 ^^^ i14)
+    let i16 ← gf_mul a2 (11 : BitVec 8)
+    let i17 ← lift (i15 ^^^ i16)
+    let i18 ← gf_mul a3 (13 : BitVec 8)
+    let out1 := index_mut_back i12
+    let i19 ← 1#usize + i
     let (_, index_mut_back1) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out1 i30
-    let out2 := index_mut_back1 b1
-    let i31 ← 2#usize + i
+        out1 i19
+    let i20 ← lift (i17 ^^^ i18)
+    let i21 ← gf_mul a0 (13 : BitVec 8)
+    let i22 ← gf_mul a1 (9 : BitVec 8)
+    let i23 ← lift (i21 ^^^ i22)
+    let i24 ← gf_mul a2 (14 : BitVec 8)
+    let i25 ← lift (i23 ^^^ i24)
+    let i26 ← gf_mul a3 (11 : BitVec 8)
+    let out2 := index_mut_back1 i20
+    let i27 ← 2#usize + i
     let (_, index_mut_back2) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out2 i31
-    let out3 := index_mut_back2 b2
-    let i32 ← 3#usize + i
+        out2 i27
+    let i28 ← lift (i25 ^^^ i26)
+    let i29 ← gf_mul a0 (11 : BitVec 8)
+    let i30 ← gf_mul a1 (13 : BitVec 8)
+    let i31 ← lift (i29 ^^^ i30)
+    let i32 ← gf_mul a2 (9 : BitVec 8)
+    let i33 ← lift (i31 ^^^ i32)
+    let i34 ← gf_mul a3 (14 : BitVec 8)
+    let out3 := index_mut_back2 i28
+    let i35 ← 3#usize + i
     let (_, index_mut_back3) ←
       alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice (BitVec 8))
-        out3 i32
+        out3 i35
+    let i36 ← lift (i33 ^^^ i34)
     let c1 ← c + 1#usize
-    let out4 := index_mut_back3 b3
+    let out4 := index_mut_back3 i36
     inv_mix_columns_loop state out4 c1
   else ok out
 partial_fixpoint
 
 /-- [bitvec_aes::inv_mix_columns]:
-    Source: 'src/lib.rs', lines 227:0-246:1
+    Source: 'src/lib.rs', lines 167:0-179:1
     Visibility: public -/
 def inv_mix_columns
   (state : alloc.vec.Vec (BitVec 8)) : Result (alloc.vec.Vec (BitVec 8)) := do
   let out ← alloc.vec.from_elem BitVec8Clone (0 : BitVec 8) 16#usize
   inv_mix_columns_loop state out 0#usize
 
+/-- [bitvec_aes::aes_encrypt]: loop 0:
+    Source: 'src/lib.rs', lines 188:4-191:5
+    Visibility: public -/
+@[rust_loop]
+def aes_encrypt_loop
+  (rk : alloc.vec.Vec (BitVec 8)) (state : alloc.vec.Vec (BitVec 8))
+  (round : Std.Usize) :
+  Result (alloc.vec.Vec (BitVec 8))
+  := do
+  if round < 10#usize
+  then
+    let state1 ← sub_bytes state
+    let state2 ← shift_rows state1
+    let state3 ← mix_columns state2
+    let s := alloc.vec.Vec.deref rk
+    let state4 ← add_round_key state3 s round
+    let round1 ← round + 1#usize
+    aes_encrypt_loop rk state4 round1
+  else ok state
+partial_fixpoint
+
+/-- [bitvec_aes::aes_encrypt]:
+    Source: 'src/lib.rs', lines 183:0-194:1
+    Visibility: public -/
+def aes_encrypt
+  (block : Slice (BitVec 8)) (key : Slice (BitVec 8)) :
+  Result (alloc.vec.Vec (BitVec 8))
+  := do
+  let rk ← key_expansion key
+  let state ← alloc.slice.Slice.to_vec BitVec8Clone block
+  let s := alloc.vec.Vec.deref rk
+  let state1 ← add_round_key state s 0#usize
+  let state2 ← aes_encrypt_loop rk state1 1#usize
+  let state3 ← sub_bytes state2
+  let state4 ← shift_rows state3
+  let s1 := alloc.vec.Vec.deref rk
+  add_round_key state4 s1 10#usize
+
 /-- [bitvec_aes::aes_decrypt]: loop 0:
-    Source: 'src/lib.rs', lines 254:4-260:5
+    Source: 'src/lib.rs', lines 201:4-204:5
     Visibility: public -/
 @[rust_loop]
 def aes_decrypt_loop
@@ -690,7 +709,7 @@ def aes_decrypt_loop
 partial_fixpoint
 
 /-- [bitvec_aes::aes_decrypt]:
-    Source: 'src/lib.rs', lines 249:0-265:1
+    Source: 'src/lib.rs', lines 196:0-207:1
     Visibility: public -/
 def aes_decrypt
   (block : Slice (BitVec 8)) (key : Slice (BitVec 8)) :
