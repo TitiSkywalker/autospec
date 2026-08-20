@@ -1,8 +1,8 @@
-import LeanMode.bitvec_des.BitvecDes
+import LeanMode.bitvec_des128.BitvecDes128
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open bitvec_des
+open bitvec_des128
 
 set_option linter.unusedVariables false
 
