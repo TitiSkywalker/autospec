@@ -2,311 +2,38 @@
 
 import os
 import re
+import sys
 from pathlib import Path
 
 # Import from sibling tools package
-import sys
-
 _tools_dir = str(Path(__file__).resolve().parent.parent / "tools")
 if _tools_dir not in sys.path:
     sys.path.insert(0, _tools_dir)
 from lean_inline import inline_f64_helpers, inline_i64_helpers  # noqa: E402
 
 
+# ── exceptions ─────────────────────────────────────────────────────────────────
+
 class NonComputableError(Exception):
     """Rat float-model cannot handle non-computable operations like sqrt."""
 
 
-def lean_f64_to_rat(content: str) -> str:
-    """Replace F64 opaque type with Rat (computable rational arithmetic).
+# ── integer types table ────────────────────────────────────────────────────────
 
-    Raises NonComputableError if the code uses sqrt, which is not
-    computable for Rat — the caller should retry with ``--float-model Real``.
-    """
-    # Clean up any stray noncomputable section marker (aeneas adds this
-    # when there are external definitions).  Must happen before the early
-    # return so that projects without f64 also get the cleanup.
-    content = content.replace("noncomputable section\n", "")
-
-    if "F64" not in content:
-        return content
-
-    content = content.replace("F64.Insts.CoreCloneClone.clone", "RatClone.clone")
-    content = content.replace("F64.Insts.CoreCloneClone", "RatClone")
-
-    lines = content.split("\n")
-    skip: set[int] = set()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith("/-- [") or (
-            line.startswith("/-- Trait") and "Clone for f64" in line
-        ):
-            if any(
-                [
-                    "f64_helpers::" in line,
-                    "core::clone::impls" in line
-                    and "core::clone::Clone for f64" in line,
-                    "Trait implementation:" in line
-                    and "core::clone::Clone for f64" in line,
-                    "core::f64::" in line,
-                ]
-            ):
-                start = i
-                while i < len(lines) and not lines[i].rstrip().endswith("-/"):
-                    i += 1
-                i += 1
-                while i < len(lines) and lines[i].startswith("@["):
-                    i += 1
-                while i < len(lines) and lines[i].strip() != "":
-                    i += 1
-                if i < len(lines) and lines[i].strip() == "":
-                    i += 1
-                skip.update(range(start, i))
-                continue
-        i += 1
-
-    out = []
-    for i, line in enumerate(lines):
-        if i in skip:
-            continue
-        out.append(line.replace("F64", "Rat"))
-    result = "\n".join(out)
-
-    result = re.sub(r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result)
-    # ``is_nan`` / ``is_infinite`` are always false for Rat — replace with ``ok false``.
-    result = re.sub(
-        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_nan\s+(\S+)",
-        r"let \1 := false",
-        result,
-    )
-    result = re.sub(
-        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_infinite\s+(\S+)",
-        r"let \1 := false",
-        result,
-    )
-    result = re.sub(r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result)
-    # Detect non-computable external functions (sqrt, exp, sin, etc.).
-    # Computable f64 ops were handled by the adapter → f64_helpers and
-    # will be inlined later.  Anything still referencing std.f64.Rat.*
-    # is a non-computable axiom from aeneas.
-    non_comp = set(re.findall(r"std\.f64\.Rat\.(\w+)", result))
-    if non_comp:
-        funcs = ", ".join(sorted(non_comp))
-        raise NonComputableError(
-            f"{funcs} not computable in Rat mode"
-        )
-
-    if "RatClone" in result and "def RatClone.clone" not in result:
-        rat_clone = (
-            "/- F64 replaced with Rat by autospec -/\n"
-            "def RatClone.clone (x : Rat) : Result Rat := ok x\n"
-            "\n"
-            "@[reducible]\n"
-            "def RatClone : core.clone.Clone Rat := {\n"
-            "  clone := RatClone.clone\n"
-            "}\n"
-        )
-        result = re.sub(r"(namespace \w+\n)", r"\1\n" + rat_clone, result, count=1)
-
-    return result
-
-
-def lean_f64_to_real(content: str) -> str:
-    """Replace F64 opaque type with ℝ (Real, computable including sqrt).
-
-    Unlike Rat, ``Real.sqrt`` is computable (via Cauchy sequences in
-    mathlib), so modules using ``sqrt`` do NOT need ``noncomputable``.
-    ``sqrt`` / ``exp`` / ``ln`` are rewritten to the concrete Mathlib
-    functions (``Real.sqrt`` / ``Real.exp`` / ``Real.log``) so impl and
-    spec share the same definition; other transcendentals stay as opaque axioms.
-    """
-    if "F64" not in content:
-        return content
-
-    content = content.replace("F64.Insts.CoreCloneClone.clone", "RealClone.clone")
-    content = content.replace("F64.Insts.CoreCloneClone", "RealClone")
-
-    lines = content.split("\n")
-    skip: set[int] = set()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith("/-- [") or (
-            line.startswith("/-- Trait") and "Clone for f64" in line
-        ):
-            if any(
-                [
-                    "f64_helpers::" in line,
-                    "core::clone::impls" in line
-                    and "core::clone::Clone for f64" in line,
-                    "Trait implementation:" in line
-                    and "core::clone::Clone for f64" in line,
-                    "core::f64::" in line,
-                ]
-            ):
-                start = i
-                while i < len(lines) and not lines[i].rstrip().endswith("-/"):
-                    i += 1
-                i += 1
-                while i < len(lines) and lines[i].startswith("@["):
-                    i += 1
-                while i < len(lines) and lines[i].strip() != "":
-                    i += 1
-                if i < len(lines) and lines[i].strip() == "":
-                    i += 1
-                skip.update(range(start, i))
-                continue
-        i += 1
-
-    out = []
-    for i, line in enumerate(lines):
-        if i in skip:
-            continue
-        out.append(line.replace("F64", "ℝ"))
-    result = "\n".join(out)
-
-    result = re.sub(r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result)
-    # Real.sqrt requires Mathlib — add import after Aeneas
-    result = re.sub(
-        r"import Aeneas\n",
-        "import Aeneas\nimport Mathlib\n",
-        result,
-        count=1,
-    )
-    # Real.sqrt is noncomputable for C codegen (Cauchy sequences), so the
-    # code generator must skip definitions that transitively call it.
-    # Insert noncomputable section.
-    result = result.replace("noncomputable section\n", "")
-    result = result.replace(
-        "set_option linter.style.nameCheck false\n",
-        "set_option linter.style.nameCheck false\n"
-        "noncomputable section\n",
-        count=1,
-    )
-
-    # sqrt: replace axiom + call sites with Real.sqrt (computable for #eval)
-    if "std.f64.ℝ.sqrt" in result:
-        # Remove the axiom definition block (doc comment + attribute + axiom)
-        # and the preceding blank lines so no gap is left behind.
-        result = re.sub(
-            r"\n*/-- \[std::f64::\{f64\}::sqrt\]:.*?\n"
-            r"(?:.*?\n)*?"
-            r"@\[rust_fun \"std::f64::\{f64\}::sqrt\"\] "
-            r"(?:noncomputable )?axiom std\.f64\.ℝ\.sqrt : ℝ → Result ℝ\n",
-            "\n",
-            result,
-            flags=re.DOTALL,
-        )
-        # Replace call sites (let-binding)
-        result = re.sub(
-            r"\blet\s+(\w+)\s+←\s+std\.f64\.ℝ\.sqrt\s+(\S+)",
-            r"let \1 := Real.sqrt \2",
-            result,
-        )
-        # Replace tail-position calls  (use [ \t] not \s — \s eats \n)
-        result = re.sub(
-            r"(^|\n)([ \t]+)std\.f64\.ℝ\.sqrt[ \t]+(\S+)[ \t]*$",
-            r"\1\2ok (Real.sqrt \3)",
-            result,
-            flags=re.MULTILINE,
-        )
-
-    # exp: replace axiom + call sites with Real.exp (same treatment as sqrt)
-    if "std.f64.ℝ.exp" in result:
-        # Remove the axiom definition block (doc comment + attribute + axiom)
-        # and the preceding blank lines so no gap is left behind.
-        result = re.sub(
-            r"\n*/-- \[std::f64::\{f64\}::exp\]:.*?\n"
-            r"(?:.*?\n)*?"
-            r"@\[rust_fun \"std::f64::\{f64\}::exp\"\] "
-            r"(?:noncomputable )?axiom std\.f64\.ℝ\.exp : ℝ → Result ℝ\n",
-            "\n",
-            result,
-            flags=re.DOTALL,
-        )
-        # Replace call sites (let-binding)
-        result = re.sub(
-            r"\blet\s+(\w+)\s+←\s+std\.f64\.ℝ\.exp\s+(\S+)",
-            r"let \1 := Real.exp \2",
-            result,
-        )
-        # Replace tail-position calls  (use [ \t] not \s — \s eats \n)
-        result = re.sub(
-            r"(^|\n)([ \t]+)std\.f64\.ℝ\.exp[ \t]+(\S+)[ \t]*$",
-            r"\1\2ok (Real.exp \3)",
-            result,
-            flags=re.MULTILINE,
-        )
-
-    # ln: replace axiom + call sites with Real.log (natural log, same as exp)
-    if "std.f64.ℝ.ln" in result:
-        # Remove the axiom definition block (doc comment + attribute + axiom)
-        # and the preceding blank lines so no gap is left behind.
-        result = re.sub(
-            r"\n*/-- \[std::f64::\{f64\}::ln\]:.*?\n"
-            r"(?:.*?\n)*?"
-            r"@\[rust_fun \"std::f64::\{f64\}::ln\"\] "
-            r"(?:noncomputable )?axiom std\.f64\.ℝ\.ln : ℝ → Result ℝ\n",
-            "\n",
-            result,
-            flags=re.DOTALL,
-        )
-        # Replace call sites (let-binding)
-        result = re.sub(
-            r"\blet\s+(\w+)\s+←\s+std\.f64\.ℝ\.ln\s+(\S+)",
-            r"let \1 := Real.log \2",
-            result,
-        )
-        # Replace tail-position calls  (use [ \t] not \s — \s eats \n)
-        result = re.sub(
-            r"(^|\n)([ \t]+)std\.f64\.ℝ\.ln[ \t]+(\S+)[ \t]*$",
-            r"\1\2ok (Real.log \3)",
-            result,
-            flags=re.MULTILINE,
-        )
-
-    # ``is_nan`` / ``is_infinite`` are always false for ℝ.
-    result = re.sub(
-        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_nan\s+(\S+)",
-        r"let \1 := false",
-        result,
-    )
-    result = re.sub(
-        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_infinite\s+(\S+)",
-        r"let \1 := false",
-        result,
-    )
-
-    if "RealClone" in result and "def RealClone.clone" not in result:
-        real_clone = (
-            "/- F64 replaced with ℝ by autospec -/\n"
-            "def RealClone.clone (x : ℝ) : Result ℝ := ok x\n"
-            "\n"
-            "@[reducible]\n"
-            "def RealClone : core.clone.Clone ℝ := {\n"
-            "  clone := RealClone.clone\n"
-            "}\n"
-        )
-        result = re.sub(r"(namespace \w+\n)", r"\1\n" + real_clone, result, count=1)
-
-    return result
-
-
-# Integer types that Aeneas translates, with literal suffix, bit width, signedness.
+# (Aeneas type, literal suffix, bit width, signed)
 _INT_TYPES: list[tuple[str, str, int | None, bool]] = [
-    ("Std.I8", "#i8", 8, True),
-    ("Std.I16", "#i16", 16, True),
-    ("Std.I32", "#i32", 32, True),
-    ("Std.I64", "#i64", 64, True),
+    ("Std.I8",   "#i8",   8,   True),
+    ("Std.I16",  "#i16",  16,  True),
+    ("Std.I32",  "#i32",  32,  True),
+    ("Std.I64",  "#i64",  64,  True),
     ("Std.I128", "#i128", 128, True),
-    ("Std.Isize", "#isize", None, True),
-    ("Std.U8", "#u8", 8, False),
-    ("Std.U16", "#u16", 16, False),
-    ("Std.U32", "#u32", 32, False),
-    ("Std.U64", "#u64", 64, False),
+    ("Std.Isize","#isize",None,True),
+    ("Std.U8",   "#u8",   8,   False),
+    ("Std.U16",  "#u16",  16,  False),
+    ("Std.U32",  "#u32",  32,  False),
+    ("Std.U64",  "#u64",  64,  False),
     ("Std.U128", "#u128", 128, False),
-    # Std.Usize is intentionally excluded — used for array indexing.
+    # Std.Usize intentionally excluded — used for array indexing.
 ]
 
 _INT_MODELS = ("int", "nat", "bitvec")
@@ -324,12 +51,12 @@ def _int_target_type(is_signed: bool, width: int | None, model: str) -> str:
 
 
 def _int_helper_stem(target_type: str) -> str:
-    """Identifier-safe stem for a target type (``Int``→``Int``, ``BitVec 64``→``BitVec64``)."""
+    """Identifier-safe stem (``Int``→``Int``, ``BitVec 64``→``BitVec64``)."""
     return target_type.replace(" ", "")
 
 
 def _type_arg(target_type: str) -> str:
-    """Parenthesize a type used as an argument (``BitVec 64`` → ``(BitVec 64)``)."""
+    """Parenthesize a type used as an argument."""
     return f"({target_type})" if " " in target_type else target_type
 
 
@@ -343,6 +70,193 @@ def _is_int_literal(tok: str) -> bool:
         return True
     return bool(re.fullmatch(r"\(\d+\s*:\s*BitVec\s+\d+\)", t))
 
+
+# ── f64 → Rat / ℝ ──────────────────────────────────────────────────────────────
+
+# Patterns that identify blocks to skip (f64_helpers / core::f64 / Clone impls).
+_F64_SKIP_PATTERNS = [
+    "f64_helpers::",
+    "core::f64::",
+    "core::clone::impls",
+    "Trait implementation:",
+]
+
+
+def _skip_f64_blocks(lines: list[str]) -> set[int]:
+    """Return indices of lines inside f64_helpers / core::f64 / Clone blocks."""
+    skip: set[int] = set()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("/-- [") or (
+            line.startswith("/-- Trait") and "Clone for f64" in line
+        ):
+            if any(p in line for p in _F64_SKIP_PATTERNS):
+                start = i
+                # Skip doc comment lines
+                while i < len(lines) and not lines[i].rstrip().endswith("-/"):
+                    i += 1
+                i += 1
+                # Skip attributes
+                while i < len(lines) and lines[i].startswith("@["):
+                    i += 1
+                # Skip the definition body
+                while i < len(lines) and lines[i].strip() != "":
+                    i += 1
+                if i < len(lines) and lines[i].strip() == "":
+                    i += 1
+                skip.update(range(start, i))
+                continue
+        i += 1
+    return skip
+
+
+def _replace_f64_base(
+    content: str,
+    target: str,
+    clone_name: str,
+) -> str:
+    """Common F64→target replacement shared by Rat and Real models."""
+    if "F64" not in content:
+        return content
+
+    content = content.replace("F64.Insts.CoreCloneClone.clone", f"{clone_name}.clone")
+    content = content.replace("F64.Insts.CoreCloneClone", clone_name)
+
+    lines = content.split("\n")
+    skip = _skip_f64_blocks(lines)
+
+    out = []
+    for j, line in enumerate(lines):
+        if j in skip:
+            continue
+        out.append(line.replace("F64", target))
+    result = "\n".join(out)
+
+    # Replace abs call sites
+    result = re.sub(r"core\.f64\.\S+\.abs\b", "f64_helpers.abs", result)
+
+    # is_nan / is_infinite → always false
+    result = re.sub(
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_nan\s+(\S+)",
+        r"let \1 := false",
+        result,
+    )
+    result = re.sub(
+        r"\blet\s+(\w+)\s+←\s+core\.f64\.\S+\.is_infinite\s+(\S+)",
+        r"let \1 := false",
+        result,
+    )
+
+    # Add Clone helper if referenced but not defined
+    if clone_name in result and f"def {clone_name}.clone" not in result:
+        type_arg = f"({target})" if " " in target else target
+        clone_def = (
+            f"/- F64 replaced with {target} by autospec -/\n"
+            f"def {clone_name}.clone (x : {type_arg}) : Result {type_arg} := ok x\n"
+            "\n"
+            f"@[reducible]\n"
+            f"def {clone_name} : core.clone.Clone {type_arg} := {{\n"
+            f"  clone := {clone_name}.clone\n"
+            "}\n"
+        )
+        result = re.sub(r"(namespace \w+\n)", r"\1\n" + clone_def, result, count=1)
+
+    return result
+
+
+def lean_f64_to_rat(content: str) -> str:
+    """Replace F64 opaque type with Rat (computable rational arithmetic).
+
+    Raises NonComputableError if the code uses sqrt, which is not
+    computable for Rat — the caller should retry with ``--float-model Real``.
+    """
+    content = content.replace("noncomputable section\n", "")
+    result = _replace_f64_base(content, "Rat", "RatClone")
+
+    # Mark remaining axioms as noncomputable
+    result = re.sub(r"\baxiom \b(?!.*noncomputable)", "noncomputable axiom ", result)
+
+    # Check for non-computable functions (sqrt, exp, sin, etc.)
+    non_comp = set(re.findall(r"std\.f64\.Rat\.(\w+)", result))
+    if non_comp:
+        funcs = ", ".join(sorted(non_comp))
+        raise NonComputableError(f"{funcs} not computable in Rat mode")
+
+    return result
+
+
+def _replace_transcendental(
+    result: str, func_name: str, mathlib_name: str
+) -> str:
+    """Remove an f64 axiom and replace its call sites with a Mathlib function."""
+    marker = f"std.f64.ℝ.{func_name}"
+    if marker not in result:
+        return result
+
+    # Remove the axiom definition block
+    result = re.sub(
+        rf"\n*/-- \[std::f64::{{f64}}::{func_name}\]:.*?\n"
+        r"(?:.*?\n)*?"
+        rf"@\[rust_fun \"std::f64::{{f64}}::{func_name}\"\] "
+        rf"(?:noncomputable )?axiom {re.escape(marker)} : ℝ → Result ℝ\n",
+        "\n",
+        result,
+        flags=re.DOTALL,
+    )
+
+    # Replace let-binding call sites
+    result = re.sub(
+        rf"\blet\s+(\w+)\s+←\s+{re.escape(marker)}\s+(\S+)",
+        rf"let \1 := {mathlib_name} \2",
+        result,
+    )
+
+    # Replace tail-position call sites
+    result = re.sub(
+        rf"(^|\n)([ \t]+){re.escape(marker)}[ \t]+(\S+)[ \t]*$",
+        rf"\1\2ok ({mathlib_name} \3)",
+        result,
+        flags=re.MULTILINE,
+    )
+
+    return result
+
+
+def lean_f64_to_real(content: str) -> str:
+    """Replace F64 opaque type with ℝ (Real, computable including sqrt).
+
+    Unlike Rat, ``Real.sqrt`` is computable (via Cauchy sequences in
+    mathlib), so modules using ``sqrt`` do NOT need ``noncomputable``.
+    ``sqrt`` / ``exp`` / ``ln`` are rewritten to the concrete Mathlib
+    functions (``Real.sqrt`` / ``Real.exp`` / ``Real.log``) so impl and
+    spec share the same definition; other transcendentals stay as opaque axioms.
+    """
+    result = _replace_f64_base(content, "ℝ", "RealClone")
+
+    # Add Mathlib import and noncomputable section
+    result = re.sub(
+        r"import Aeneas\n",
+        "import Aeneas\nimport Mathlib\n",
+        result,
+        count=1,
+    )
+    result = result.replace("noncomputable section\n", "")
+    result = result.replace(
+        "set_option linter.style.nameCheck false\n",
+        "set_option linter.style.nameCheck false\n"
+        "noncomputable section\n",
+    )
+
+    # Replace transcendental functions with Mathlib equivalents
+    result = _replace_transcendental(result, "sqrt", "Real.sqrt")
+    result = _replace_transcendental(result, "exp", "Real.exp")
+    result = _replace_transcendental(result, "ln", "Real.log")
+
+    return result
+
+
+# ── integer model replacement ──────────────────────────────────────────────────
 
 def lean_integers_to_int(content: str) -> str:
     """Backward-compatible wrapper: every integer → Int."""
@@ -372,8 +286,6 @@ def lean_integers_to_model(content: str, model: str = "int") -> str:
     if not any(m in content for m in _INT_MARKERS):
         return content
 
-    # Set of pure integer target types for this model (used for type tracking
-    # in the monadic→pure conversion).
     produced: set[str] = {
         _int_target_type(is_signed, width, model)
         for _, _, width, is_signed in _INT_TYPES
@@ -387,8 +299,6 @@ def lean_integers_to_model(content: str, model: str = "int") -> str:
         content = content.replace(ty, _type_arg(tgt))
         content = content.replace(f"core.clone.Clone{clone_name}", clone_helper)
         content = content.replace(f"core.cmp.PartialEq{clone_name}", peq_helper)
-        # Literal handling: bitvec keeps the width for unsigned literals
-        # (5#u64 → (5 : BitVec 64)); other models just strip the suffix.
         if model == "bitvec" and not is_signed:
             content = re.sub(
                 rf"(\d+){re.escape(suffix)}\b",
@@ -398,15 +308,9 @@ def lean_integers_to_model(content: str, model: str = "int") -> str:
         else:
             content = re.sub(rf"{re.escape(suffix)}\b", "", content)
 
-    # Convert monadic `let x ← <int-expr>` → `let x := <int-expr>` for ops that
-    # became pure after replacement.  usize arithmetic stays monadic
-    # (Std.Usize is untouched), so track integer- vs usize-typed identifiers.
     content = _monadic_ops_to_pure(content, sorted(produced))
 
-    # Helper definitions for distinct target types actually referenced.
-    # Clone and PartialEq are defined *together* for a type: the impl file is
-    # imported by the tests, which may need the PartialEq helper even when the
-    # impl itself only uses Clone.
+    # Add Clone / PartialEq helpers for target types actually referenced
     extras: list[str] = []
     for tgt in sorted(produced):
         stem = _int_helper_stem(tgt)
@@ -444,39 +348,75 @@ def lean_integers_to_model(content: str, model: str = "int") -> str:
     return content
 
 
+# ── monadic → pure conversion ──────────────────────────────────────────────────
+
+# Regex to match a parameter declaration: ``(name : Type)``
+_PARAM_RE = re.compile(r"\((\w+)\s*:\s*([^)]*)\)")
+# Operand: bare identifier / numeral / parenthesized literal / usize literal
+_OP_RE = r"(?:\w+|\([^()]*\)|\d+#usize)"
+_CAP_RE = rf"({_OP_RE})"
+# Prefix before the operator: ``let x ←`` (optionally after then/else)
+_PREFIX_RE = r"^(\s*(?:then\s+|else\s+)?let\s+(\w+)\s+)←\s+"
+
+
+def _seed_params_from_lines(
+    lines: list[str],
+    ctx_types: list[str],
+    int_vars: set[str],
+    usize_vars: set[str],
+) -> None:
+    """Extract parameter names from signature lines and seed tracking sets."""
+    for line in lines:
+        for m in _PARAM_RE.finditer(line):
+            name, ty = m.group(1), m.group(2).strip().lstrip("(")
+            if ty == "Std.Usize":
+                usize_vars.add(name)
+            elif ty in ctx_types:
+                int_vars.add(name)
+
+
 def _monadic_ops_to_pure(content: str, ctx_types: list[str]) -> str:
     """Rewrite ``let x ← <int-expr>`` → ``let x := <int-expr>`` for pure-int ops.
 
     Tracks integer- vs usize-typed identifiers so that usize arithmetic (still
     monadic on ``Std.Usize``) is left untouched.
+
+    ``int_vars``/``usize_vars`` are reset at each ``def`` boundary because
+    Aeneas reuses sequential names (``i1``, ``i2``, …) across functions, and
+    a variable that is usize-typed in one function may be BitVec-typed in
+    another.
     """
     int_vars: set[str] = set()
     usize_vars: set[str] = set()
-
-    # Seed from signature parameters: (a : Int), (lo : Std.Usize), (a : (BitVec 64)).
-    for m in re.finditer(r"\((\w+)\s*:\s*([^)]*)\)", content):
-        name, ty = m.group(1), m.group(2).strip().lstrip("(")
-        if ty == "Std.Usize":
-            usize_vars.add(name)
-        elif ty in ctx_types:
-            int_vars.add(name)
-
-    # Seed from `let X ← if … then ok LIT else ok LIT` (integer literals) —
-    # X is integer-typed even though the `if` itself stays monadic.
-    for m in re.finditer(
-        r"let\s+(\w+)\s+←\s+if\b.*?\bthen\s+ok\s+([^\n]+)\n\s*else\s+ok\s+([^\n]+)",
-        content,
-        re.DOTALL,
-    ):
-        name, lit1, lit2 = m.group(1), m.group(2), m.group(3)
-        if _is_int_literal(lit1) and _is_int_literal(lit2):
-            int_vars.add(name)
+    _DEF_RE = re.compile(r"^\s*def\s+\w+")
+    _SIG_END_RE = re.compile(r":=\s*(do\b)?")
 
     out: list[str] = []
+    in_signature = False
+    sig_lines: list[str] = []
+
     for line in content.split("\n"):
-        out.append(_convert_let_line(line, int_vars, usize_vars))
+        if _DEF_RE.match(line):
+            int_vars.clear()
+            usize_vars.clear()
+            in_signature = True
+            sig_lines = [line]
+            if _SIG_END_RE.search(line):
+                in_signature = False
+                _seed_params_from_lines([line], ctx_types, int_vars, usize_vars)
+            out.append(line)
+        elif in_signature:
+            sig_lines.append(line)
+            if _SIG_END_RE.search(line):
+                in_signature = False
+                _seed_params_from_lines(sig_lines, ctx_types, int_vars, usize_vars)
+            out.append(line)
+        else:
+            out.append(_convert_let_line(line, int_vars, usize_vars))
     return "\n".join(out)
 
+
+# ── single-line let conversion ─────────────────────────────────────────────────
 
 def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> str:
     """Convert one ``let x ← A op B`` line to ``:=`` if A, B are integer-typed.
@@ -485,11 +425,6 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     ``then let x ← …`` on its own line).
     """
 
-    # Operand: bare identifier/numeral (int/nat models), a typed
-    # ``(n : BitVec w)`` literal (bitvec), or a ``N#usize`` literal.
-    _op = r"(?:\w+|\([^()]*\)|\d+#usize)"
-    _cap = rf"({_op})"
-
     def is_int(tok: str) -> bool:
         return tok in int_vars or _is_int_literal(tok)
 
@@ -497,7 +432,6 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
         return tok in usize_vars or re.match(r"\d+#usize", tok) is not None
 
     def track(x: str, a: str, b: str) -> None:
-        """Record ``x``'s type based on its operands (for later lines)."""
         if is_usize(a) or is_usize(b):
             usize_vars.add(x)
         elif is_int(a) and is_int(b):
@@ -509,72 +443,107 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
             return f"{prefix}:= {a} {op} {b}"
         if is_usize(a) or is_usize(b):
             usize_vars.add(x)
-        # If one operand is int-typed and the other is an unknown bare
-        # identifier, it was likely assigned from a function call (e.g.
-        # ``let ip ← permute ...``) that returns a BitVec/Int — seed it.
+        # If one operand is int-typed and the other is a bare identifier,
+        # it was likely assigned from a function call that returns BitVec/Int.
         if is_int(a) and not is_int(b) and not is_usize(b) and re.match(r"^\w+$", b):
-            int_vars.add(b); int_vars.add(x)
+            int_vars.add(b)
+            int_vars.add(x)
             return f"{prefix}:= {a} {op} {b}"
         if not is_int(a) and is_int(b) and not is_usize(a) and re.match(r"^\w+$", a):
-            int_vars.add(a); int_vars.add(x)
+            int_vars.add(a)
+            int_vars.add(x)
+            return f"{prefix}:= {a} {op} {b}"
+        # Both operands are unknown bare identifiers (e.g. from a function
+        # call return like ``let (result, num) ← loop ...``) and neither
+        # is usize-typed — assume they are integer-typed.
+        if (not is_usize(a) and not is_usize(b)
+                and re.match(r"^\w+$", a) and re.match(r"^\w+$", b)):
+            int_vars.add(a)
+            int_vars.add(b)
+            int_vars.add(x)
             return f"{prefix}:= {a} {op} {b}"
         return line
 
-    _prefix = r"^(\s*(?:then\s+|else\s+)?let\s+(\w+)\s+)←\s+"
+    # ── `←` patterns (monadic → pure) ──
 
-    # arithmetic: let x ← A op B
-    m = re.match(_prefix + rf"{_cap}\s*([+\-*/%])\s*{_cap}\s*$", line)
+    # arithmetic:  let x ← A + B
+    m = re.match(_PREFIX_RE + rf"{_CAP_RE}\s*([+\-*/%])\s*{_CAP_RE}\s*$", line)
     if m:
         return apply(*m.groups())
 
-    # bitwise: let x ← lift (A &&& B)
+    # bitwise:  let x ← lift (A &&& B)
     m = re.match(
-        _prefix + rf"lift\s*\(\s*{_cap}\s*(&&&|\|\|\||\^\^\^)\s*{_cap}\s*\)\s*$", line
+        _PREFIX_RE + rf"lift\s*\(\s*{_CAP_RE}\s*(&&&|\|\|\||\^\^\^)\s*{_CAP_RE}\s*\)\s*$",
+        line,
     )
     if m:
         return apply(*m.groups())
 
-    # shift: let x ← A <<< B
-    m = re.match(_prefix + rf"{_cap}\s*(<<<|>>>)\s*{_cap}\s*$", line)
+    # shift:  let x ← A <<< B
+    m = re.match(_PREFIX_RE + rf"{_CAP_RE}\s*(<<<|>>>)\s*{_CAP_RE}\s*$", line)
     if m:
         return apply(*m.groups())
 
-    # Pure let-binding: let x := A op B — already pure, just record x's type
-    # so that subsequent ``let y ← … x …`` / ``then x op …`` can be converted.
+    # ── `:=` patterns (already pure — just track types) ──
+
+    _pure_prefix = r"^\s*(?:then\s+|else\s+)?let\s+(\w+)\s+:=\s+"
+
+    # arithmetic:  let x := A + B
     m = re.match(
-        rf"^\s*(?:then\s+|else\s+)?let\s+(\w+)\s+:=\s+{_cap}\s*([+\-*/%])\s*{_cap}\s*$",
-        line,
+        rf"{_pure_prefix}{_CAP_RE}\s*([+\-*/%])\s*{_CAP_RE}\s*$", line
     )
     if m:
         x, a, _opx, b = m.groups()
         if is_usize(a) or is_usize(b):
-            # usize arithmetic is monadic; Aeneas occasionally emits
-            # ``let x := a + b`` instead of ``←`` — fix it.
             usize_vars.add(x)
             return line.replace(":=", "←", 1)
         track(x, a, b)
         return line
 
-    # Tail-position pure integer expression (no `let`): wrap in `ok (...)`.
+    # bitwise:  let x := A &&& B
+    m = re.match(
+        rf"{_pure_prefix}{_CAP_RE}\s*(&&&|\|\|\||\^\^\^)\s*{_CAP_RE}\s*$", line
+    )
+    if m:
+        x, a, _opx, b = m.groups()
+        track(x, a, b)
+        return line
+
+    # shift:  let x := A <<< B
+    m = re.match(
+        rf"{_pure_prefix}{_CAP_RE}\s*(<<<|>>>)\s*{_CAP_RE}\s*$", line
+    )
+    if m:
+        x, a, _opx, b = m.groups()
+        track(x, a, b)
+        return line
+
+    # ── tail-position expressions (no `let`) — wrap in `ok (…)` ──
+
     def tail_ok(a: str, op: str, b: str) -> str | None:
         if is_int(a) and is_int(b) and not is_usize(a) and not is_usize(b):
             return f"ok ({a} {op} {b})"
         return None
 
-    # arithmetic tail: A op B (optionally after then/else)
-    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?){_cap}\s*([+\-*/%])\s*{_cap}\s*$", line)
+    _tail_prefix = r"^(\s*)((?:then\s+|else\s+)?)"
+
+    # arithmetic tail
+    m = re.match(rf"{_tail_prefix}{_CAP_RE}\s*([+\-*/%])\s*{_CAP_RE}\s*$", line)
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
 
-    # bitwise tail: lift (A &&& B) (optionally after then/else)
-    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?)lift\s*\(\s*{_cap}\s*(&&&|\|\|\||\^\^\^)\s*{_cap}\s*\)\s*$", line)
+    # bitwise tail: lift (A &&& B)
+    m = re.match(
+        rf"{_tail_prefix}lift\s*\(\s*{_CAP_RE}\s*(&&&|\|\|\||\^\^\^)\s*{_CAP_RE}\s*\)\s*$",
+        line,
+    )
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
 
-    # shift tail: A <<< B (optionally after then/else)
-    m = re.match(rf"^(\s*)((?:then\s+|else\s+)?){_cap}\s*(<<<|>>>)\s*{_cap}\s*$", line)
+    # shift tail
+    m = re.match(rf"{_tail_prefix}{_CAP_RE}\s*(<<<|>>>)\s*{_CAP_RE}\s*$", line)
     if m:
         r = tail_ok(m.group(3), m.group(4), m.group(5))
         return m.group(1) + m.group(2) + r if r else line
@@ -582,141 +551,7 @@ def _convert_let_line(line: str, int_vars: set[str], usize_vars: set[str]) -> st
     return line
 
 
-def _mark_noncomputable_defs(text: str) -> str:
-    """Mark defs that depend on axioms (directly or transitively)
-    as noncomputable.
-
-    Without this, Lean's code generator rejects definitions whose
-    evaluation chain reaches an axiom.
-    """
-    # Collect names declared as axiom (may already have noncomputable prefix)
-    axiom_names: set[str] = set()
-    for m in re.finditer(
-        r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE
-    ):
-        axiom_names.add(m.group(1))
-    if not axiom_names:
-        return text
-
-    # Find every top-level def/theorem and capture its body (up to the next
-    # top-level keyword at indent 0).
-    decls: list[tuple[str, str, int, int]] = []  # (name, body, start, end)
-    pattern = re.compile(
-        r"^(?:@\[[^\]]*\][ \t]*\n\s*)?"
-        r"(?:(noncomputable[ \t]+)?(def|theorem)[ \t]+(\w+))",
-        re.MULTILINE,
-    )
-    for m in pattern.finditer(text):
-        name = m.group(3)
-        is_noncomp = m.group(1) is not None
-        body_start = m.end()
-        # Search for the next top-level declaration or namespace closing
-        next_decl = re.search(
-            r"^\s*(?:end\b|namespace\b|(?:noncomputable\s+)?(?:def|axiom|theorem)\s+)",
-            text[body_start:],
-            re.MULTILINE,
-        )
-        body_end = body_start + next_decl.start() if next_decl else len(text)
-        body = text[body_start:body_end]
-        # Strip block comments (/-- doc comments of the *next* decl, etc.) so
-        # that reference matching below keys on real code, not on names that
-        # merely appear in a doc comment.
-        body = re.sub(r"/-.*?-/", "", body, flags=re.DOTALL)
-        decls.append((name, body, m.start(), m.end()))
-        if is_noncomp:
-            axiom_names.add(name)
-
-    # Fixed-point propagation: def A calls def B which calls axiom …
-    changed = True
-    while changed:
-        changed = False
-        for name, body, _, _ in decls:
-            if name in axiom_names:
-                continue
-            # Check whether the body references any name already marked
-            if any(
-                re.search(rf"\b{re.escape(n)}\b", body) for n in axiom_names
-            ):
-                axiom_names.add(name)
-                changed = True
-
-    # Rewrite: insert noncomputable before affected defs (not axioms, which
-    # are handled separately).
-    if not axiom_names:
-        return text
-
-    # Collect names that need noncomputable (exclude original axioms)
-    noncomp_names = sorted(
-        set(n for n in axiom_names if n not in set(
-            re.findall(r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE)
-        )),
-        key=len,
-        reverse=True,  # longest first to avoid partial matches
-    )
-    if not noncomp_names:
-        return text
-
-    # Insert noncomputable before def lines that aren't already marked.
-    # We match def <name> at start-of-line.
-    for name in noncomp_names:
-        text = re.sub(
-            rf"^(@\[[^\]]*\]\s*\n\s*)?(def\s+{re.escape(name)}\b)",
-            rf"\1noncomputable \2",
-            text,
-            flags=re.MULTILINE,
-        )
-
-    return text
-
-
-def _fix_partial_mutual(text: str) -> str:
-    """Replace ``partial_fixpoint`` with ``partial`` for tail-recursive
-    functions inside ``mutual`` blocks, so the Lean 4.31 monotonicity
-    checker accepts them.  Also strips the ``@[rust_loop*]`` and
-    ``@[reducible]`` attributes that are incompatible with ``partial``.
-    """
-    # _quick_sort_loop  (rust_loop)
-    text = re.sub(
-        r"@\[rust_loop\]\n(def _quick_sort_loop\b.*?)partial_fixpoint",
-        r"partial \1",
-        text,
-        flags=re.DOTALL,
-    )
-    # _quick_sort_loop.body  (rust_loop_body)
-    text = re.sub(
-        r"@\[rust_loop_body\]\n(def _quick_sort_loop\.body\b.*?)partial_fixpoint",
-        r"partial \1",
-        text,
-        flags=re.DOTALL,
-    )
-    # _quick_sort  (reducible)
-    text = re.sub(
-        r"@\[reducible\]\n(def _quick_sort\b.*?)partial_fixpoint",
-        r"partial \1",
-        text,
-        flags=re.DOTALL,
-    )
-    return text
-
-
-def _fix_vec_is_empty(text: str) -> str:
-    """Replace ``alloc.vec.Vec.is_empty`` (not in aeneas runtime) with a
-    length check."""
-    if "alloc.vec.Vec.is_empty" not in text:
-        return text
-    text = re.sub(
-        r"let\s+(\w+)\s+←\s+alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
-        r"let \1 := (alloc.vec.Vec.deref \2).length = 0",
-        text,
-    )
-    # Replace tail-position calls
-    text = re.sub(
-        r"alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
-        r"ok ((alloc.vec.Vec.deref \1).length = 0)",
-        text,
-    )
-    return text
-
+# ── bitvec scalar-op rewriting ─────────────────────────────────────────────────
 
 def _bitvec_ops_to_bv(content: str) -> str:
     """Rewrite Aeneas scalar ops ``core.num.U<w>.*`` to ``BitVec`` ops.
@@ -736,15 +571,8 @@ def _bitvec_ops_to_bv(content: str) -> str:
     if "core.num.U" not in content and "UScalar.cast" not in content and "IScalar.cast" not in content:
         return content
 
-    # Operand: bare/dotted ident, or a non-nested parenthesized expr (e.g. a
-    # scalar literal ``(7 : BitVec 32)`` produced by lean_integers_to_model).
-    # Aeneas's symbolic evaluator materializes complex sub-expressions into
-    # `let` bindings first, so scalar-op operands are always this simple.
     arg = r"(?:\([^()]*\)|[\w.]+)"
 
-    # Aeneas scalar-lowers only wrapping add/sub/mul/shl/shr (see
-    # Aeneas/Std/Scalar/WrappingOps/); div/rem/neg stay as opaque rust_fun
-    # axioms and are not rewritten here.
     for fn, op in (
         ("wrapping_add", "+"),
         ("wrapping_sub", "-"),
@@ -763,11 +591,7 @@ def _bitvec_ops_to_bv(content: str) -> str:
             content,
         )
 
-    # Integer casts (u8 as usize, u8 as u32, u32 as u8, …) lower to
-    # UScalar.cast/IScalar.cast which are typed on Aeneas's own UScalar/IScalar,
-    # not BitVec w.  Rewrite to BitVec conversions.
     if "UScalar.cast" in content or "IScalar.cast" in content:
-        # u8 as usize → UScalar.mk (UScalarTy.Usize) (BitVec.ofNat ...)
         content = re.sub(
             rf"UScalar\.cast\s+\.Usize\s+({arg})",
             r"UScalar.mk (BitVec.ofNat (UScalarTy.Usize.numBits) \1.toNat)",
@@ -788,6 +612,119 @@ def _bitvec_ops_to_bv(content: str) -> str:
 
     return content
 
+
+# ── misc fixups ────────────────────────────────────────────────────────────────
+
+def _mark_noncomputable_defs(text: str) -> str:
+    """Mark defs that depend on axioms (directly or transitively)
+    as noncomputable.
+
+    Without this, Lean's code generator rejects definitions whose
+    evaluation chain reaches an axiom.
+    """
+    axiom_names: set[str] = set()
+    for m in re.finditer(
+        r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE
+    ):
+        axiom_names.add(m.group(1))
+    if not axiom_names:
+        return text
+
+    decls: list[tuple[str, str, int, int]] = []
+    pattern = re.compile(
+        r"^(?:@\[[^\]]*\][ \t]*\n\s*)?"
+        r"(?:(noncomputable[ \t]+)?(def|theorem)[ \t]+(\w+))",
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(text):
+        name = m.group(3)
+        is_noncomp = m.group(1) is not None
+        body_start = m.end()
+        next_decl = re.search(
+            r"^\s*(?:end\b|namespace\b|(?:noncomputable\s+)?(?:def|axiom|theorem)\s+)",
+            text[body_start:],
+            re.MULTILINE,
+        )
+        body_end = body_start + next_decl.start() if next_decl else len(text)
+        body = text[body_start:body_end]
+        body = re.sub(r"/-.*?-/", "", body, flags=re.DOTALL)
+        decls.append((name, body, m.start(), m.end()))
+        if is_noncomp:
+            axiom_names.add(name)
+
+    # Fixed-point propagation
+    changed = True
+    while changed:
+        changed = False
+        for name, body, _, _ in decls:
+            if name in axiom_names:
+                continue
+            if any(re.search(rf"\b{re.escape(n)}\b", body) for n in axiom_names):
+                axiom_names.add(name)
+                changed = True
+
+    if not axiom_names:
+        return text
+
+    noncomp_names = sorted(
+        set(n for n in axiom_names if n not in set(
+            re.findall(r"^\s*(?:noncomputable\s+)?axiom\s+([\w.]+)", text, re.MULTILINE)
+        )),
+        key=len,
+        reverse=True,
+    )
+    if not noncomp_names:
+        return text
+
+    for name in noncomp_names:
+        text = re.sub(
+            rf"^(@\[[^\]]*\]\s*\n\s*)?(def\s+{re.escape(name)}\b)",
+            rf"\1noncomputable \2",
+            text,
+            flags=re.MULTILINE,
+        )
+
+    return text
+
+
+def _fix_partial_mutual(text: str) -> str:
+    """Replace ``partial_fixpoint`` with ``partial`` for tail-recursive
+    functions inside ``mutual`` blocks, so the Lean 4.31 monotonicity
+    checker accepts them.  Also strips incompatible attributes.
+    """
+    for tag, label in [
+        (r"@\[rust_loop\]\n", "_quick_sort_loop"),
+        (r"@\[rust_loop_body\]\n", r"_quick_sort_loop\.body"),
+        (r"@\[reducible\]\n", "_quick_sort"),
+    ]:
+        text = re.sub(
+            rf"{tag}(def {label}\b.*?)partial_fixpoint",
+            r"partial \1",
+            text,
+            flags=re.DOTALL,
+        )
+    return text
+
+
+def _fix_vec_is_empty(text: str) -> str:
+    """Replace ``alloc.vec.Vec.is_empty`` (not in aeneas runtime) with a
+    length check."""
+    if "alloc.vec.Vec.is_empty" not in text:
+        return text
+    text = re.sub(
+        r"let\s+(\w+)\s+←\s+alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
+        r"let \1 := (alloc.vec.Vec.deref \2).length = 0",
+        text,
+    )
+    text = re.sub(
+        r"alloc\.vec\.Vec\.is_empty\s+Global\s+(\w+)",
+        r"ok ((alloc.vec.Vec.deref \1).length = 0)",
+        text,
+    )
+    return text
+
+
+# ── main entry point ───────────────────────────────────────────────────────────
 
 def write_lean_output(
     workdir: Path,
@@ -831,10 +768,18 @@ def write_lean_output(
         text = lean_integers_to_model(text, int_model)
         if int_model == "bitvec":
             text = _bitvec_ops_to_bv(text)
+            # _monadic_ops_to_pure ran inside lean_integers_to_model *before*
+            # _bitvec_ops_to_bv rewrote core.num.U*.* ops to BitVec operators.
+            # Run it again so that the now-pure BitVec ops (+, -, <<<, …)
+            # get their `←` converted to `:=`.
+            produced = {
+                _int_target_type(is_signed, width, int_model)
+                for _, _, width, is_signed in _INT_TYPES
+            }
+            text = _monadic_ops_to_pure(text, sorted(produced))
         text = inline_f64_helpers(text)
         text = inline_i64_helpers(text)
         if _use_real:
-            # f64_helpers constants and helpers use ``Rat`` — fix type
             text = re.sub(r"\bRat\b", "ℝ", text)
             text = re.sub(r"\bRatClone\b", "RealClone", text)
         text = _fix_partial_mutual(text)
