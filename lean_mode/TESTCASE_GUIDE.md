@@ -172,7 +172,7 @@ wrapping add/sub/mul/neg, bitwise `& | ^ !`, shifts `<< >>`, and popcount. Notes
   conversions.  This means table indexing (`SBOX[x as usize]`) works.
 - **`const [u8; N]` / `[[u8; N]; M]` fixed tables do translate** (→ `Array (BitVec 8) N#usize`,
   indexed via `Array.index_usize`).  Combined with cast support, table-driven crypto kernels
-  are now viable — `bitvec_aes` uses the official S-box / Rcon tables, `bitvec_des` uses
+  are now viable — `bitvec_aes128` uses the official S-box / Rcon tables, `bitvec_des128` uses
   permutation and S-box tables (both `#eval` in Lean).
 
 This is the model the crypto kernels (`rotate_right`/`wrapping_add`/bitwise) need.
@@ -341,11 +341,22 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 - **Integer casts (`as`) between unsigned types are supported under `bitvec`** —
   `u8 as usize`, `u8 as u32`, `u32 as u8` etc. lower to `UScalar.cast`/`IScalar.cast`
   and are rewritten to `BitVec` conversions by `_bitvec_ops_to_bv` (see §5 `bitvec`).
-  `bitvec_aes` and `bitvec_des` exercise this with table lookups (e.g. `SBOX[x as usize]`).
+  `bitvec_aes128` and `bitvec_des128` exercise this with table lookups (e.g. `SBOX[x as usize]`).
+- **`wrapping_sub` on unsigned types is scalar-lowered by AENEAS** — under `bitvec`,
+  `a.wrapping_sub(b)` → `a - b` (BitVec subtraction wraps). This is used in `bitvec_tea`'s
+  decrypt and works correctly.
+- **Feistel cipher half-combination pattern** — `(low as u64) | ((high as u64) << 32u32)`
+  combines two `u32` halves into a `u64` block. Under `bitvec` the `u32 as u64` zero-extends
+  via `UScalar.cast`, and `<<`/`|` on `BitVec 64` works. This pattern is used in
+  `bitvec_tea` and `bitvec_des128` (`(r << 32u32) | l`).
+- **Pass key as separate parameters, not arrays** — `[u64; 2]` array parameters may not
+  translate cleanly; split into `key0: u64, key1: u64` (see `bitvec_tea`).
 - **Verify crypto test vectors against the authoritative source** — a failing `cargo test` /
-  `#eval` can be your memory of the vector, not the code. During `bitvec_aes` I swapped
+  `#eval` can be your memory of the vector, not the code. During `bitvec_aes128` I swapped
   SP 800-38A block-2's ciphertext for block-4's plaintext (they coincide as `f69f2445…`);
   the code was right, the vector wasn't. Web-check the FIPS/NIST table before debugging.
+  When using Wikipedia test vectors for TEA, verify byte-endianness — the reference's
+  `to_block`/`from_block` is little-endian; raw `u64` values are not portable.
 
 ---
 
@@ -354,9 +365,10 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
   `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
 - **`bitvec`** (Rat, unsigned → `BitVec w`, has `Test_test.lean`): `bitvec_ops`
-  (rotate / wrapping arithmetic / bitwise / shifts / popcount), `bitvec_aes`
-  (AES-128 encrypt+decrypt, table-driven, conformance + roundtrip), `bitvec_des`
-  (DES single-block encrypt+decrypt, FIPS PUB 46-3).
+  (rotate / wrapping arithmetic / bitwise / shifts / popcount), `bitvec_aes128`
+  (AES-128 encrypt+decrypt, table-driven, conformance + roundtrip), `bitvec_des128`
+  (DES single-block encrypt+decrypt, FIPS PUB 46-3), `bitvec_tea`
+  (TEA single-block encrypt+decrypt, 32-round Feistel, pure arithmetic).
 - **Real (no `Test_test.lean`)**: `matrix_bidiagonal`, `matrix_cholesky`,
   `matrix_hessenberg`, `matrix_qr`, `matrix_svd`, `matrix_symmetric_eigen`,
   `tensor_softmax_1d`, `tensor_softmax_2d`, `vector_norm` (use `sqrt`/`exp`; each
