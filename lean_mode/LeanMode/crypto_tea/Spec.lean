@@ -1,8 +1,8 @@
-import LeanMode.bitvec_tea.BitvecTea
+import LeanMode.crypto_tea.BitvecTea
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open bitvec_tea
+open crypto_tea
 
 set_option linter.unusedVariables false
 

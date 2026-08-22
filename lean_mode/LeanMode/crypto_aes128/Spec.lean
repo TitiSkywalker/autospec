@@ -1,8 +1,8 @@
-import LeanMode.bitvec_aes128.BitvecAes128
+import LeanMode.crypto_aes128.BitvecAes128
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open bitvec_aes128
+open crypto_aes128
 
 set_option linter.unusedVariables false
 
