@@ -19,8 +19,9 @@ pub fn gcd(a: u64, b: u64) -> u64 {
 /// Modular multiplicative inverse of `a` modulo `m` (extended Euclidean algorithm).
 ///
 /// Requires `gcd(a, m) = 1`.  Returns `x` such that `a * x ≡ 1 (mod m)`
-/// with `0 ≤ x < m`.
-pub fn mod_inverse(a: i64, m: i64) -> i64 {
+/// with `0 ≤ x < m`.  Uses modular reduction at each step to keep all
+/// intermediate values non-negative.
+pub fn mod_inverse(a: u64, m: u64) -> u64 {
     let mut old_r = a;
     let mut r = m;
     let mut old_s = 1;
@@ -30,12 +31,13 @@ pub fn mod_inverse(a: i64, m: i64) -> i64 {
         let next_r = old_r - q * r;
         old_r = r;
         r = next_r;
-        let next_s = old_s - q * s;
+        let qs = (q * s) % m;
+        let next_s = (old_s + m - qs) % m;
         old_s = s;
         s = next_s;
     }
     assert!(old_r == 1);
-    (old_s % m + m) % m
+    old_s
 }
 
 /// Modular exponentiation: `base^exp mod modulus` (square-and-multiply).

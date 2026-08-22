@@ -14,11 +14,12 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 2048
 
 namespace crypto_rsa
+
 /-- [crypto_rsa::gcd]: loop 0:
     Source: 'src/lib.rs', lines 11:4-15:5
     Visibility: public -/
 @[rust_loop]
-def gcd_loop (x : Int) (y : Int) : Result Int := do
+def gcd_loop (x : Nat) (y : Nat) : Result Nat := do
   if y != 0
   then let y1 := x % y
        gcd_loop y y1
@@ -29,47 +30,47 @@ partial_fixpoint
     Source: 'src/lib.rs', lines 8:0-17:1
     Visibility: public -/
 @[reducible]
-def gcd (a : Int) (b : Int) : Result Int := do
+def gcd (a : Nat) (b : Nat) : Result Nat := do
   gcd_loop a b
 
 /-- [crypto_rsa::mod_inverse]: loop 0:
-    Source: 'src/lib.rs', lines 28:4-36:5
+    Source: 'src/lib.rs', lines 29:4-38:5
     Visibility: public -/
 @[rust_loop]
 def mod_inverse_loop
-  (old_r : Int) (r : Int) (old_s : Int) (s : Int) :
-  Result (Int × Int)
+  (m : Nat) (old_r : Nat) (r : Nat) (old_s : Nat) (s : Nat)
+  :
+  Result (Nat × Nat)
   := do
-  let b := r ≠ 0
-  if b
+  if r != 0
   then
     let q := old_r / r
     let i := q * r
     let next_r := old_r - i
     let i1 := q * s
-    let next_s := old_s - i1
-    mod_inverse_loop r next_r s next_s
+    let qs := i1 % m
+    let i2 := old_s + m
+    let i3 := i2 - qs
+    let next_s := i3 % m
+    mod_inverse_loop m r next_r s next_s
   else ok (old_r, old_s)
 partial_fixpoint
 
 /-- [crypto_rsa::mod_inverse]:
-    Source: 'src/lib.rs', lines 23:0-39:1
+    Source: 'src/lib.rs', lines 24:0-41:1
     Visibility: public -/
-def mod_inverse (a : Int) (m : Int) : Result Int := do
-  let (old_r, old_s) ← mod_inverse_loop a m 1 0
-  let b := old_r = 1
-  massert b
-  let i := old_s % m
-  let i1 := i + m
-  ok (i1 % m)
+def mod_inverse (a : Nat) (m : Nat) : Result Nat := do
+  let (old_r, old_s) ← mod_inverse_loop m a m 1 0
+  massert (old_r = 1)
+  ok old_s
 
 /-- [crypto_rsa::mod_pow]: loop 0:
-    Source: 'src/lib.rs', lines 49:4-55:5
+    Source: 'src/lib.rs', lines 51:4-57:5
     Visibility: public -/
 @[rust_loop]
 def mod_pow_loop
-  (modulus : Int) (result : Int) (b : Int) (e : Int) :
-  Result Int
+  (modulus : Nat) (result : Nat) (b : Nat) (e : Nat) :
+  Result Nat
   := do
   if e > 0
   then
@@ -88,26 +89,26 @@ def mod_pow_loop
 partial_fixpoint
 
 /-- [crypto_rsa::mod_pow]:
-    Source: 'src/lib.rs', lines 44:0-57:1
+    Source: 'src/lib.rs', lines 46:0-59:1
     Visibility: public -/
 def mod_pow
-  (base : Int) (exp : Int) (modulus : Int) : Result Int := do
+  (base : Nat) (exp : Nat) (modulus : Nat) : Result Nat := do
   massert (modulus > 0)
   let b := base % modulus
   mod_pow_loop modulus 1 b exp
 
 /-- [crypto_rsa::rsa_encrypt]:
-    Source: 'src/lib.rs', lines 60:0-62:1
+    Source: 'src/lib.rs', lines 62:0-64:1
     Visibility: public -/
 def rsa_encrypt
-  (message : Int) (e : Int) (n : Int) : Result Int := do
+  (message : Nat) (e : Nat) (n : Nat) : Result Nat := do
   mod_pow message e n
 
 /-- [crypto_rsa::rsa_decrypt]:
-    Source: 'src/lib.rs', lines 65:0-67:1
+    Source: 'src/lib.rs', lines 67:0-69:1
     Visibility: public -/
 def rsa_decrypt
-  (ciphertext : Int) (d : Int) (n : Int) : Result Int := do
+  (ciphertext : Nat) (d : Nat) (n : Nat) : Result Nat := do
   mod_pow ciphertext d n
 
 end crypto_rsa

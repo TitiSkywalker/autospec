@@ -17,87 +17,84 @@ set_option maxRecDepth 2048
 namespace crypto_rsa
 
 /-- [crypto_rsa::test_gcd_1]:
-    Source: 'src/lib.rs', lines 73:0-75:1
+    Source: 'src/lib.rs', lines 75:0-77:1
     Visibility: public -/
 def test_gcd_1 : Result Unit := do
   let left_val ← gcd 12 8
   massert (left_val = 4)
 
 /-- [crypto_rsa::test_gcd_2]:
-    Source: 'src/lib.rs', lines 77:0-79:1
+    Source: 'src/lib.rs', lines 79:0-81:1
     Visibility: public -/
 def test_gcd_2 : Result Unit := do
   let left_val ← gcd 17 3120
   massert (left_val = 1)
 
 /-- [crypto_rsa::test_gcd_3]:
-    Source: 'src/lib.rs', lines 81:0-83:1
+    Source: 'src/lib.rs', lines 83:0-85:1
     Visibility: public -/
 def test_gcd_3 : Result Unit := do
   let left_val ← gcd 1071 462
   massert (left_val = 21)
 
 /-- [crypto_rsa::test_mod_inverse_1]:
-    Source: 'src/lib.rs', lines 87:0-90:1
+    Source: 'src/lib.rs', lines 89:0-92:1
     Visibility: public -/
 def test_mod_inverse_1 : Result Unit := do
   let left_val ← mod_inverse 17 3120
-  let b := left_val = 2753
-  massert b
+  massert (left_val = 2753)
 
 /-- [crypto_rsa::test_mod_inverse_2]:
-    Source: 'src/lib.rs', lines 92:0-95:1
+    Source: 'src/lib.rs', lines 94:0-97:1
     Visibility: public -/
 def test_mod_inverse_2 : Result Unit := do
   let left_val ← mod_inverse 3 11
-  let b := left_val = 4
-  massert b
+  massert (left_val = 4)
 
 /-- [crypto_rsa::test_mod_inverse_3]:
-    Source: 'src/lib.rs', lines 97:0-100:1
+    Source: 'src/lib.rs', lines 99:0-102:1
     Visibility: public -/
 def test_mod_inverse_3 : Result Unit := do
   let left_val ← mod_inverse 7 15
-  let b := left_val = 13
-  massert b
+  massert (left_val = 13)
 
 /-- [crypto_rsa::test_mod_pow_1]:
-    Source: 'src/lib.rs', lines 104:0-106:1
+    Source: 'src/lib.rs', lines 106:0-108:1
     Visibility: public -/
 def test_mod_pow_1 : Result Unit := do
   let left_val ← mod_pow 2 3 5
   massert (left_val = 3)
 
 /-- [crypto_rsa::test_mod_pow_2]:
-    Source: 'src/lib.rs', lines 108:0-110:1
+    Source: 'src/lib.rs', lines 110:0-112:1
     Visibility: public -/
 def test_mod_pow_2 : Result Unit := do
   let left_val ← mod_pow 7 2 13
   massert (left_val = 10)
 
 /-- [crypto_rsa::test_mod_pow_3]:
-    Source: 'src/lib.rs', lines 112:0-115:1
+    Source: 'src/lib.rs', lines 114:0-117:1
     Visibility: public -/
 def test_mod_pow_3 : Result Unit := do
   let left_val ← mod_pow 65 17 3233
   massert (left_val = 2790)
 
 /-- [crypto_rsa::test_rsa_encrypt_known]:
-    Source: 'src/lib.rs', lines 119:0-122:1
+    Source: 'src/lib.rs', lines 121:0-124:1
     Visibility: public -/
 def test_rsa_encrypt_known : Result Unit := do
   let left_val ← rsa_encrypt 65 17 3233
   massert (left_val = 2790)
 
 /-- [crypto_rsa::test_rsa_decrypt_known]:
-    Source: 'src/lib.rs', lines 124:0-127:1
+    Source: 'src/lib.rs', lines 126:0-129:1
     Visibility: public -/
 def test_rsa_decrypt_known : Result Unit := do
   let left_val ← rsa_decrypt 2790 2753 3233
   massert (left_val = 65)
 
 /-- [crypto_rsa::test_rsa_roundtrip_1]:
-    Source: 'src/lib.rs', lines 129:0-137:1
+    Source: 'src/lib.rs', lines 131:0-139:1
     Visibility: public -/
 def test_rsa_roundtrip_1 : Result Unit := do
   let c ← rsa_encrypt 42 17 3233
@@ -105,7 +102,7 @@ def test_rsa_roundtrip_1 : Result Unit := do
   massert (back = 42)
 
 /-- [crypto_rsa::test_rsa_roundtrip_2]:
-    Source: 'src/lib.rs', lines 139:0-147:1
+    Source: 'src/lib.rs', lines 141:0-149:1
     Visibility: public -/
 def test_rsa_roundtrip_2 : Result Unit := do
   let c ← rsa_encrypt 123 17 3233
@@ -113,7 +110,7 @@ def test_rsa_roundtrip_2 : Result Unit := do
   massert (back = 123)
 
 /-- [crypto_rsa::test_rsa_roundtrip_3]:
-    Source: 'src/lib.rs', lines 149:0-157:1
+    Source: 'src/lib.rs', lines 151:0-159:1
     Visibility: public -/
 def test_rsa_roundtrip_3 : Result Unit := do
   let c ← rsa_encrypt 999 17 3233
@@ -121,7 +118,7 @@ def test_rsa_roundtrip_3 : Result Unit := do
   massert (back = 999)
 
 /-- [crypto_rsa::test_rsa_roundtrip_small]:
-    Source: 'src/lib.rs', lines 161:0-169:1
+    Source: 'src/lib.rs', lines 163:0-171:1
     Visibility: public -/
 def test_rsa_roundtrip_small : Result Unit := do
   let c ← rsa_encrypt 5 7 143
@@ -129,14 +126,14 @@ def test_rsa_roundtrip_small : Result Unit := do
   massert (back = 5)
 
 /-- [crypto_rsa::test_rsa_encrypt_small]:
-    Source: 'src/lib.rs', lines 171:0-174:1
+    Source: 'src/lib.rs', lines 173:0-176:1
     Visibility: public -/
 def test_rsa_encrypt_small : Result Unit := do
   let left_val ← rsa_encrypt 8 7 143
   massert (left_val = 57)
 
 /-- [crypto_rsa::test_rsa_decrypt_small]:
-    Source: 'src/lib.rs', lines 176:0-179:1
+    Source: 'src/lib.rs', lines 178:0-181:1
     Visibility: public -/
 def test_rsa_decrypt_small : Result Unit := do
   let left_val ← rsa_decrypt 57 103 143

@@ -16,33 +16,35 @@ decryption uses a private key `(d, n)`.  When `n = p * q` and
 Conformance is checked by `#eval` in `Test_test.lean`.
 -/
 
-/-- Correctness of `gcd`: the result is the greatest common divisor.
-    `Int.gcd` returns a `Nat`, so we compare the natural absolute value. -/
-theorem gcd_correct (a b result : Int)
+/-- Correctness of `gcd`: the result is the greatest common divisor. -/
+theorem gcd_correct (a b result : Nat)
     (h : crypto_rsa.gcd a b = ok result) :
-    result.natAbs = Int.gcd a b := by
+    result = Nat.gcd a b := by
   sorry
 
 /-- Correctness of modular exponentiation: `mod_pow base exp modulus`
-    computes `base^exp mod modulus` (exponent is non-negative). -/
-theorem mod_pow_correct (base exp modulus result : Int)
+    computes `base^exp mod modulus`. -/
+theorem mod_pow_correct (base exp modulus result : Nat)
     (h : mod_pow base exp modulus = ok result) :
-    result = (base ^ exp.toNat) % modulus := by
+    result = (base ^ exp) % modulus := by
   sorry
 
 /-- Correctness of the modular inverse:
     `mod_inverse e phi = ok d` implies `(e * d) % phi = 1 % phi`. -/
-theorem mod_inverse_correct (e phi d : Int)
+theorem mod_inverse_correct (e phi d : Nat)
     (h : mod_inverse e phi = ok d) :
     (e * d) % phi = 1 % phi := by
   sorry
 
 /-- RSA roundtrip: decryption inverts encryption when the keys are correct.
-    Requires `n = p * q` and `d` to be the modular inverse of `e` modulo
-    `(p-1)*(q-1)`. -/
+    Requires:
+    - `n = p * q` (modulus is product of two primes)
+    - `e` is coprime to `φ(n) = (p-1)*(q-1)`
+    - `d` is the modular inverse of `e` modulo `φ(n)` -/
 theorem rsa_decrypt_encrypt_roundtrip
-    (message e d n p q : Int)
+    (message e d n p q : Nat)
     (h_n : n = p * q)
+    (h_coprime : Nat.gcd e ((p - 1) * (q - 1)) = 1)
     (h_inv : mod_inverse e ((p - 1) * (q - 1)) = ok d)
     (h_enc : rsa_encrypt message e n = ok result) :
     rsa_decrypt result d n = ok message := by
