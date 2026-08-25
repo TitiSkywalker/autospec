@@ -67,3 +67,9 @@ url = "https://github.com/POFKLabs/pofk_algorithm_rust.git"
 # ── cryptographic hashing (SHA-256, SHA-512) ──
 [[repo]]
 url = "https://github.com/RustCrypto/hashes.git"
+
+[[repo]]
+url = "https://github.com/GaloisInc/swanky.git"
+
+[[repo]]
+url = "https://github.com/zama-ai/tfhe-rs.git"
