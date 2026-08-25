@@ -186,6 +186,43 @@ def lean_f64_to_rat(content: str) -> str:
     return result
 
 
+def _replace_f64_const(result: str, const_name: str, mathlib_name: str) -> str:
+    """Replace an f64 const axiom with a Mathlib constant definition.
+
+    ``core.f64.consts.PI`` → ``noncomputable def ... := ok Real.pi``
+    """
+    if const_name not in result:
+        return result
+
+    escaped = re.escape(const_name)
+
+    # Replace let-binding call sites:  let x ← core.f64.consts.PI
+    result = re.sub(
+        rf"\blet\s+(\w+)\s+←\s+{escaped}\b",
+        rf"let \1 := {mathlib_name}",
+        result,
+    )
+
+    # Replace tail-position call sites
+    result = re.sub(
+        rf"(^|\n)([ \t]+){escaped}\s*$",
+        rf"\1\2{mathlib_name}",
+        result,
+        flags=re.MULTILINE,
+    )
+
+    # Add a definition (the axiom is already stripped by _skip_f64_blocks)
+    result = re.sub(
+        r"(namespace \w+\n)",
+        rf"\1\n/- {const_name} replaced with {mathlib_name} by autospec -/\n"
+        rf"noncomputable def {const_name} : ℝ := {mathlib_name}\n",
+        result,
+        count=1,
+    )
+
+    return result
+
+
 def _replace_transcendental(
     result: str, func_name: str, mathlib_name: str
 ) -> str:
@@ -252,6 +289,9 @@ def lean_f64_to_real(content: str) -> str:
     result = _replace_transcendental(result, "sqrt", "Real.sqrt")
     result = _replace_transcendental(result, "exp", "Real.exp")
     result = _replace_transcendental(result, "ln", "Real.log")
+
+    # Replace f64 constants with Mathlib equivalents
+    result = _replace_f64_const(result, "core.f64.consts.PI", "Real.pi")
 
     return result
 
