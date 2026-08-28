@@ -12,8 +12,7 @@ set_option linter.unusedVariables false
 `bst_insert t v` inserts `v` into the BST rooted at `t` and returns the new root.
 `bst_find t v` returns `true` iff `v` is present in the tree.
 
-The correctness is stated in terms of a `view` (the set of values in the tree)
-and `is_bst` (the BST structural invariant).
+The correctness is stated in terms of a `view` (the set of values in the tree) and `is_bst` (the BST structural invariant).
 -/
 
 mutual
