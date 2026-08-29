@@ -109,7 +109,7 @@ def reference_mul
 def test_pow_zero_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -122,19 +122,19 @@ def test_pow_zero_identity : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       1#usize
-  assert_approx_eq fl1 _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_0 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       2#usize
-  assert_approx_eq fl2 _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_0 _f64_const_10000000_000000001
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       3#usize
-  assert_approx_eq fl3 _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl3 _f64_const_1 _f64_const_10000000_000000001
 
 /-- [matrix_pow::test_pow_one]: loop 0:
     Source: 'src/lib.rs', lines 107:4-110:5
@@ -142,7 +142,7 @@ def test_pow_zero_identity : Result Unit := do
 @[rust_loop]
 def test_pow_one_loop
   (a : Array Rat 4#usize) (result : alloc.vec.Vec Rat) (i : Std.Usize)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 4#usize
@@ -150,9 +150,9 @@ def test_pow_one_loop
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
     let fl1 ← Array.index_usize a i
-    assert_approx_eq fl fl1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl fl1 _f64_const_10000000_000000001
     let i1 ← i + 1#usize
-    test_pow_one_loop a result i1 _f64_const_0_0000000010000000000000001
+    test_pow_one_loop a result i1 _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -161,7 +161,7 @@ partial_fixpoint
     Visibility: public -/
 def test_pow_one : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -174,7 +174,7 @@ def test_pow_one : Result Unit := do
   test_pow_one_loop
     (Array.make 4#usize [
       _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4
-      ]) result 0#usize _f64_const_0_0000000010000000000000001
+      ]) result 0#usize _f64_const_10000000_000000001
 
 /-- [matrix_pow::test_pow_two]: loop 0:
     Source: 'src/lib.rs', lines 119:4-122:5
@@ -182,7 +182,7 @@ def test_pow_one : Result Unit := do
 @[rust_loop]
 def test_pow_two_loop
   (result : alloc.vec.Vec Rat) (expected : Array Rat 4#usize) (i : Std.Usize)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 4#usize
@@ -190,9 +190,9 @@ def test_pow_two_loop
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
     let fl1 ← Array.index_usize expected i
-    assert_approx_eq fl fl1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl fl1 _f64_const_10000000_000000001
     let i1 ← i + 1#usize
-    test_pow_two_loop result expected i1 _f64_const_0_0000000010000000000000001
+    test_pow_two_loop result expected i1 _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -201,7 +201,7 @@ partial_fixpoint
     Visibility: public -/
 def test_pow_two : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_15 := (15 : Rat)
   let _f64_const_2 := (2 : Rat)
@@ -218,7 +218,7 @@ def test_pow_two : Result Unit := do
   test_pow_two_loop result
     (Array.make 4#usize [
       _f64_const_7, _f64_const_10, _f64_const_15, _f64_const_22
-      ]) 0#usize _f64_const_0_0000000010000000000000001
+      ]) 0#usize _f64_const_10000000_000000001
 
 /-- [matrix_pow::test_pow_three]: loop 0:
     Source: 'src/lib.rs', lines 131:4-134:5
@@ -226,7 +226,7 @@ def test_pow_two : Result Unit := do
 @[rust_loop]
 def test_pow_three_loop
   (result : alloc.vec.Vec Rat) (expected : Array Rat 4#usize) (i : Std.Usize)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 4#usize
@@ -234,10 +234,9 @@ def test_pow_three_loop
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result i
     let fl1 ← Array.index_usize expected i
-    assert_approx_eq fl fl1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl fl1 _f64_const_10000000_000000001
     let i1 ← i + 1#usize
-    test_pow_three_loop result expected i1
-      _f64_const_0_0000000010000000000000001
+    test_pow_three_loop result expected i1 _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -246,7 +245,7 @@ partial_fixpoint
     Visibility: public -/
 def test_pow_three : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_118 := (118 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -263,7 +262,7 @@ def test_pow_three : Result Unit := do
   test_pow_three_loop result
     (Array.make 4#usize [
       _f64_const_37, _f64_const_54, _f64_const_81, _f64_const_118
-      ]) 0#usize _f64_const_0_0000000010000000000000001
+      ]) 0#usize _f64_const_10000000_000000001
 
 /-- [matrix_pow::test_pow_matches_naive]: loop 0:
     Source: 'src/lib.rs', lines 150:4-153:5
@@ -289,7 +288,7 @@ partial_fixpoint
 @[rust_loop]
 def test_pow_matches_naive_loop1
   (result : alloc.vec.Vec Rat) (expected : alloc.vec.Vec Rat) (i : Std.Usize)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 9#usize
@@ -299,10 +298,10 @@ def test_pow_matches_naive_loop1
     let fl1 ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) expected
         i
-    assert_approx_eq fl fl1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl fl1 _f64_const_10000000_000000001
     let i1 ← i + 1#usize
     test_pow_matches_naive_loop1 result expected i1
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -312,7 +311,7 @@ partial_fixpoint
 def test_pow_matches_naive : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let s ←
@@ -336,13 +335,13 @@ def test_pow_matches_naive : Result Unit := do
         _f64_const_0, _f64_const_1, _f64_const_0, _f64_const_1
         ]) expected 1#usize
   test_pow_matches_naive_loop1 result expected1 0#usize
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [matrix_pow::test_pow_1x1]:
     Source: 'src/lib.rs', lines 163:0-167:1
     Visibility: public -/
 def test_pow_1x1 : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_81 := (81 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_3 ]))
@@ -350,7 +349,7 @@ def test_pow_1x1 : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_81 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_81 _f64_const_10000000_000000001
 
 #eval test_pow_1x1
 

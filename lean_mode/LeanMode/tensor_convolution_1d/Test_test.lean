@@ -24,8 +24,7 @@ namespace tensor_convolution_1d
 @[rust_loop]
 def test_identity_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -40,10 +39,9 @@ def test_identity_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_identity_loop iter1 out expected
-      _f64_const_0_0000000010000000000000001
+    test_identity_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_1d::test_identity]:
@@ -52,7 +50,7 @@ partial_fixpoint
 def test_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -81,7 +79,7 @@ def test_identity : Result Unit := do
   let ret2 := alloc.slice.Slice.into_vec y2
   let i := alloc.vec.Vec.len out
   test_identity_loop { start := 0#usize, «end» := i } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_convolution_1d::test_moving_average]: loop 0:
     Source: 'src/lib.rs', lines 44:4-46:5
@@ -89,8 +87,7 @@ def test_identity : Result Unit := do
 @[rust_loop]
 def test_moving_average_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -105,10 +102,9 @@ def test_moving_average_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_moving_average_loop iter1 out expected
-      _f64_const_0_0000000010000000000000001
+    test_moving_average_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_1d::test_moving_average]:
@@ -117,7 +113,7 @@ partial_fixpoint
 def test_moving_average : Result Unit := do
   let _f64_const_0_5 := (5/10 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_1_5 := (15/10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_2_5 := (25/10 : Rat)
@@ -149,7 +145,7 @@ def test_moving_average : Result Unit := do
   let ret2 := alloc.slice.Slice.into_vec y2
   let i := alloc.vec.Vec.len out
   test_moving_average_loop { start := 0#usize, «end» := i } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_convolution_1d::test_derivative]: loop 0:
     Source: 'src/lib.rs', lines 56:4-58:5
@@ -157,8 +153,7 @@ def test_moving_average : Result Unit := do
 @[rust_loop]
 def test_derivative_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -173,10 +168,9 @@ def test_derivative_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_derivative_loop iter1 out expected
-      _f64_const_0_0000000010000000000000001
+    test_derivative_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_1d::test_derivative]:
@@ -186,7 +180,7 @@ def test_derivative : Result Unit := do
   let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_neg_10 := (-(10 : Rat))
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -217,13 +211,13 @@ def test_derivative : Result Unit := do
   let ret2 := alloc.slice.Slice.into_vec y2
   let i := alloc.vec.Vec.len out
   test_derivative_loop { start := 0#usize, «end» := i } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_convolution_1d::test_single_element]:
     Source: 'src/lib.rs', lines 61:0-67:1
     Visibility: public -/
 def test_single_element : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_21 := (21 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_7 := (7 : Rat)
@@ -244,7 +238,7 @@ def test_single_element : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_21
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [tensor_convolution_1d::test_basic]:
@@ -252,7 +246,7 @@ def test_single_element : Result Unit := do
     Visibility: public -/
 def test_basic : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -275,19 +269,19 @@ def test_basic : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_3
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 1#usize
   let fl4 := fl3 - _f64_const_10
   let fl5 := |fl4|
-  let b1 := fl5 < _f64_const_0_0000000010000000000000001
+  let b1 := fl5 < _f64_const_10000000_000000001
   massert b1
   let fl6 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 2#usize
   let fl7 := fl6 - _f64_const_8
   let fl8 := |fl7|
-  let b2 := fl8 < _f64_const_0_0000000010000000000000001
+  let b2 := fl8 < _f64_const_10000000_000000001
   massert b2
 
 #eval test_basic

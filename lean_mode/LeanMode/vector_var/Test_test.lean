@@ -42,14 +42,14 @@ def test_single : Result Unit := do
     Visibility: public -/
 def test_constant : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_5 := (5 : Rat)
   let a := Array.repeat 4#usize _f64_const_5
   let s ← lift (Array.to_slice a)
   let fl ← var s
   let fl1 := fl - _f64_const_0
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [vector_var::test_two_values]:
@@ -57,21 +57,21 @@ def test_constant : Result Unit := do
     Visibility: public -/
 def test_two_values : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_3 := (3 : Rat)
   let s ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_1, _f64_const_3 ]))
   let fl ← var s
   let fl1 := fl - _f64_const_1
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [vector_var::test_general]:
     Source: 'src/lib.rs', lines 42:0-48:1
     Visibility: public -/
 def test_general : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_4 := (4 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -86,7 +86,7 @@ def test_general : Result Unit := do
   let fl ← var s
   let fl1 := fl - _f64_const_4
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 #eval test_constant

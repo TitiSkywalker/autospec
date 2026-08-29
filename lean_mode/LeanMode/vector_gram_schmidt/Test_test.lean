@@ -129,7 +129,7 @@ def test_gs_zero_u : Result Unit := do
 def test_gs_already_orthogonal : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_1, _f64_const_0 ]))
   let s1 ←
@@ -138,22 +138,22 @@ def test_gs_already_orthogonal : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       1#usize
-  assert_approx_eq fl1 _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_1 _f64_const_10000000_000000001
   let s2 := alloc.vec.Vec.deref result
   let s3 ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_1, _f64_const_0 ]))
-  verify_orthogonal s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 2#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_identical]:
     Source: 'src/lib.rs', lines 117:0-124:1
     Visibility: public -/
 def test_gs_identical : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let s ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_2, _f64_const_0 ]))
@@ -163,22 +163,22 @@ def test_gs_identical : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       1#usize
-  assert_approx_eq fl1 _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_0 _f64_const_10000000_000000001
   let s2 := alloc.vec.Vec.deref result
   let s3 ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_2, _f64_const_0 ]))
-  verify_orthogonal s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 2#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_2d]:
     Source: 'src/lib.rs', lines 127:0-135:1
     Visibility: public -/
 def test_gs_2d : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -190,28 +190,28 @@ def test_gs_2d : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       1#usize
-  assert_approx_eq fl1 _f64_const_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_5 _f64_const_10000000_000000001
   let s2 := alloc.vec.Vec.deref result
   let s3 ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_3, _f64_const_0 ]))
-  verify_orthogonal s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 2#usize _f64_const_10000000_000000001
   let s4 := alloc.vec.Vec.deref result
   let s5 ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_3, _f64_const_0 ]))
   let s6 ←
     lift (Array.to_slice (Array.make 2#usize [ _f64_const_4, _f64_const_5 ]))
-  verify_gs_step s4 s5 s6 2#usize _f64_const_0_0000000010000000000000001
+  verify_gs_step s4 s5 s6 2#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_3d]:
     Source: 'src/lib.rs', lines 139:0-145:1
     Visibility: public -/
 def test_gs_3d : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -228,7 +228,7 @@ def test_gs_3d : Result Unit := do
   let s3 ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_1, _f64_const_2, _f64_const_3 ]))
-  verify_orthogonal s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 3#usize _f64_const_10000000_000000001
   let s4 := alloc.vec.Vec.deref result
   let s5 ←
     lift (Array.to_slice
@@ -236,7 +236,7 @@ def test_gs_3d : Result Unit := do
   let s6 ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_4, _f64_const_5, _f64_const_6 ]))
-  verify_gs_step s4 s5 s6 3#usize _f64_const_0_0000000010000000000000001
+  verify_gs_step s4 s5 s6 3#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_unit_u]:
     Source: 'src/lib.rs', lines 152:0-161:1
@@ -244,7 +244,7 @@ def test_gs_3d : Result Unit := do
 def test_gs_unit_u : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -258,20 +258,20 @@ def test_gs_unit_u : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       0#usize
-  assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       1#usize
-  assert_approx_eq fl1 _f64_const_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_3 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result
       2#usize
-  assert_approx_eq fl2 _f64_const_4 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_4 _f64_const_10000000_000000001
   let s2 := alloc.vec.Vec.deref result
   let s3 ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_1, _f64_const_0, _f64_const_0 ]))
-  verify_orthogonal s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 3#usize _f64_const_10000000_000000001
   let s4 := alloc.vec.Vec.deref result
   let s5 ←
     lift (Array.to_slice
@@ -279,14 +279,14 @@ def test_gs_unit_u : Result Unit := do
   let s6 ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_2, _f64_const_3, _f64_const_4 ]))
-  verify_gs_step s4 s5 s6 3#usize _f64_const_0_0000000010000000000000001
+  verify_gs_step s4 s5 s6 3#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_4d_orthogonality]:
     Source: 'src/lib.rs', lines 164:0-170:1
     Visibility: public -/
 def test_gs_4d_orthogonality : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -311,7 +311,7 @@ def test_gs_4d_orthogonality : Result Unit := do
       (Array.make 4#usize [
         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4
         ]))
-  verify_orthogonal s2 s3 4#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 4#usize _f64_const_10000000_000000001
   let s4 := alloc.vec.Vec.deref result
   let s5 ←
     lift (Array.to_slice
@@ -323,7 +323,7 @@ def test_gs_4d_orthogonality : Result Unit := do
       (Array.make 4#usize [
         _f64_const_5, _f64_const_6, _f64_const_7, _f64_const_8
         ]))
-  verify_gs_step s4 s5 s6 4#usize _f64_const_0_0000000010000000000000001
+  verify_gs_step s4 s5 s6 4#usize _f64_const_10000000_000000001
 
 /-- [vector_gram_schmidt::test_gs_difference_parallel_to_u]: loop 0:
     Source: 'src/lib.rs', lines 180:4-183:5
@@ -352,7 +352,7 @@ partial_fixpoint
 @[rust_loop]
 def test_gs_difference_parallel_to_u_loop1
   (u : Array Rat 3#usize) (diff : alloc.vec.Vec Rat) (factor : Rat)
-  (i : Std.Usize) (_f64_const_0_0000000010000000000000001 : Rat) :
+  (i : Std.Usize) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 3#usize
@@ -361,10 +361,10 @@ def test_gs_difference_parallel_to_u_loop1
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) diff i
     let fl1 ← Array.index_usize u i
     let fl2 := fl / fl1
-    assert_approx_eq fl2 factor _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl2 factor _f64_const_10000000_000000001
     let i1 ← i + 1#usize
     test_gs_difference_parallel_to_u_loop1 u diff factor i1
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -373,7 +373,7 @@ partial_fixpoint
     Visibility: public -/
 def test_gs_difference_parallel_to_u : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -398,12 +398,12 @@ def test_gs_difference_parallel_to_u : Result Unit := do
   let factor := fl / fl1
   test_gs_difference_parallel_to_u_loop1
     (Array.make 3#usize [ _f64_const_2, _f64_const_1, _f64_const_3 ]) diff
-    factor 1#usize _f64_const_0_0000000010000000000000001
+    factor 1#usize _f64_const_10000000_000000001
   let s2 := alloc.vec.Vec.deref result
   let s3 ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_2, _f64_const_1, _f64_const_3 ]))
-  verify_orthogonal s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_orthogonal s2 s3 3#usize _f64_const_10000000_000000001
 
 #eval test_gs_2d
 

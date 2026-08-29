@@ -68,7 +68,7 @@ def test_transpose_empty : Result Unit := do
     Source: 'src/lib.rs', lines 63:0-67:1
     Visibility: public -/
 def test_transpose_1x1 : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_5 := (5 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
   let t ← transpose s 1#usize
@@ -76,14 +76,14 @@ def test_transpose_1x1 : Result Unit := do
   massert (i = 1#usize)
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) t 0#usize
-  assert_approx_eq fl _f64_const_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_5 _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_2x2]:
     Source: 'src/lib.rs', lines 70:0-75:1
     Visibility: public -/
 def test_transpose_2x2 : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -99,7 +99,7 @@ def test_transpose_2x2 : Result Unit := do
       (Array.make 4#usize [
         _f64_const_1, _f64_const_3, _f64_const_2, _f64_const_4
         ]))
-  assert_matrix_eq s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_2x2_identity]:
     Source: 'src/lib.rs', lines 78:0-82:1
@@ -107,7 +107,7 @@ def test_transpose_2x2 : Result Unit := do
 def test_transpose_2x2_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -120,14 +120,14 @@ def test_transpose_2x2_identity : Result Unit := do
       (Array.make 4#usize [
         _f64_const_1, _f64_const_0, _f64_const_0, _f64_const_1
         ]))
-  assert_matrix_eq s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_2x2_symmetric]:
     Source: 'src/lib.rs', lines 85:0-89:1
     Visibility: public -/
 def test_transpose_2x2_symmetric : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let s ←
@@ -142,7 +142,7 @@ def test_transpose_2x2_symmetric : Result Unit := do
       (Array.make 4#usize [
         _f64_const_1, _f64_const_2, _f64_const_2, _f64_const_3
         ]))
-  assert_matrix_eq s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_3x3_identity]:
     Source: 'src/lib.rs', lines 96:0-105:1
@@ -150,7 +150,7 @@ def test_transpose_2x2_symmetric : Result Unit := do
 def test_transpose_3x3_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 9#usize [
@@ -165,14 +165,14 @@ def test_transpose_3x3_identity : Result Unit := do
         _f64_const_1, _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_1,
         _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_1
         ]))
-  assert_matrix_eq s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_3x3_general]:
     Source: 'src/lib.rs', lines 109:0-124:1
     Visibility: public -/
 def test_transpose_3x3_general : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -195,14 +195,14 @@ def test_transpose_3x3_general : Result Unit := do
         _f64_const_1, _f64_const_4, _f64_const_7, _f64_const_2, _f64_const_5,
         _f64_const_8, _f64_const_3, _f64_const_6, _f64_const_9
         ]))
-  assert_matrix_eq s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_3x3_symmetric]:
     Source: 'src/lib.rs', lines 127:0-136:1
     Visibility: public -/
 def test_transpose_3x3_symmetric : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -222,7 +222,7 @@ def test_transpose_3x3_symmetric : Result Unit := do
         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_2, _f64_const_4,
         _f64_const_5, _f64_const_3, _f64_const_5, _f64_const_6
         ]))
-  assert_matrix_eq s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_3x3_triangular]:
     Source: 'src/lib.rs', lines 139:0-154:1
@@ -230,7 +230,7 @@ def test_transpose_3x3_symmetric : Result Unit := do
 def test_transpose_3x3_triangular : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -250,14 +250,14 @@ def test_transpose_3x3_triangular : Result Unit := do
         _f64_const_1, _f64_const_0, _f64_const_0, _f64_const_2, _f64_const_4,
         _f64_const_0, _f64_const_3, _f64_const_5, _f64_const_6
         ]))
-  assert_matrix_eq s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_involution]:
     Source: 'src/lib.rs', lines 161:0-171:1
     Visibility: public -/
 def test_transpose_involution : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -282,14 +282,14 @@ def test_transpose_involution : Result Unit := do
         _f64_const_1, _f64_const_2, _f64_const_3, _f64_const_4, _f64_const_5,
         _f64_const_6, _f64_const_7, _f64_const_8, _f64_const_9
         ]))
-  assert_matrix_eq s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s2 s3 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_transpose::test_transpose_4x4]:
     Source: 'src/lib.rs', lines 178:0-195:1
     Visibility: public -/
 def test_transpose_4x4 : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_11 := (11 : Rat)
   let _f64_const_12 := (12 : Rat)
@@ -323,7 +323,7 @@ def test_transpose_4x4 : Result Unit := do
         _f64_const_11, _f64_const_15, _f64_const_4, _f64_const_8,
         _f64_const_12, _f64_const_16
         ]))
-  assert_matrix_eq s1 s2 4#usize _f64_const_0_0000000010000000000000001
+  assert_matrix_eq s1 s2 4#usize _f64_const_10000000_000000001
 
 #eval test_transpose_1x1
 

@@ -25,7 +25,7 @@ namespace tensor_convolution_2d
 def test_identity_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (input : alloc.vec.Vec Rat)
   (out : alloc.vec.Vec Rat) (i : Std.Usize)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -47,10 +47,9 @@ def test_identity_loop0_loop0
         in_idx
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_identity_loop0_loop0 iter1 input out i
-      _f64_const_0_0000000010000000000000001
+    test_identity_loop0_loop0 iter1 input out i _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_2d::test_identity]: loop 0:
@@ -59,7 +58,7 @@ partial_fixpoint
 @[rust_loop]
 def test_identity_loop0
   (iter : core.ops.range.Range Std.Usize) (input : alloc.vec.Vec Rat)
-  (out : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat) :
+  (out : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -68,8 +67,8 @@ def test_identity_loop0
   | none => ok ()
   | some i =>
     test_identity_loop0_loop0 { start := 0#usize, «end» := 3#usize } input
-      out i _f64_const_0_0000000010000000000000001
-    test_identity_loop0 iter1 input out _f64_const_0_0000000010000000000000001
+      out i _f64_const_10000000_000000001
+    test_identity_loop0 iter1 input out _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_2d::test_identity]:
@@ -78,7 +77,7 @@ partial_fixpoint
 def test_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -107,32 +106,32 @@ def test_identity : Result Unit := do
   let left_val := alloc.vec.Vec.len out
   massert (left_val = 25#usize)
   test_identity_loop0 { start := 0#usize, «end» := 3#usize } ret out
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_0
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 4#usize
   let fl4 := fl3 - _f64_const_0
   let fl5 := |fl4|
-  let b1 := fl5 < _f64_const_0_0000000010000000000000001
+  let b1 := fl5 < _f64_const_10000000_000000001
   massert b1
   let fl6 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out
       20#usize
   let fl7 := fl6 - _f64_const_0
   let fl8 := |fl7|
-  let b2 := fl8 < _f64_const_0_0000000010000000000000001
+  let b2 := fl8 < _f64_const_10000000_000000001
   massert b2
   let fl9 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out
       24#usize
   let fl10 := fl9 - _f64_const_0
   let fl11 := |fl10|
-  let b3 := fl11 < _f64_const_0_0000000010000000000000001
+  let b3 := fl11 < _f64_const_10000000_000000001
   massert b3
 
 /-- [tensor_convolution_2d::test_basic]: loop 0:
@@ -141,8 +140,7 @@ def test_identity : Result Unit := do
 @[rust_loop]
 def test_basic_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -157,9 +155,9 @@ def test_basic_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_basic_loop iter1 out expected _f64_const_0_0000000010000000000000001
+    test_basic_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_2d::test_basic]:
@@ -167,7 +165,7 @@ partial_fixpoint
     Visibility: public -/
 def test_basic : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_12 := (12 : Rat)
   let _f64_const_16 := (16 : Rat)
   let _f64_const_2 := (2 : Rat)
@@ -209,13 +207,13 @@ def test_basic : Result Unit := do
          ] : Array Rat 9#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
   test_basic_loop { start := 0#usize, «end» := 9#usize } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_convolution_2d::test_single]:
     Source: 'src/lib.rs', lines 93:0-97:1
     Visibility: public -/
 def test_single : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_21 := (21 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_7 := (7 : Rat)
@@ -228,7 +226,7 @@ def test_single : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_21
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [tensor_convolution_2d::test_1d_equivalent]: loop 0:
@@ -237,8 +235,7 @@ def test_single : Result Unit := do
 @[rust_loop]
 def test_1d_equivalent_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -253,10 +250,9 @@ def test_1d_equivalent_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_1d_equivalent_loop iter1 out expected
-      _f64_const_0_0000000010000000000000001
+    test_1d_equivalent_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_convolution_2d::test_1d_equivalent]:
@@ -264,7 +260,7 @@ partial_fixpoint
     Visibility: public -/
 def test_1d_equivalent : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -291,14 +287,14 @@ def test_1d_equivalent : Result Unit := do
          ] : Array Rat 5#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
   test_1d_equivalent_loop { start := 0#usize, «end» := 5#usize } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_convolution_2d::test_small_input_large_kernel]:
     Source: 'src/lib.rs', lines 116:0-130:1
     Visibility: public -/
 def test_small_input_large_kernel : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -320,20 +316,20 @@ def test_small_input_large_kernel : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_1
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out
       15#usize
   let fl4 := fl3 - _f64_const_4
   let fl5 := |fl4|
-  let b1 := fl5 < _f64_const_0_0000000010000000000000001
+  let b1 := fl5 < _f64_const_10000000_000000001
   massert b1
   let fl6 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 5#usize
   let fl7 := fl6 - _f64_const_10
   let fl8 := |fl7|
-  let b2 := fl8 < _f64_const_0_0000000010000000000000001
+  let b2 := fl8 < _f64_const_10000000_000000001
   massert b2
 
 /-- [tensor_convolution_2d::test_empty]:

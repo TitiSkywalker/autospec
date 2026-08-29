@@ -24,8 +24,7 @@ namespace matrix_add
 @[rust_loop]
 def test_basic_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -40,9 +39,9 @@ def test_basic_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_basic_loop iter1 out expected _f64_const_0_0000000010000000000000001
+    test_basic_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [matrix_add::test_basic]:
@@ -50,7 +49,7 @@ partial_fixpoint
     Visibility: public -/
 def test_basic : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_12 := (12 : Rat)
   let _f64_const_2 := (2 : Rat)
@@ -82,7 +81,7 @@ def test_basic : Result Unit := do
          ] : Array Rat 4#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
   test_basic_loop { start := 0#usize, «end» := 4#usize } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [matrix_add::test_3x3]: loop 0:
     Source: 'src/lib.rs', lines 30:4-32:5
@@ -90,8 +89,7 @@ def test_basic : Result Unit := do
 @[rust_loop]
 def test_3x3_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -106,9 +104,9 @@ def test_3x3_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_3x3_loop iter1 out expected _f64_const_0_0000000010000000000000001
+    test_3x3_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [matrix_add::test_3x3]:
@@ -117,7 +115,7 @@ partial_fixpoint
 def test_3x3 : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -147,13 +145,13 @@ def test_3x3 : Result Unit := do
          ] : Array Rat 9#usize))
   let ret2 := alloc.slice.Slice.into_vec y2
   test_3x3_loop { start := 0#usize, «end» := 9#usize } out ret2
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [matrix_add::test_1x1]:
     Source: 'src/lib.rs', lines 35:0-38:1
     Visibility: public -/
 def test_1x1 : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_7 := (7 : Rat)
@@ -164,7 +162,7 @@ def test_1x1 : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_10
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [matrix_add::test_zero]: loop 0:
@@ -173,7 +171,7 @@ def test_1x1 : Result Unit := do
 @[rust_loop]
 def test_zero_loop
   (iter : alloc.vec.into_iter.IntoIter Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ← alloc.vec.into_iter.IteratorIntoIter.next iter
@@ -181,9 +179,9 @@ def test_zero_loop
   | none => ok ()
   | some v =>
     let fl := |v|
-    let b := fl < _f64_const_0_0000000010000000000000001
+    let b := fl < _f64_const_10000000_000000001
     massert b
-    test_zero_loop iter1 _f64_const_0_0000000010000000000000001
+    test_zero_loop iter1 _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [matrix_add::test_zero]:
@@ -191,13 +189,13 @@ partial_fixpoint
     Visibility: public -/
 def test_zero : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let a ← alloc.vec.from_elem RatClone _f64_const_0 4#usize
   let s := alloc.vec.Vec.deref a
   let s1 := alloc.vec.Vec.deref a
   let out ← matadd s s1 2#usize 2#usize
   let iter ← alloc.vec.IntoIteratorVec.into_iter out
-  test_zero_loop iter _f64_const_0_0000000010000000000000001
+  test_zero_loop iter _f64_const_10000000_000000001
 
 /-- [matrix_add::test_negative]: loop 0:
     Source: 'src/lib.rs', lines 54:4-56:5
@@ -205,7 +203,7 @@ def test_zero : Result Unit := do
 @[rust_loop]
 def test_negative_loop
   (iter : alloc.vec.into_iter.IntoIter Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ← alloc.vec.into_iter.IteratorIntoIter.next iter
@@ -213,9 +211,9 @@ def test_negative_loop
   | none => ok ()
   | some v =>
     let fl := |v|
-    let b := fl < _f64_const_0_0000000010000000000000001
+    let b := fl < _f64_const_10000000_000000001
     massert b
-    test_negative_loop iter1 _f64_const_0_0000000010000000000000001
+    test_negative_loop iter1 _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [matrix_add::test_negative]:
@@ -227,7 +225,7 @@ def test_negative : Result Unit := do
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_neg_4 := (-(4 : Rat))
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -247,7 +245,7 @@ def test_negative : Result Unit := do
   let s1 := alloc.vec.Vec.deref ret1
   let out ← matadd s s1 2#usize 2#usize
   let iter ← alloc.vec.IntoIteratorVec.into_iter out
-  test_negative_loop iter _f64_const_0_0000000010000000000000001
+  test_negative_loop iter _f64_const_10000000_000000001
 
 #eval test_1x1
 

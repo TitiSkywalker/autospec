@@ -172,13 +172,13 @@ def assert_identity
     Visibility: public -/
 def verify_inverse
   (a : Slice Rat) (a_inv : Slice Rat) (n : Std.Usize) : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let prod1 ← matrix_mul a a_inv n
   let s := alloc.vec.Vec.deref prod1
-  assert_identity s n _f64_const_0_0000000010000000000000001
+  assert_identity s n _f64_const_10000000_000000001
   let prod2 ← matrix_mul a_inv a n
   let s1 := alloc.vec.Vec.deref prod2
-  assert_identity s1 n _f64_const_0_0000000010000000000000001
+  assert_identity s1 n _f64_const_10000000_000000001
 
 /-- [matrix_inverse::test_inverse_empty]:
     Source: 'src/lib.rs', lines 200:0-203:1
@@ -194,7 +194,7 @@ def test_inverse_empty : Result Unit := do
     Visibility: public -/
 def test_inverse_1x1 : Result Unit := do
   let _f64_const_0_20000000000000001 := (20000000000000001/100000000000000000 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_5 := (5 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
   let inv ← matrix_inverse s 1#usize
@@ -203,7 +203,7 @@ def test_inverse_1x1 : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 0#usize
   assert_approx_eq fl _f64_const_0_20000000000000001
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
   let s1 ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
   let s2 := alloc.vec.Vec.deref inv
   verify_inverse s1 s2 1#usize
@@ -214,7 +214,7 @@ def test_inverse_1x1 : Result Unit := do
 def test_inverse_1x1_negative : Result Unit := do
   let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_neg_3 := (-(3 : Rat))
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_3 := (3 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_neg_3 ]))
   let inv ← matrix_inverse s 1#usize
@@ -223,7 +223,7 @@ def test_inverse_1x1_negative : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 0#usize
   let fl1 := _f64_const_neg_1 / _f64_const_3
-  assert_approx_eq fl fl1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl fl1 _f64_const_10000000_000000001
   let s1 ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_neg_3 ]))
   let s2 := alloc.vec.Vec.deref inv
   verify_inverse s1 s2 1#usize
@@ -235,7 +235,7 @@ def test_inverse_2x2 : Result Unit := do
   let _f64_const_neg_0_5 := (-(5/10 : Rat))
   let _f64_const_neg_2 := (-(2 : Rat))
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_1_5 := (15/10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -250,17 +250,16 @@ def test_inverse_2x2 : Result Unit := do
   massert (i = 4#usize)
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 0#usize
-  assert_approx_eq fl _f64_const_neg_2 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_neg_2 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 1#usize
-  assert_approx_eq fl1 _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_1 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 2#usize
-  assert_approx_eq fl2 _f64_const_1_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_1_5 _f64_const_10000000_000000001
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 3#usize
-  assert_approx_eq fl3 _f64_const_neg_0_5
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl3 _f64_const_neg_0_5 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -337,7 +336,7 @@ def test_inverse_3x3_symmetric : Result Unit := do
   let _f64_const_neg_0_25 := (-(25/100 : Rat))
   let _f64_const_0_75 := (75/100 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let s ←
     lift (Array.to_slice
@@ -350,37 +349,31 @@ def test_inverse_3x3_symmetric : Result Unit := do
   massert (i = 9#usize)
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 0#usize
-  assert_approx_eq fl _f64_const_0_75 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_0_75 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 1#usize
-  assert_approx_eq fl1 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 2#usize
-  assert_approx_eq fl2 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 3#usize
-  assert_approx_eq fl3 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl3 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl4 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 4#usize
-  assert_approx_eq fl4 _f64_const_0_75 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl4 _f64_const_0_75 _f64_const_10000000_000000001
   let fl5 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 5#usize
-  assert_approx_eq fl5 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl5 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl6 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 6#usize
-  assert_approx_eq fl6 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl6 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl7 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 7#usize
-  assert_approx_eq fl7 _f64_const_neg_0_25
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl7 _f64_const_neg_0_25 _f64_const_10000000_000000001
   let fl8 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) inv 8#usize
-  assert_approx_eq fl8 _f64_const_0_75 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl8 _f64_const_0_75 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 9#usize [

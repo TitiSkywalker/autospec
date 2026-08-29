@@ -383,7 +383,7 @@ def test_lu_empty : Result Unit := do
     Source: 'src/lib.rs', lines 237:0-245:1
     Visibility: public -/
 def test_lu_1x1 : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_5 := (5 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
   let result ← lu_decomposition s 1#usize
@@ -398,11 +398,11 @@ def test_lu_1x1 : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       0#usize
-  assert_approx_eq fl _f64_const_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_5 _f64_const_10000000_000000001
   let s1 ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 1#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 1#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_1x1_singular]:
     Source: 'src/lib.rs', lines 249:0-252:1
@@ -418,7 +418,7 @@ def test_lu_1x1_singular : Result Unit := do
     Visibility: public -/
 def test_lu_2x2_no_pivot : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let s ←
@@ -442,22 +442,22 @@ def test_lu_2x2_no_pivot : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       0#usize
-  assert_approx_eq fl _f64_const_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_3 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       1#usize
-  assert_approx_eq fl1 _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_1 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       2#usize
   let fl3 := _f64_const_1 / _f64_const_3
-  assert_approx_eq fl2 fl3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 fl3 _f64_const_10000000_000000001
   let fl4 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       3#usize
   let fl5 := fl3 * _f64_const_1
   let fl6 := _f64_const_2 - fl5
-  assert_approx_eq fl4 fl6 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl4 fl6 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -465,7 +465,7 @@ def test_lu_2x2_no_pivot : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_2x2_with_pivot]:
     Source: 'src/lib.rs', lines 274:0-290:1
@@ -474,7 +474,7 @@ def test_lu_2x2_with_pivot : Result Unit := do
   let _f64_const_neg_0_5 := (-(5/10 : Rat))
   let _f64_const_0_5 := (5/10 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -499,20 +499,19 @@ def test_lu_2x2_with_pivot : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       0#usize
-  assert_approx_eq fl _f64_const_4 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_4 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       1#usize
-  assert_approx_eq fl1 _f64_const_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_3 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       2#usize
-  assert_approx_eq fl2 _f64_const_0_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_0_5 _f64_const_10000000_000000001
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.lu
       3#usize
-  assert_approx_eq fl3 _f64_const_neg_0_5
-    _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl3 _f64_const_neg_0_5 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -520,7 +519,7 @@ def test_lu_2x2_with_pivot : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_2x2_identity]:
     Source: 'src/lib.rs', lines 293:0-299:1
@@ -528,7 +527,7 @@ def test_lu_2x2_with_pivot : Result Unit := do
 def test_lu_2x2_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -550,7 +549,7 @@ def test_lu_2x2_identity : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 2#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_2x2_singular]:
     Source: 'src/lib.rs', lines 303:0-306:1
@@ -573,7 +572,7 @@ def test_lu_2x2_singular : Result Unit := do
 def test_lu_3x3_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 9#usize [
@@ -601,14 +600,14 @@ def test_lu_3x3_identity : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_3x3_spd]:
     Source: 'src/lib.rs', lines 328:0-341:1
     Visibility: public -/
 def test_lu_3x3_spd : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -639,7 +638,7 @@ def test_lu_3x3_spd : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_3x3_zeros_first_col]:
     Source: 'src/lib.rs', lines 345:0-356:1
@@ -647,7 +646,7 @@ def test_lu_3x3_spd : Result Unit := do
 def test_lu_3x3_zeros_first_col : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -673,7 +672,7 @@ def test_lu_3x3_zeros_first_col : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_3x3_general]:
     Source: 'src/lib.rs', lines 359:0-368:1
@@ -681,7 +680,7 @@ def test_lu_3x3_zeros_first_col : Result Unit := do
 def test_lu_3x3_general : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -702,7 +701,7 @@ def test_lu_3x3_general : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 3#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_3x3_singular]:
     Source: 'src/lib.rs', lines 372:0-380:1
@@ -753,7 +752,7 @@ def test_lu_4x4_general : Result Unit := do
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -777,14 +776,14 @@ def test_lu_4x4_general : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 4#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_4x4_diagonal]:
     Source: 'src/lib.rs', lines 412:0-426:1
     Visibility: public -/
 def test_lu_4x4_diagonal : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -824,7 +823,7 @@ def test_lu_4x4_diagonal : Result Unit := do
         ]))
   let s2 := alloc.vec.Vec.deref result.lu
   let s3 := alloc.vec.Vec.deref result.perm
-  verify_lu s1 s2 s3 4#usize _f64_const_0_0000000010000000000000001
+  verify_lu s1 s2 s3 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_lu::test_lu_4x4_singular]:
     Source: 'src/lib.rs', lines 430:0-439:1
@@ -860,7 +859,7 @@ def test_lu_4x4_singular : Result Unit := do
 @[rust_loop]
 def test_lu_triangular_structure_loop0_loop0
   (l : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if j < 3#usize
@@ -869,10 +868,10 @@ def test_lu_triangular_structure_loop0_loop0
     let i2 ← i1 + j
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) l i2
-    assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
     let j1 ← j + 1#usize
     test_lu_triangular_structure_loop0_loop0 l i j1 _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -882,7 +881,7 @@ partial_fixpoint
 @[rust_loop]
 def test_lu_triangular_structure_loop0
   (l : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_1 : Rat) (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_1 : Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 3#usize
@@ -891,13 +890,13 @@ def test_lu_triangular_structure_loop0
     let i2 ← i1 + i
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) l i2
-    assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
     let j ← i + 1#usize
     test_lu_triangular_structure_loop0_loop0 l i j _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
     let i3 ← i + 1#usize
     test_lu_triangular_structure_loop0 l i3 _f64_const_0 _f64_const_1
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -907,7 +906,7 @@ partial_fixpoint
 @[rust_loop]
 def test_lu_triangular_structure_loop1_loop0
   (u : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if j < i
@@ -916,10 +915,10 @@ def test_lu_triangular_structure_loop1_loop0
     let i2 ← i1 + j
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) u i2
-    assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
     let j1 ← j + 1#usize
     test_lu_triangular_structure_loop1_loop0 u i j1 _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -929,16 +928,16 @@ partial_fixpoint
 @[rust_loop]
 def test_lu_triangular_structure_loop1
   (u : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 3#usize
   then
     test_lu_triangular_structure_loop1_loop0 u i 0#usize _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
     let i1 ← i + 1#usize
     test_lu_triangular_structure_loop1 u i1 _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -948,7 +947,7 @@ partial_fixpoint
 def test_lu_triangular_structure : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -964,9 +963,9 @@ def test_lu_triangular_structure : Result Unit := do
   let s2 := alloc.vec.Vec.deref result.lu
   let u ← extract_u s2 3#usize
   test_lu_triangular_structure_loop0 l 0#usize _f64_const_0 _f64_const_1
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
   test_lu_triangular_structure_loop1 u 0#usize _f64_const_0
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 #eval test_lu_1x1
 

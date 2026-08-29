@@ -41,7 +41,7 @@ def test_single : Result Unit := do
     Visibility: public -/
 def test_positive : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -54,7 +54,7 @@ def test_positive : Result Unit := do
   let fl ← mean s
   let fl1 := fl - _f64_const_3
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [vector_mean::test_negative]:
@@ -64,7 +64,7 @@ def test_negative : Result Unit := do
   let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_neg_2 := (-(2 : Rat))
   let _f64_const_neg_3 := (-(3 : Rat))
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 3#usize [
@@ -73,7 +73,7 @@ def test_negative : Result Unit := do
   let fl ← mean s
   let fl1 := fl - _f64_const_neg_2
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [vector_mean::test_mixed]:
@@ -83,14 +83,14 @@ def test_mixed : Result Unit := do
   let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 3#usize [ _f64_const_neg_1, _f64_const_0, _f64_const_1 ]))
   let fl ← mean s
   let fl1 := fl - _f64_const_0
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 #eval test_empty

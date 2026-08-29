@@ -261,9 +261,9 @@ def check_decomposition
     Visibility: public -/
 def test_1x1 : Result Unit := do
   let _f64_const_5 := (5 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_5 ]))
-  check_decomposition s 1#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 1#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_2x2_spd]:
     Source: 'src/lib.rs', lines 416:0-420:1
@@ -272,13 +272,13 @@ def test_2x2_spd : Result Unit := do
   let _f64_const_1 := (1 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_4, _f64_const_1, _f64_const_1, _f64_const_3
         ]))
-  check_decomposition s 2#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 2#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_2x2_indefinite]:
     Source: 'src/lib.rs', lines 422:0-426:1
@@ -286,13 +286,13 @@ def test_2x2_spd : Result Unit := do
 def test_2x2_indefinite : Result Unit := do
   let _f64_const_1 := (1 : Rat)
   let _f64_const_2 := (2 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_1, _f64_const_2, _f64_const_2, _f64_const_1
         ]))
-  check_decomposition s 2#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 2#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_2x2_exchange]:
     Source: 'src/lib.rs', lines 428:0-432:1
@@ -300,13 +300,13 @@ def test_2x2_indefinite : Result Unit := do
 def test_2x2_exchange : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_0, _f64_const_1, _f64_const_1, _f64_const_0
         ]))
-  check_decomposition s 2#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 2#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_3x3_spd]:
     Source: 'src/lib.rs', lines 434:0-442:1
@@ -366,7 +366,7 @@ def test_4x4_indefinite : Result Unit := do
   let _f64_const_neg_1 := (-(1 : Rat))
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -378,7 +378,7 @@ def test_4x4_indefinite : Result Unit := do
         _f64_const_1, _f64_const_2, _f64_const_neg_3, _f64_const_4,
         _f64_const_2, _f64_const_neg_3, _f64_const_1
         ]))
-  check_decomposition s 4#usize _f64_const_0_0000000010000000000000001
+  check_decomposition s 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_lblt::test_5x5_indefinite]:
     Source: 'src/lib.rs', lines 477:0-488:1
@@ -386,7 +386,7 @@ def test_4x4_indefinite : Result Unit := do
 def test_5x5_indefinite : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -399,7 +399,7 @@ def test_5x5_indefinite : Result Unit := do
         _f64_const_3, _f64_const_2, _f64_const_1, _f64_const_3, _f64_const_1,
         _f64_const_4, _f64_const_3, _f64_const_2, _f64_const_1, _f64_const_4
         ]))
-  check_decomposition s 5#usize _f64_const_0_0000000010000000000000001
+  check_decomposition s 5#usize _f64_const_10000000_000000001
 
 /-- [matrix_lblt::test_identity]:
     Source: 'src/lib.rs', lines 490:0-493:1
@@ -407,24 +407,24 @@ def test_5x5_indefinite : Result Unit := do
 def test_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 9#usize [
         _f64_const_1, _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_1,
         _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_1
         ]))
-  check_decomposition s 3#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 3#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_zero]:
     Source: 'src/lib.rs', lines 495:0-498:1
     Visibility: public -/
 def test_zero : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_00000000000099999999999999998 := (99999999999999998/100000000000000000000000000000 : Rat)
+  let _f64_const_9999_9999999999998 := (99999999999999998/10000000000000 : Rat)
   let a := Array.repeat 9#usize _f64_const_0
   let s ← lift (Array.to_slice a)
-  check_decomposition s 3#usize _f64_const_0_00000000000099999999999999998
+  check_decomposition s 3#usize _f64_const_9999_9999999999998
 
 /-- [matrix_lblt::test_empty]:
     Source: 'src/lib.rs', lines 500:0-505:1

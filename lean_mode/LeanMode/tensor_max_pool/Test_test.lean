@@ -55,7 +55,7 @@ def test_window_too_large : Result Unit := do
     Source: 'src/lib.rs', lines 54:0-58:1
     Visibility: public -/
 def test_single : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_7 := (7 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_7 ]))
   let out ← max_pool2d s 1#usize 1#usize 1#usize 1#usize
@@ -65,7 +65,7 @@ def test_single : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_7
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [tensor_max_pool::test_basic_2x2]:
@@ -73,7 +73,7 @@ def test_single : Result Unit := do
     Visibility: public -/
 def test_basic_2x2 : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -91,7 +91,7 @@ def test_basic_2x2 : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_4
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [tensor_max_pool::test_4x4_2x2]: loop 0:
@@ -100,8 +100,7 @@ def test_basic_2x2 : Result Unit := do
 @[rust_loop]
 def test_4x4_2x2_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -116,9 +115,9 @@ def test_4x4_2x2_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_4x4_2x2_loop iter1 out expected _f64_const_0_0000000010000000000000001
+    test_4x4_2x2_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_max_pool::test_4x4_2x2]:
@@ -126,7 +125,7 @@ partial_fixpoint
     Visibility: public -/
 def test_4x4_2x2 : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_11 := (11 : Rat)
   let _f64_const_12 := (12 : Rat)
@@ -164,7 +163,7 @@ def test_4x4_2x2 : Result Unit := do
          ] : Array Rat 9#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   test_4x4_2x2_loop { start := 0#usize, «end» := 9#usize } out ret1
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 /-- [tensor_max_pool::test_negative]:
     Source: 'src/lib.rs', lines 82:0-87:1
@@ -174,7 +173,7 @@ def test_negative : Result Unit := do
   let _f64_const_neg_2 := (-(2 : Rat))
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_neg_5 := (-(5 : Rat))
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let y ←
     lift (Std.Array.to_slice
       (Array.make 4#usize [
@@ -189,7 +188,7 @@ def test_negative : Result Unit := do
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) out 0#usize
   let fl1 := fl - _f64_const_neg_1
   let fl2 := |fl1|
-  let b := fl2 < _f64_const_0_0000000010000000000000001
+  let b := fl2 < _f64_const_10000000_000000001
   massert b
 
 /-- [tensor_max_pool::test_3x4_3x2]: loop 0:
@@ -198,8 +197,7 @@ def test_negative : Result Unit := do
 @[rust_loop]
 def test_3x4_3x2_loop
   (iter : core.ops.range.Range Std.Usize) (out : alloc.vec.Vec Rat)
-  (expected : alloc.vec.Vec Rat) (_f64_const_0_0000000010000000000000001 : Rat)
-  :
+  (expected : alloc.vec.Vec Rat) (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   let (o, iter1) ←
@@ -214,9 +212,9 @@ def test_3x4_3x2_loop
         i
     let fl2 := fl - fl1
     let fl3 := |fl2|
-    let b := fl3 < _f64_const_0_0000000010000000000000001
+    let b := fl3 < _f64_const_10000000_000000001
     massert b
-    test_3x4_3x2_loop iter1 out expected _f64_const_0_0000000010000000000000001
+    test_3x4_3x2_loop iter1 out expected _f64_const_10000000_000000001
 partial_fixpoint
 
 /-- [tensor_max_pool::test_3x4_3x2]:
@@ -224,7 +222,7 @@ partial_fixpoint
     Visibility: public -/
 def test_3x4_3x2 : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_11 := (11 : Rat)
   let _f64_const_12 := (12 : Rat)
@@ -254,7 +252,7 @@ def test_3x4_3x2 : Result Unit := do
       Array Rat 3#usize))
   let ret1 := alloc.slice.Slice.into_vec y1
   test_3x4_3x2_loop { start := 0#usize, «end» := 3#usize } out ret1
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
 
 #eval test_3x4_3x2
 

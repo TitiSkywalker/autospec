@@ -363,7 +363,7 @@ def test_ldlt_empty : Result Unit := do
     Source: 'src/lib.rs', lines 200:0-206:1
     Visibility: public -/
 def test_ldlt_1x1 : Result Unit := do
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_4 := (4 : Rat)
   let s ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_4 ]))
   let result ← ldlt_decomposition s 1#usize
@@ -372,10 +372,10 @@ def test_ldlt_1x1 : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_4 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_4 _f64_const_10000000_000000001
   let s1 ← lift (Array.to_slice (Array.make 1#usize [ _f64_const_4 ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 1#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 1#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_1x1_singular]:
     Source: 'src/lib.rs', lines 210:0-213:1
@@ -393,7 +393,7 @@ def test_ldlt_2x2_spd : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_0_25 := (25/100 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2_75 := (275/100 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -408,26 +408,26 @@ def test_ldlt_2x2_spd : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_4 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_4 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       1#usize
-  assert_approx_eq fl1 _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_0 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       2#usize
-  assert_approx_eq fl2 _f64_const_0_25 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_0_25 _f64_const_10000000_000000001
   let fl3 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       3#usize
-  assert_approx_eq fl3 _f64_const_2_75 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl3 _f64_const_2_75 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_4, _f64_const_1, _f64_const_1, _f64_const_3
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_2x2_identity]:
     Source: 'src/lib.rs', lines 232:0-239:1
@@ -435,7 +435,7 @@ def test_ldlt_2x2_spd : Result Unit := do
 def test_ldlt_2x2_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 4#usize [
@@ -445,22 +445,22 @@ def test_ldlt_2x2_identity : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       2#usize
-  assert_approx_eq fl1 _f64_const_0 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_0 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       3#usize
-  assert_approx_eq fl2 _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_1 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_1, _f64_const_0, _f64_const_0, _f64_const_1
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_2x2_indefinite]:
     Source: 'src/lib.rs', lines 242:0-252:1
@@ -468,7 +468,7 @@ def test_ldlt_2x2_identity : Result Unit := do
 def test_ldlt_2x2_indefinite : Result Unit := do
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let s ←
     lift (Array.to_slice
@@ -479,22 +479,22 @@ def test_ldlt_2x2_indefinite : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       2#usize
-  assert_approx_eq fl1 _f64_const_2 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_2 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       3#usize
-  assert_approx_eq fl2 _f64_const_neg_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_neg_3 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 4#usize [
         _f64_const_1, _f64_const_2, _f64_const_2, _f64_const_1
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 2#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 2#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_2x2_singular]:
     Source: 'src/lib.rs', lines 256:0-259:1
@@ -516,7 +516,7 @@ def test_ldlt_2x2_singular : Result Unit := do
 def test_ldlt_3x3_identity : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let s ←
     lift (Array.to_slice
       (Array.make 9#usize [
@@ -531,14 +531,14 @@ def test_ldlt_3x3_identity : Result Unit := do
         _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_1
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_3x3_spd]:
     Source: 'src/lib.rs', lines 278:0-287:1
     Visibility: public -/
 def test_ldlt_3x3_spd : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -556,14 +556,14 @@ def test_ldlt_3x3_spd : Result Unit := do
         _f64_const_1, _f64_const_1, _f64_const_1, _f64_const_2
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_3x3_diagonal]:
     Source: 'src/lib.rs', lines 290:0-302:1
     Visibility: public -/
 def test_ldlt_3x3_diagonal : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -577,15 +577,15 @@ def test_ldlt_3x3_diagonal : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_2 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_2 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       4#usize
-  assert_approx_eq fl1 _f64_const_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_3 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       8#usize
-  assert_approx_eq fl2 _f64_const_5 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_5 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 9#usize [
@@ -593,7 +593,7 @@ def test_ldlt_3x3_diagonal : Result Unit := do
         _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_5
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_3x3_indefinite]:
     Source: 'src/lib.rs', lines 305:0-318:1
@@ -602,7 +602,7 @@ def test_ldlt_3x3_indefinite : Result Unit := do
   let _f64_const_neg_3 := (-(3 : Rat))
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_4 := (4 : Rat)
   let s ←
@@ -615,15 +615,15 @@ def test_ldlt_3x3_indefinite : Result Unit := do
   let fl ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       0#usize
-  assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
   let fl1 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       4#usize
-  assert_approx_eq fl1 _f64_const_neg_3 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl1 _f64_const_neg_3 _f64_const_10000000_000000001
   let fl2 ←
     alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) result.ld
       8#usize
-  assert_approx_eq fl2 _f64_const_4 _f64_const_0_0000000010000000000000001
+  assert_approx_eq fl2 _f64_const_4 _f64_const_10000000_000000001
   let s1 ←
     lift (Array.to_slice
       (Array.make 9#usize [
@@ -631,7 +631,7 @@ def test_ldlt_3x3_indefinite : Result Unit := do
         _f64_const_0, _f64_const_0, _f64_const_0, _f64_const_4
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_3x3_singular]:
     Source: 'src/lib.rs', lines 322:0-330:1
@@ -658,7 +658,7 @@ def test_ldlt_3x3_singular : Result Unit := do
 def test_ldlt_3x3_spd2 : Result Unit := do
   let _f64_const_neg_5 := (-(5 : Rat))
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_11 := (11 : Rat)
   let _f64_const_15 := (15 : Rat)
   let _f64_const_18 := (18 : Rat)
@@ -679,14 +679,14 @@ def test_ldlt_3x3_spd2 : Result Unit := do
         _f64_const_11
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 3#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 3#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_4x4_spd]:
     Source: 'src/lib.rs', lines 349:0-359:1
     Visibility: public -/
 def test_ldlt_4x4_spd : Result Unit := do
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_10 := (10 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
@@ -711,14 +711,14 @@ def test_ldlt_4x4_spd : Result Unit := do
         _f64_const_7
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 4#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_4x4_diagonal]:
     Source: 'src/lib.rs', lines 362:0-372:1
     Visibility: public -/
 def test_ldlt_4x4_diagonal : Result Unit := do
   let _f64_const_0 := (0 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_5 := (5 : Rat)
@@ -741,7 +741,7 @@ def test_ldlt_4x4_diagonal : Result Unit := do
         _f64_const_7
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 4#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_4x4_indefinite]:
     Source: 'src/lib.rs', lines 375:0-385:1
@@ -749,7 +749,7 @@ def test_ldlt_4x4_diagonal : Result Unit := do
 def test_ldlt_4x4_indefinite : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -771,7 +771,7 @@ def test_ldlt_4x4_indefinite : Result Unit := do
         _f64_const_3
         ]))
   let s2 := alloc.vec.Vec.deref result.ld
-  verify_ldlt s1 s2 4#usize _f64_const_0_0000000010000000000000001
+  verify_ldlt s1 s2 4#usize _f64_const_10000000_000000001
 
 /-- [matrix_ldlt::test_ldlt_structure]: loop 1:
     Source: 'src/lib.rs', lines 406:8-409:9
@@ -779,7 +779,7 @@ def test_ldlt_4x4_indefinite : Result Unit := do
 @[rust_loop]
 def test_ldlt_structure_loop0_loop0
   (ld : alloc.vec.Vec Rat) (i : Std.Usize) (j : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if j < 3#usize
@@ -788,10 +788,10 @@ def test_ldlt_structure_loop0_loop0
     let i2 ← i1 + j
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) ld i2
-    assert_approx_eq fl _f64_const_0 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl _f64_const_0 _f64_const_10000000_000000001
     let j1 ← j + 1#usize
     test_ldlt_structure_loop0_loop0 ld i j1 _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -801,17 +801,16 @@ partial_fixpoint
 @[rust_loop]
 def test_ldlt_structure_loop0
   (ld : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_0 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 3#usize
   then
     let j ← i + 1#usize
     test_ldlt_structure_loop0_loop0 ld i j _f64_const_0
-      _f64_const_0_0000000010000000000000001
+      _f64_const_10000000_000000001
     let i1 ← i + 1#usize
-    test_ldlt_structure_loop0 ld i1 _f64_const_0
-      _f64_const_0_0000000010000000000000001
+    test_ldlt_structure_loop0 ld i1 _f64_const_0 _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -821,7 +820,7 @@ partial_fixpoint
 @[rust_loop]
 def test_ldlt_structure_loop1
   (l : alloc.vec.Vec Rat) (i : Std.Usize) (_f64_const_1 : Rat)
-  (_f64_const_0_0000000010000000000000001 : Rat) :
+  (_f64_const_10000000_000000001 : Rat) :
   Result Unit
   := do
   if i < 3#usize
@@ -830,10 +829,9 @@ def test_ldlt_structure_loop1
     let i2 ← i1 + i
     let fl ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Rat) l i2
-    assert_approx_eq fl _f64_const_1 _f64_const_0_0000000010000000000000001
+    assert_approx_eq fl _f64_const_1 _f64_const_10000000_000000001
     let i3 ← i + 1#usize
-    test_ldlt_structure_loop1 l i3 _f64_const_1
-      _f64_const_0_0000000010000000000000001
+    test_ldlt_structure_loop1 l i3 _f64_const_1 _f64_const_10000000_000000001
   else ok ()
 partial_fixpoint
 
@@ -863,7 +861,7 @@ partial_fixpoint
 def test_ldlt_structure : Result Unit := do
   let _f64_const_0 := (0 : Rat)
   let _f64_const_1 := (1 : Rat)
-  let _f64_const_0_0000000010000000000000001 := (10000000000000001/10000000000000000000000000 : Rat)
+  let _f64_const_10000000_000000001 := (10000000000000001/1000000000 : Rat)
   let _f64_const_2 := (2 : Rat)
   let _f64_const_3 := (3 : Rat)
   let _f64_const_4 := (4 : Rat)
@@ -875,11 +873,11 @@ def test_ldlt_structure : Result Unit := do
         ]))
   let result ← ldlt_decomposition s 3#usize
   test_ldlt_structure_loop0 result.ld 0#usize _f64_const_0
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
   let s1 := alloc.vec.Vec.deref result.ld
   let l ← extract_l s1 3#usize
   test_ldlt_structure_loop1 l 0#usize _f64_const_1
-    _f64_const_0_0000000010000000000000001
+    _f64_const_10000000_000000001
   test_ldlt_structure_loop2 result.ld 0#usize _f64_const_0
 
 #eval test_ldlt_1x1
