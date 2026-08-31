@@ -2,7 +2,7 @@
 //!
 //! Pipeline::
 //!
-//!   Rust source → [simplify] → [flatten-loops] → charon → .llbc
+//!   Rust source → [simplify] → charon → .llbc
 //!   → [LLBC adapter] → aeneas → .lean → [F64→Rat + inline] → output
 //!
 //! The original project is never modified — all transformations happen on a
