@@ -2,7 +2,7 @@
 Update toolchain.
 """
 
-from utils import CmdRunner
+from runner import CmdRunner
 
 if __name__ == "__main__":
     runner = CmdRunner()
