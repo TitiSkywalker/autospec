@@ -8,6 +8,9 @@ set_option linter.hashCommand false
 set_option linter.unusedVariables false
 set_option linter.style.nameCheck false
 noncomputable section
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -483,8 +486,8 @@ def svd
       let v_t ← transpose s1 ncols ncols
       ok { u, singular_values := s, v_t }
     else
-      let at1 ← transpose matrix nrows ncols
-      let s := alloc.vec.Vec.deref at1
+      let «at» ← transpose matrix nrows ncols
+      let s := alloc.vec.Vec.deref «at»
       let (u_b, s1, v_b) ← jacobi_svd_tall s ncols nrows eps max_sweeps
       let s2 := alloc.vec.Vec.deref u_b
       let v_t ← transpose s2 ncols nrows

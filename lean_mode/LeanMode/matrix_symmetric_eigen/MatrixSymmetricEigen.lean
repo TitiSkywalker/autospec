@@ -8,6 +8,9 @@ set_option linter.hashCommand false
 set_option linter.unusedVariables false
 set_option linter.style.nameCheck false
 noncomputable section
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -600,12 +603,12 @@ partial_fixpoint
 /-- [matrix_symmetric_eigen::delimit_subproblem]:
     Source: 'src/lib.rs', lines 213:0-256:1 -/
 def delimit_subproblem
-  (diag : Slice ℝ) (off_diag : alloc.vec.Vec ℝ) (end1 : Std.Usize)
+  (diag : Slice ℝ) (off_diag : alloc.vec.Vec ℝ) («end» : Std.Usize)
   (eps : ℝ) :
   Result (Std.Usize × Std.Usize × (alloc.vec.Vec ℝ))
   := do
   let _f64_const_0 := (0 : ℝ)
-  let n ← delimit_subproblem_loop0 diag off_diag eps end1 true
+  let n ← delimit_subproblem_loop0 diag off_diag eps «end» true
   if n = 0#usize
   then ok (0#usize, 0#usize, off_diag)
   else
@@ -707,13 +710,13 @@ partial_fixpoint
 @[rust_loop]
 def symmetric_eigen_loop2_loop0
   (n : Std.Usize) (q : alloc.vec.Vec ℝ) (diag : alloc.vec.Vec ℝ)
-  (start : Std.Usize) (end1 : Std.Usize) (off_diag : alloc.vec.Vec ℝ)
+  (start : Std.Usize) («end» : Std.Usize) (off_diag : alloc.vec.Vec ℝ)
   (vx : ℝ) (vy : ℝ) (i : Std.Usize) (chasing : Bool)
   (_f64_const_neg_1 : ℝ) (_f64_const_0 : ℝ) (_f64_const_1 : ℝ)
   (_f64_const_2 : ℝ) :
   Result ((alloc.vec.Vec ℝ) × (alloc.vec.Vec ℝ) × (alloc.vec.Vec ℝ))
   := do
-  if i < end1
+  if i < «end»
   then
     if chasing
     then
@@ -721,8 +724,8 @@ def symmetric_eigen_loop2_loop0
       let vy_zero := vy = _f64_const_0
       if vy_zero
       then
-        symmetric_eigen_loop2_loop0 n q diag start end1 off_diag vx vy i false
-          _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
+        symmetric_eigen_loop2_loop0 n q diag start «end» off_diag vx vy i
+          false _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
       else
         let mod0 ← abs_val vx
         let b := vx < _f64_const_0
@@ -784,7 +787,7 @@ def symmetric_eigen_loop2_loop0
         let (_, index_mut_back2) ←
           alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ)
             off_diag1 i
-        let i1 ← end1 - 1#usize
+        let i1 ← «end» - 1#usize
         let (diag2, off_diag2, vx1, vy1) ←
           if i != i1
           then
@@ -814,8 +817,8 @@ def symmetric_eigen_loop2_loop0
             ok (diag3, off_diag3, vx, vy)
         let q1 ← symmetric_eigen_loop2_loop0_loop0 n q i j c s 0#usize
         let i2 ← i + 1#usize
-        symmetric_eigen_loop2_loop0 n q1 diag2 start end1 off_diag2 vx1 vy1 i2
-          true _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
+        symmetric_eigen_loop2_loop0 n q1 diag2 start «end» off_diag2 vx1 vy1
+          i2 true _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
     else ok (q, diag, off_diag)
   else ok (q, diag, off_diag)
 partial_fixpoint
@@ -867,27 +870,27 @@ partial_fixpoint
 @[rust_loop]
 def symmetric_eigen_loop2
   (n : Std.Usize) (eps : ℝ) (max_niter : Std.Usize) (q : alloc.vec.Vec ℝ)
-  (diag : alloc.vec.Vec ℝ) (start : Std.Usize) (end1 : Std.Usize)
+  (diag : alloc.vec.Vec ℝ) (start : Std.Usize) («end» : Std.Usize)
   (off_diag : alloc.vec.Vec ℝ) (niter : Std.Usize) (_f64_const_neg_1 : ℝ)
   (_f64_const_0 : ℝ) (_f64_const_0_5 : ℝ) (_f64_const_1 : ℝ)
   (_f64_const_2 : ℝ) (_f64_const_4 : ℝ) :
   Result ((alloc.vec.Vec ℝ) × (alloc.vec.Vec ℝ))
   := do
-  if end1 != start
+  if «end» != start
   then
     if niter < max_niter
     then
-      let i ← end1 - start
+      let i ← «end» - start
       let subdim ← i + 1#usize
       if subdim > 2#usize
       then
-        let m ← end1 - 1#usize
+        let m ← «end» - 1#usize
         let fl ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) diag
             m
         let fl1 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) diag
-            end1
+            «end»
         let fl2 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ)
             off_diag m
@@ -900,15 +903,15 @@ def symmetric_eigen_loop2
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ)
             off_diag start
         let (q1, diag1, off_diag1) ←
-          symmetric_eigen_loop2_loop0 n q diag start end1 off_diag vx vy start
-            true _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
+          symmetric_eigen_loop2_loop0 n q diag start «end» off_diag vx vy
+            start true _f64_const_neg_1 _f64_const_0 _f64_const_1 _f64_const_2
         let fl4 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) diag1
             m
         let dm ← abs_val fl4
         let fl5 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ) diag1
-            end1
+            «end»
         let dnn ← abs_val fl5
         let fl6 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice ℝ)
@@ -917,14 +920,14 @@ def symmetric_eigen_loop2
         let fl7 := dm + dnn
         let fl8 := eps * fl7
         let converged := odm ≤ fl8
-        let end2 ← if converged
-                     then end1 - 1#usize
-                     else ok end1
+        let end1 ← if converged
+                     then «end» - 1#usize
+                     else ok «end»
         let s := alloc.vec.Vec.deref diag1
-        let (start1, end3, off_diag2) ←
-          delimit_subproblem s off_diag1 end2 eps
+        let (start1, end2, off_diag2) ←
+          delimit_subproblem s off_diag1 end1 eps
         let niter1 ← niter + 1#usize
-        symmetric_eigen_loop2 n eps max_niter q1 diag1 start1 end3 off_diag2
+        symmetric_eigen_loop2 n eps max_niter q1 diag1 start1 end2 off_diag2
           niter1 _f64_const_neg_1 _f64_const_0 _f64_const_0_5 _f64_const_1
           _f64_const_2 _f64_const_4
       else
@@ -957,9 +960,9 @@ def symmetric_eigen_loop2
         let bx ← if use_first
                    then ok d1
                    else ok b_od
-        let by1 ← if use_first
-                    then ok b_od
-                    else ok d2
+        let «by» ← if use_first
+                       then ok b_od
+                       else ok d2
         let (_, index_mut_back) ←
           alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice ℝ)
             diag start
@@ -976,7 +979,7 @@ def symmetric_eigen_loop2
           else let diag3 := index_mut_back1 eig2
                ok (diag3, _f64_const_1)
         let fl8 := mod0 * mod0
-        let fl9 := by1 * by1
+        let fl9 := «by» * «by»
         let fl10 := fl8 + fl9
         let denom := Real.sqrt fl10
         let b1 := denom > eps
@@ -984,23 +987,23 @@ def symmetric_eigen_loop2
         then
           let c := mod0 / denom
           let fl11 := sign0 * denom
-          let s := by1 / fl11
+          let s := «by» / fl11
           let q1 ← symmetric_eigen_loop2_loop1 n q start c s 0#usize
-          let end2 ← end1 - 1#usize
+          let end1 ← «end» - 1#usize
           let s1 := alloc.vec.Vec.deref diag2
-          let (start1, end3, off_diag1) ←
-            delimit_subproblem s1 off_diag end2 eps
+          let (start1, end2, off_diag1) ←
+            delimit_subproblem s1 off_diag end1 eps
           let niter1 ← niter + 1#usize
-          symmetric_eigen_loop2 n eps max_niter q1 diag2 start1 end3 off_diag1
+          symmetric_eigen_loop2 n eps max_niter q1 diag2 start1 end2 off_diag1
             niter1 _f64_const_neg_1 _f64_const_0 _f64_const_0_5 _f64_const_1
             _f64_const_2 _f64_const_4
         else
-          let end2 ← end1 - 1#usize
+          let end1 ← «end» - 1#usize
           let s := alloc.vec.Vec.deref diag2
-          let (start1, end3, off_diag1) ←
-            delimit_subproblem s off_diag end2 eps
+          let (start1, end2, off_diag1) ←
+            delimit_subproblem s off_diag end1 eps
           let niter1 ← niter + 1#usize
-          symmetric_eigen_loop2 n eps max_niter q diag2 start1 end3 off_diag1
+          symmetric_eigen_loop2 n eps max_niter q diag2 start1 end2 off_diag1
             niter1 _f64_const_neg_1 _f64_const_0 _f64_const_0_5 _f64_const_1
             _f64_const_2 _f64_const_4
     else ok (q, diag)
@@ -1041,9 +1044,9 @@ def symmetric_eigen
     let off_diag1 ← symmetric_eigen_loop1 n off_diagonal off_diag 0#usize
     let s2 := alloc.vec.Vec.deref diag1
     let i1 ← n - 1#usize
-    let (start, end1, off_diag2) ← delimit_subproblem s2 off_diag1 i1 eps
+    let (start, «end», off_diag2) ← delimit_subproblem s2 off_diag1 i1 eps
     let (q1, diag2) ←
-      symmetric_eigen_loop2 n eps max_niter q diag1 start end1 off_diag2
+      symmetric_eigen_loop2 n eps max_niter q diag1 start «end» off_diag2
         0#usize _f64_const_neg_1 _f64_const_0 _f64_const_0_5 _f64_const_1
         _f64_const_2 _f64_const_4
     ok { eigenvalues := diag2, eigenvectors := q1 }

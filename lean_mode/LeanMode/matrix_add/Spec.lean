@@ -29,7 +29,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
 /-- `matadd` returns a vec of length `m * n`. -/
 theorem matadd_length (a b : Slice Rat) (m n : Usize) (result : alloc.vec.Vec Rat)
     (h : matadd a b m n = ok result) :
-    result.length = m.val * n.val := by
+    (alloc.vec.Vec.deref result).length = m.val * n.val := by
   sorry
 
 /-- Correctness: `C = A + B` element-wise. -/

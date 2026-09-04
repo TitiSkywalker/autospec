@@ -35,7 +35,7 @@ def toVec (s : Slice Rat) (len : Nat) (h : s.length = len) : Fin len → Rat :=
 /-- `matvec` returns a vec of length `m`. -/
 theorem matvec_length (a x : Slice Rat) (m n : Usize) (result : alloc.vec.Vec Rat)
     (h : matvec a x m n = ok result) :
-    result.length = m.val := by
+    (alloc.vec.Vec.deref result).length = m.val := by
   sorry
 
 /-- Correctness: `y = A * x`. -/

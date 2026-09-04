@@ -28,7 +28,7 @@ pub fn run_charon(charon_bin: &str, workdir: &Path) -> bool {
                 for line in String::from_utf8_lossy(&output.stderr).lines() {
                     let trimmed = line.trim();
                     if !trimmed.is_empty() {
-                        eprintln!("           {}", trimmed);
+                        eprintln!("           {}", truncate(trimmed, 300));
                     }
                 }
                 false
@@ -99,6 +99,19 @@ fn run_rust_adapter(
     Some(())
 }
 
+/// Truncate a string to at most ``max`` chars (char-safe), appending an
+/// ellipsis when clipped. Used to keep tool error output readable — aeneas
+/// dumps entire crate JSON on failure, which is otherwise multi-MB noise.
+fn truncate(s: &str, max: usize) -> String {
+    let count = s.chars().count();
+    if count <= max {
+        s.to_string()
+    } else {
+        let clipped: String = s.chars().take(max).collect();
+        format!("{}…", clipped)
+    }
+}
+
 /// Run aeneas on every ``.llbc`` file in *workdir*.
 ///
 /// Returns a list of warning strings, or None on error.
@@ -146,7 +159,7 @@ pub fn run_aeneas(
             }
             log::dbg(&format!("[aeneas] {}", line));
             if line.contains("[Error") || line.to_lowercase().contains("error:") {
-                log::fail("aeneas", line);
+                log::fail("aeneas", &truncate(line, 300));
                 return None;
             }
             if let Some(rest) = line

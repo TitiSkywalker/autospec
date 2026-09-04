@@ -120,6 +120,7 @@ pub fn make_fun_decl(
             "is_local": false,
             "opacity": "Foreign",
             "lang_item": null,
+            "diagnostic_item": null,
         },
         "generics": {
             "regions": [],
@@ -137,8 +138,7 @@ pub fn make_fun_decl(
             "inputs": inputs,
             "output": output,
         },
-        "src": "TopLevel",
-        "is_global_initializer": null,
+        "src": "Normal",
         "body": "Opaque",
     })
 }
@@ -168,7 +168,7 @@ pub fn call_stmt(func_id: i64, args: &[Value], dest: &Value, span: Option<&Value
                     "args": args,
                     "dest": dest,
                 },
-                "on_unwind": {"span": span, "statements": []},
+                "on_unwind": {"span": span, "id": 0, "statements": []},
             }
         },
         "comments_before": [],

@@ -2,8 +2,6 @@
 //!
 //! Port of ``scripts/translate_all.py``.
 
-use std::collections::BTreeMap;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Condvar, Mutex};
@@ -16,7 +14,7 @@ use clap::Parser;
 #[command(about = "Re-translate all LeanMode test cases")]
 struct Args {
     /// Number of concurrent workers
-    #[arg(short = 'w', long, default_value = "8")]
+    #[arg(short = 'w', long, default_value = "16")]
     workers: usize,
 
     /// Path to the translator binary (defaults to the release build)
@@ -59,6 +57,31 @@ fn parse_float_model(stdout: &str) -> String {
         .unwrap_or_else(|| "?".to_string())
 }
 
+/// Truncate a string to at most ``max`` chars (char-safe), appending an
+/// ellipsis when clipped. Keeps failure output readable instead of dumping
+/// multi-MB JSON that aeneas emits on error.
+fn truncate(s: &str, max: usize) -> String {
+    let count = s.chars().count();
+    if count <= max {
+        s.to_string()
+    } else {
+        let clipped: String = s.chars().take(max).collect();
+        format!("{}…", clipped)
+    }
+}
+
+/// Extract up to ``limit`` relevant error lines from a subprocess's stderr,
+/// each truncated to ``max`` chars.
+fn collect_errors(stderr: &str, limit: usize, max: usize) -> Vec<String> {
+    stderr
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.contains("FAIL") || l.contains("Error") || l.contains("error"))
+        .take(limit)
+        .map(|l| truncate(l, max))
+        .collect()
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -89,7 +112,7 @@ fn main() {
         .aeneas
         .unwrap_or_else(|| root.join("aeneas").join("bin").join("aeneas"));
 
-    // Collect crate directories (sorted, skip failure/)
+    // Collect crate directories (skip failure/)
     let mut dirs: Vec<PathBuf> = Vec::new();
     if let Ok(rd) = std::fs::read_dir(&lean_mode) {
         for entry in rd.filter_map(|e| e.ok()) {
@@ -107,23 +130,22 @@ fn main() {
     let total = dirs.len();
     println!("Translating {} projects ({} concurrent)...\n", total, args.workers);
 
-    // Results: ordered map name → (int_model, float_model, ok)
-    let results: Arc<Mutex<BTreeMap<String, (String, String, bool)>>> =
-        Arc::new(Mutex::new(BTreeMap::new()));
-
     // Concurrency control: Condvar-based semaphore
     let slots = Arc::new((Mutex::new(args.workers), Condvar::new()));
 
-    let mut handles = Vec::new();
+    // Guards the progress lines + counters so output doesn't interleave.
+    let out = Arc::new(Mutex::new((0usize, 0usize))); // (passed, failed)
+
+    let mut handles = Vec::with_capacity(dirs.len());
     for d in dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let translator = translator.clone();
         let charon = charon.clone();
         let aeneas = aeneas.clone();
-        let results = Arc::clone(&results);
         let slots = Arc::clone(&slots);
+        let out = Arc::clone(&out);
 
-        let h = thread::spawn(move || {
+        handles.push(thread::spawn(move || {
             // Acquire slot
             {
                 let (lock, cvar) = &*slots;
@@ -134,48 +156,51 @@ fn main() {
                 *n -= 1;
             }
 
-            let output = Command::new(&translator)
-                .arg(&d)
-                .arg("--charon")
-                .arg(&charon)
-                .arg("--aeneas")
-                .arg(&aeneas)
-                .output();
-
-            match output {
-                Ok(out) => {
-                    let stdout = String::from_utf8_lossy(&out.stdout);
-                    let stderr = String::from_utf8_lossy(&out.stderr);
-                    let ok = out.status.success();
-                    let model = parse_model(&stdout);
-                    let float_model = parse_float_model(&stdout);
-
-                    let mut lock = results.lock().unwrap();
-                    let status = if ok { "OK" } else { "FAIL" };
-                    println!(
-                        "{:<30} int-model={:<6} float-model={:<4} {}",
-                        name, model, float_model, status
-                    );
-                    if !ok {
-                        for line in stderr.lines() {
-                            let line = line.trim();
-                            if line.contains("FAIL")
-                                || line.contains("Error")
-                                || line.contains("error")
-                            {
-                                println!("    {}", line);
-                            }
-                        }
+            let (int_model, float_model, ok, errors) =
+                match Command::new(&translator)
+                    .arg(&d)
+                    .arg("--charon")
+                    .arg(&charon)
+                    .arg("--aeneas")
+                    .arg(&aeneas)
+                    .output()
+                {
+                    Ok(outp) => {
+                        let stdout = String::from_utf8_lossy(&outp.stdout);
+                        let stderr = String::from_utf8_lossy(&outp.stderr);
+                        let ok = outp.status.success();
+                        let errors = if ok {
+                            Vec::new()
+                        } else {
+                            collect_errors(&stderr, 5, 300)
+                        };
+                        (parse_model(&stdout), parse_float_model(&stdout), ok, errors)
                     }
-                    std::io::stdout().flush().ok();
-                    lock.insert(name, (model, float_model, ok));
+                    Err(e) => (
+                        "?".to_string(),
+                        "?".to_string(),
+                        false,
+                        vec![format!("failed to run: {}", e)],
+                    ),
+                };
+
+            // Print immediately (real-time), under lock to avoid interleaving.
+            {
+                let mut guard = out.lock().unwrap();
+                let status = if ok { "OK" } else { "FAIL" };
+                println!(
+                    "{:<30} int-model={:<6} float-model={:<4} {}",
+                    name, int_model, float_model, status
+                );
+                for line in &errors {
+                    println!("    {}", line);
                 }
-                Err(e) => {
-                    let mut lock = results.lock().unwrap();
-                    println!("{:<30} int-model={:<6} float-model={:<4} FAIL", name, "?", "?");
-                    println!("    failed to run: {}", e);
-                    std::io::stdout().flush().ok();
-                    lock.insert(name, ("?".to_string(), "?".to_string(), false));
+                use std::io::Write;
+                std::io::stdout().flush().ok();
+                if ok {
+                    guard.0 += 1;
+                } else {
+                    guard.1 += 1;
                 }
             }
 
@@ -186,22 +211,18 @@ fn main() {
                 *n += 1;
                 cvar.notify_one();
             }
-        });
-        handles.push(h);
+        }));
     }
 
     for h in handles {
         h.join().ok();
     }
 
-    let lock = results.lock().unwrap();
-    let passed: Vec<_> = lock.iter().filter(|(_, (_, _, ok))| *ok).collect();
-    let failed: Vec<_> = lock.iter().filter(|(_, (_, _, ok))| !*ok).collect();
-
+    let (passed, failed) = *out.lock().unwrap();
     println!();
-    println!("Passed: {}, Failed: {}", passed.len(), failed.len());
+    println!("Passed: {}, Failed: {}", passed, failed);
 
-    if !failed.is_empty() {
+    if failed > 0 {
         std::process::exit(1);
     }
 }

@@ -44,7 +44,7 @@ theorem softmax2d_eq
     (input : Slice ℝ) (rows cols : Usize) (result : alloc.vec.Vec ℝ)
     (h_softmax : softmax2d input rows cols = ok result)
     (h_len_in : input.length = rows.val * cols.val)
-    (h_len_out : result.length = rows.val * cols.val) :
+    (h_len_out : (alloc.vec.Vec.deref result).length = rows.val * cols.val) :
     let H := rows.val; let W := cols.val
     let inp := toMatrix input H W h_len_in
     let out := toMatrix (alloc.vec.Vec.deref result) H W h_len_out

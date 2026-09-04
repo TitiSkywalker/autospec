@@ -50,7 +50,7 @@ theorem conv2d_eq
     (h_conv : conv2d input h w kernel kh kw = ok result)
     (h_len_in : input.length = h.val * w.val)
     (h_len_ker : kernel.length = kh.val * kw.val)
-    (h_len_out : result.length = (h.val + kh.val - 1) * (w.val + kw.val - 1)) :
+    (h_len_out : (alloc.vec.Vec.deref result).length = (h.val + kh.val - 1) * (w.val + kw.val - 1)) :
     let H := h.val; let W := w.val
     let Kh := kh.val; let Kw := kw.val
     let out_h := H + Kh - 1; let out_w := W + Kw - 1

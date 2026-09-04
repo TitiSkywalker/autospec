@@ -6,6 +6,9 @@ set_option linter.dupNamespace false
 set_option linter.hashCommand false
 set_option linter.unusedVariables false
 set_option linter.style.nameCheck false
+set_option linter.style.whitespace false
+set_option linter.style.setOption false
+set_option linter.style.longLine false
 
 /- You can set the `maxHeartbeats` value with the `-max-heartbeats` CLI option -/
 set_option maxHeartbeats 1000000
@@ -41,13 +44,14 @@ def knapsack_loop0_loop0
         let i6 ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.Usize)
             dp idx_include
-        let include1 ← vi + i6
+        let «include» ← vi + i6
         let exclude ←
           alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.Usize)
             dp idx_exclude
-        let val ← if include1 > exclude
-                    then ok include1
-                    else ok exclude
+        let val ←
+          if «include» > exclude
+          then ok «include»
+          else ok exclude
         let (_, index_mut_back) ←
           alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
             Std.Usize) dp idx

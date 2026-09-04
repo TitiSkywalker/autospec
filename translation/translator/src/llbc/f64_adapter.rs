@@ -221,9 +221,9 @@ fn normalize_scientific(value: &str) -> String {
     }
 }
 
-fn collect_float_values(stmts: &[Value]) -> HashSet<String> {
+fn collect_float_values(stmts: &[Value], id_map: &HashMap<i64, String>) -> HashSet<String> {
     let mut vals = HashSet::new();
-    fn rec(node: &Value, vals: &mut HashSet<String>) {
+    fn rec(node: &Value, id_map: &HashMap<i64, String>, vals: &mut HashSet<String>) {
         match node {
             Value::Object(map) => {
                 if let Some(float_val) = map.get("Float") {
@@ -235,20 +235,28 @@ fn collect_float_values(stmts: &[Value]) -> HashSet<String> {
                         }
                     }
                 }
+                // Float constants serialized hash-consed may appear only as a
+                // `Deduplicated` reference here (the `HashConsedValue` definition
+                // lives in another function body). Resolve them via the id map.
+                if let Some(dedup) = map.get("Deduplicated").and_then(|v| v.as_i64()) {
+                    if let Some(v) = id_map.get(&dedup) {
+                        vals.insert(v.clone());
+                    }
+                }
                 for v in map.values() {
-                    rec(v, vals);
+                    rec(v, id_map, vals);
                 }
             }
             Value::Array(arr) => {
                 for item in arr {
-                    rec(item, vals);
+                    rec(item, id_map, vals);
                 }
             }
             _ => {}
         }
     }
     for stmt in stmts {
-        rec(stmt, &mut vals);
+        rec(stmt, id_map, &mut vals);
     }
     vals
 }
@@ -259,8 +267,9 @@ fn expand_float_constants(
     f64: i64,
     const_ids: &HashMap<String, i64>,
     locals_info: &mut Value,
+    id_map: &HashMap<i64, String>,
 ) -> usize {
-    let all_vals = collect_float_values(stmts);
+    let all_vals = collect_float_values(stmts, id_map);
     if all_vals.is_empty() {
         return 0;
     }
@@ -320,59 +329,115 @@ fn expand_float_constants(
     }
 
     for stmt in stmts.iter_mut() {
-        replace_float_nodes(stmt, &val_to_local, f64);
+        replace_float_nodes(stmt, &val_to_local, f64, id_map);
     }
     all_vals.len()
 }
 
-fn replace_float_nodes(node: &mut Value, val_to_local: &HashMap<String, i64>, f64: i64) {
-    match node {
-        Value::Object(map) => {
-            if let Some(const_val) = map.get("Const").cloned() {
-                if let Some(kind) = const_val.get("kind") {
-                    if let Some(lit) = kind.get("Literal") {
-                        let val_str = extract_float_value(lit);
-                        if let Some(val) = val_str {
-                            if let Some(local_idx) = val_to_local.get(&val) {
-                                map.clear();
-                                map.insert(
-                                    "Copy".to_string(),
-                                    serde_json::json!({
-                                        "kind": {"Local": local_idx},
-                                        "ty": {"Deduplicated": f64},
-                                    }),
-                                );
-                                return;
+/// Build a hash-cons id → float value map by scanning the whole translated
+/// value for `HashConsedValue` constant exprs whose kind is `Literal(Float(F64))`.
+///
+/// Newer charon serializes `constant_expr` hash-consed: the first occurrence is
+/// `{"HashConsedValue": [id, [kind, ty]]}` and later ones are `{"Deduplicated":
+/// id}`. This map lets us resolve the latter back to their float value.
+fn build_float_const_id_map(trans: &Value) -> HashMap<i64, String> {
+    let mut map = HashMap::new();
+    fn rec(node: &Value, map: &mut HashMap<i64, String>) {
+        match node {
+            Value::Object(o) => {
+                if let Some(hcv) = o.get("HashConsedValue").and_then(|v| v.as_array()) {
+                    if let Some(inner) = hcv.get(1).and_then(|v| v.as_array()) {
+                        if let Some(id) = hcv.first().and_then(|v| v.as_i64()) {
+                            if let Some(lit) = inner.first().and_then(|k| k.get("Literal")) {
+                                if let Some(val) = extract_float_value(lit) {
+                                    map.insert(id, val);
+                                }
                             }
                         }
                     }
                 }
+                for v in o.values() {
+                    rec(v, map);
+                }
+            }
+            Value::Array(arr) => {
+                for v in arr {
+                    rec(v, map);
+                }
+            }
+            _ => {}
+        }
+    }
+    rec(trans, &mut map);
+    map
+}
+
+/// Extract a Float(F64) value string from a hash-consed `constant_expr` (the
+/// JSON under a `Const` operand). Handles `HashConsedValue`, `Untagged` and
+/// `Deduplicated` (resolved via `id_map`).
+fn const_float_value(const_val: &Value, id_map: &HashMap<i64, String>) -> Option<String> {
+    let o = const_val.as_object()?;
+    if let Some(hcv) = o.get("HashConsedValue").and_then(|v| v.as_array()) {
+        // [id, [kind, ty]]
+        if let Some(inner) = hcv.get(1).and_then(|v| v.as_array()) {
+            if let Some(lit) = inner.first().and_then(|k| k.get("Literal")) {
+                return extract_float_value(lit);
+            }
+        }
+    } else if let Some(untagged) = o.get("Untagged").and_then(|v| v.as_array()) {
+        // [kind, ty]
+        if let Some(lit) = untagged.first().and_then(|k| k.get("Literal")) {
+            return extract_float_value(lit);
+        }
+    } else if let Some(id) = o.get("Deduplicated").and_then(|v| v.as_i64()) {
+        return id_map.get(&id).cloned();
+    }
+    None
+}
+
+fn replace_float_nodes(
+    node: &mut Value,
+    val_to_local: &HashMap<String, i64>,
+    f64: i64,
+    id_map: &HashMap<i64, String>,
+) {
+    match node {
+        Value::Object(map) => {
+            if let Some(const_val) = map.get("Const").cloned() {
+                if let Some(val) = const_float_value(&const_val, id_map) {
+                    if let Some(local_idx) = val_to_local.get(&val) {
+                        map.clear();
+                        map.insert(
+                            "Copy".to_string(),
+                            serde_json::json!({
+                                "kind": {"Local": local_idx},
+                                "ty": {"Deduplicated": f64},
+                            }),
+                        );
+                        return;
+                    }
+                }
             }
             for (_k, v) in map.iter_mut() {
-                replace_float_nodes(v, val_to_local, f64);
+                replace_float_nodes(v, val_to_local, f64, id_map);
             }
         }
         Value::Array(arr) => {
             for i in 0..arr.len() {
                 let item = &arr[i];
                 if let Some(const_val) = item.get("Const").cloned() {
-                    if let Some(kind) = const_val.get("kind") {
-                        if let Some(lit) = kind.get("Literal") {
-                            let val_str = extract_float_value(lit);
-                            if let Some(val) = val_str {
-                                if let Some(local_idx) = val_to_local.get(&val) {
-                                    arr[i] = serde_json::json!({
-                                        "Copy": {
-                                            "kind": {"Local": local_idx},
-                                            "ty": {"Deduplicated": f64},
-                                        }
-                                    });
+                    if let Some(val) = const_float_value(&const_val, id_map) {
+                        if let Some(local_idx) = val_to_local.get(&val) {
+                            arr[i] = serde_json::json!({
+                                "Copy": {
+                                    "kind": {"Local": local_idx},
+                                    "ty": {"Deduplicated": f64},
                                 }
-                            }
+                            });
                         }
                     }
                 }
-                replace_float_nodes(&mut arr[i], val_to_local, f64);
+                replace_float_nodes(&mut arr[i], val_to_local, f64, id_map);
             }
         }
         _ => {}
@@ -410,6 +475,9 @@ pub fn transform_llbc(path: &Path, output: &Path) -> anyhow::Result<usize> {
         .get_mut("translated")
         .ok_or_else(|| anyhow::anyhow!("missing 'translated' key"))?;
 
+    // Hash-cons id → float value map, built before any body mutation.
+    let id_map = build_float_const_id_map(trans);
+
     // ── Phase 1: analysis (immutable reads) ────────────────────────────────
 
     let f64_ids = discover_f64_ids(&raw_json);
@@ -443,7 +511,7 @@ pub fn transform_llbc(path: &Path, output: &Path) -> anyhow::Result<usize> {
             continue;
         }
         if let Some(stmts) = fd["body"]["Structured"]["body"]["statements"].as_array() {
-            all_float_vals.extend(collect_float_values(stmts));
+            all_float_vals.extend(collect_float_values(stmts, &id_map));
         }
     }
 
@@ -625,8 +693,13 @@ pub fn transform_llbc(path: &Path, output: &Path) -> anyhow::Result<usize> {
             .unwrap_or_default();
         let mut locals_info = body["Structured"]["locals"].clone();
 
-        total_float +=
-            expand_float_constants(&mut stmts, primary_f64, &helper_ids, &mut locals_info);
+        total_float += expand_float_constants(
+            &mut stmts,
+            primary_f64,
+            &helper_ids,
+            &mut locals_info,
+            &id_map,
+        );
 
         let mut visitor = |stmt: &mut Value| -> bool {
             let kind = match stmt.get("kind").and_then(|v| v.as_object()) {

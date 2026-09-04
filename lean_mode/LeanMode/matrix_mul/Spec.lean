@@ -31,7 +31,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
 /-- `matmul` returns a `Vec` of length `m * n`. -/
 theorem matmul_length (a b : Slice Rat) (m k n : Usize) (result : alloc.vec.Vec Rat)
     (h : matrix_mul.matmul a b m k n = ok result) :
-    result.length = m.val * n.val :=
+    (alloc.vec.Vec.deref result).length = m.val * n.val :=
 by
   sorry
 

@@ -1,4 +1,4 @@
-import LeanMode.crypto_tea.BitvecTea
+import LeanMode.crypto_tea.CryptoTea
 import Mathlib
 
 open Aeneas Aeneas.Std Result

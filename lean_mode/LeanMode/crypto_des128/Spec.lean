@@ -1,4 +1,4 @@
-import LeanMode.crypto_des128.BitvecDes128
+import LeanMode.crypto_des128.CryptoDes128
 import Mathlib
 
 open Aeneas Aeneas.Std Result

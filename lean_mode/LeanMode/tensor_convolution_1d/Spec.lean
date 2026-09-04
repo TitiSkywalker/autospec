@@ -37,7 +37,7 @@ theorem conv1d_eq
     (h_conv : conv1d input kernel = ok result)
     (h_len_in : input.length = (Slice.len input).val)
     (h_len_ker : kernel.length = (Slice.len kernel).val)
-    (h_len_out : result.length = (Slice.len input).val + (Slice.len kernel).val - 1) :
+    (h_len_out : (alloc.vec.Vec.deref result).length = (Slice.len input).val + (Slice.len kernel).val - 1) :
     let n := (Slice.len input).val
     let k := (Slice.len kernel).val
     let m := n + k - 1

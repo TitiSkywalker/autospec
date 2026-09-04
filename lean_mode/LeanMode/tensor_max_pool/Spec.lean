@@ -71,7 +71,7 @@ theorem max_pool2d_eq
     (h_pool : max_pool2d input h w kh kw = ok result)
     (h_len_in : input.length = h.val * w.val)
     (hkh_le : kh.val ≤ h.val) (hkw_le : kw.val ≤ w.val)
-    (h_len_out : result.length = (h.val - kh.val + 1) * (w.val - kw.val + 1)) :
+    (h_len_out : (alloc.vec.Vec.deref result).length = (h.val - kh.val + 1) * (w.val - kw.val + 1)) :
     let H := h.val; let W := w.val
     let Kh := kh.val; let Kw := kw.val
     let inp := toMatrix input H W h_len_in

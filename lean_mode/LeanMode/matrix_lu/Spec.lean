@@ -55,7 +55,7 @@ def permMatrix (perm_vec : alloc.vec.Vec Std.Usize)
     (h_len : (alloc.vec.Vec.deref perm_vec).val.length = n) :
     Matrix (Fin n) (Fin n) Rat :=
   λ i j =>
-    let lst := perm_vec.val
+    let lst := (alloc.vec.Vec.deref perm_vec).val
     have h_bound : i.val < lst.length := by
       have h_lst_len : lst.length = n := h_len
       rw [h_lst_len]

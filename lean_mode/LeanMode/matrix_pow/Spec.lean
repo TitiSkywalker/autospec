@@ -34,7 +34,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
 theorem matrix_pow_length
     (matrix : Slice Rat) (n exp : Std.Usize) (result : alloc.vec.Vec Rat)
     (h : matrix_pow.matrix_pow matrix n exp = ok result) :
-    result.length = n.val * n.val :=
+    (alloc.vec.Vec.deref result).length = n.val * n.val :=
 by
   sorry
 

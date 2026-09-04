@@ -36,7 +36,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
 theorem kron_length (a b : Slice Rat) (a_rows a_cols b_rows b_cols : Usize)
     (result : alloc.vec.Vec Rat)
     (h : matrix_kronecker.kron a a_rows a_cols b b_rows b_cols = ok result) :
-    result.length = (a_rows.val * b_rows.val) * (a_cols.val * b_cols.val) :=
+    (alloc.vec.Vec.deref result).length = (a_rows.val * b_rows.val) * (a_cols.val * b_cols.val) :=
   by
     sorry
 
