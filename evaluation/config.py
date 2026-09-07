@@ -25,6 +25,7 @@ class Config:
     workspaces: list[Path]
     agent: AgentConfig
     vibe_dir: Path | None
+    base_dir: Path | None
 
     @classmethod
     def load(cls, path: Path = DEFAULT_CONFIG) -> "Config":
@@ -38,11 +39,13 @@ class Config:
 
         prover = data["prover"]
         agent = prover["agent"]
-        vibe_dir = data.get("workspace", {}).get("vibe_dir")
+        workspace = data["workspace"]
+        vibe_dir = workspace.get("vibe_dir")
+        base_dir = workspace.get("base_dir")
         return cls(
             input_dir=resolve(prover["input_dir"]),
             output_dir=resolve(prover["output_dir"]),
-            workspaces=[resolve(p) for p in data["workspace"]["candidates"]],
+            workspaces=[resolve(p) for p in workspace["candidates"]],
             agent=AgentConfig(
                 command=agent["command"],
                 prompt=agent["prompt"],
@@ -50,4 +53,5 @@ class Config:
                 timeout=float(agent["timeout"]),
             ),
             vibe_dir=resolve(vibe_dir) if vibe_dir else None,
+            base_dir=resolve(base_dir) if base_dir else None,
         )

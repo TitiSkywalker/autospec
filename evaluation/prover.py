@@ -111,24 +111,33 @@ class LeanProverEngine:
         self.config = config or Config.load(DEFAULT_CONFIG)
         self.input_queue: Queue = Queue()
         self.output_queue: Queue = Queue()
+        self.testcases: list = []
 
-    def start(self) -> None:
+    def setup(self) -> None:
+        """Scan the benchmark and prepare the workspaces (build the base image
+        once, then initialize every workspace from it)."""
         config = self.config
         if not config.workspaces:
             raise ValueError("config.toml: [workspace].candidates is empty")
 
-        # Scan the benchmark up front so we can bail out before workspace setup.
-        testcases = scan_testcases(config.input_dir)
-        if not testcases:
+        self.testcases = scan_testcases(config.input_dir)
+        if not self.testcases:
             print(f"No testcases found in {config.input_dir}")
+
+        if config.base_dir is not None:
+            create_workspace(str(config.base_dir), config.vibe_dir)
+        for ws in config.workspaces:
+            create_workspace(str(ws), config.vibe_dir, config.base_dir)
+
+    def prove(self) -> None:
+        """Run the proving agent over every test case and write out results."""
+        config = self.config
+        testcases = self.testcases
+        if not testcases:
             return
         funcs = {name: func for name, func, _ in testcases}
 
-        # 1. Initialize every workspace (skips those already built).
-        for ws in config.workspaces:
-            create_workspace(str(ws), config.vibe_dir)
-
-        # 2. Start one worker process per workspace.
+        # Start one worker process per workspace.
         workers = [
             Process(
                 target=_worker,
@@ -139,13 +148,13 @@ class LeanProverEngine:
         for w in workers:
             w.start()
 
-        # 3. Produce: feed the queue, then send one sentinel per worker.
+        # Produce: feed the queue, then send one sentinel per worker.
         for tc in testcases:
             self.input_queue.put(tc)
         for _ in workers:
             self.input_queue.put(_STOP)
 
-        # 4. Consume: collect results and write them out.
+        # Consume: collect results and write them out.
         results = []
         while len(results) < len(testcases):
             try:
@@ -158,6 +167,11 @@ class LeanProverEngine:
         for name, spec, status in results:
             self._save(name, funcs[name], spec, status)
         self._summarize(results)
+
+    def start(self) -> None:
+        """Convenience: run the full pipeline (setup then prove)."""
+        self.setup()
+        self.prove()
 
     def _save(
         self, name: str, func_src: str, spec_src: str | None, status: str
@@ -201,4 +215,5 @@ if __name__ == "__main__":
         "--config", default=str(DEFAULT_CONFIG), help="Path to config.toml"
     )
     args = parser.parse_args()
-    LeanProverEngine(Config.load(Path(args.config))).start()
+    engine = LeanProverEngine(Config.load(Path(args.config)))
+    engine.setup()

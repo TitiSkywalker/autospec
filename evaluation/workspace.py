@@ -28,7 +28,11 @@ def aeneas_pinned_commit() -> str:
     return out.stdout.split()[2]
 
 
-def create_workspace(workspace_path: str, vibe_dir: str | Path | None = None):
+def create_workspace(
+    workspace_path: str,
+    vibe_dir: str | Path | None = None,
+    base_dir: str | Path | None = None,
+):
     """Create an independent Aeneas workspace with a clean git checkpoint.
 
     The workspace compiles the whole import chain ``Main -> RustVerif -> Basic -> Spec -> Function`` so a later ``lake build`` checks the specification.
@@ -36,10 +40,17 @@ def create_workspace(workspace_path: str, vibe_dir: str | Path | None = None):
     ``.lake`` (Mathlib's build tree) and ``aeneas`` are git-ignored, so the
     checkpoint is cheap to restore between test cases. If ``vibe_dir`` names an
     existing directory its whole tree is copied to the workspace's ``.vibe/``.
+    If ``base_dir`` names an existing workspace it is copied verbatim (prebuilt
+    aeneas + Mathlib) instead of being rebuilt from scratch.
     """
     workspace = Path(workspace_path)
     # Already initialized (e.g. from a previous run): reuse it as-is.
     if (workspace / ".git").exists():
+        return
+
+    # Distribute a prebuilt base image instead of rebuilding aeneas + Mathlib.
+    if base_dir is not None and Path(base_dir).is_dir():
+        shutil.copytree(base_dir, workspace, symlinks=True, dirs_exist_ok=True)
         return
 
     os.makedirs(workspace, exist_ok=True)
