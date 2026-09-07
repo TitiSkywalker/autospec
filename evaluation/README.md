@@ -34,4 +34,19 @@ vibe -p "Prove the theorems inside `RustVerif/Spec.lean`" --agent lean --auto-ap
 
 ## Evaluation
 
-After the agent stops, we need to check the `Spec.lean` independently to prevent it from cheating. We collect and save the modified `Spec.lean` to another independent directory.
+Each testcase is a Rust-Lean project. It contains Rust source and translated Lean source. For example, the testcase `array_binary_search` has the following structure (omitting irrelevant files):
+
+```
+.
+├── ArrayBinarySearch.lean
+├── Spec.lean
+├── Test_test.lean
+├── src
+│   └── lib.rs
+└── tests
+    └── test.rs
+```
+
+During evaluation, `ArrayBinarySearch.lean` and `Spec.lean` should be extracted and copied into workspace directory. This also includes fixing the imports of Lean files.
+
+After the agent stops, we need to check the `Spec.lean` independently to prevent agent from cheating. We collect and save the modified `Spec.lean` to another independent directory for verification.
