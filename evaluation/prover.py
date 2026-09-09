@@ -10,6 +10,7 @@ Usage::
 
 import argparse
 import re
+import shutil
 import subprocess
 import time
 from multiprocessing import Process, Queue
@@ -17,6 +18,7 @@ from pathlib import Path
 from queue import Empty
 
 from evaluation.config import DEFAULT_CONFIG, AgentConfig, Config
+from evaluation.mcp_server import MCPServer
 from evaluation.workspace import LIB, clear_workspace, create_workspace, setup_testcase
 
 # Sentinel marking the end of the input queue.
@@ -30,6 +32,10 @@ _SORRY_RE = re.compile(r"\b(sorry|admit)\b")
 
 # Sleep interval between non-blocking queue polls, in seconds.
 _POLL_INTERVAL = 0.1
+
+# vibe session directories are named "<prefix>_<timestamp>_<hash>"; this prefix
+# also lets us skip non-session dirs (e.g. the "active" lock dir) in the same folder.
+_SESSION_PREFIX = "session"
 
 
 def scan_testcases(input_dir: Path) -> list[tuple[str, str, str]]:
@@ -64,14 +70,54 @@ def _build(workspace: Path, name: str) -> bool:
     return False
 
 
+def _session_dirs(sessions_dir: Path) -> set[str]:
+    """Names of vibe session directories already present under ``sessions_dir``."""
+    if not sessions_dir.is_dir():
+        return set()
+    return {
+        p.name
+        for p in sessions_dir.iterdir()
+        if p.is_dir() and p.name.startswith(_SESSION_PREFIX)
+    }
+
+
+def _save_trace(
+    sessions_dir: Path,
+    before: set[str],
+    output_dir: Path,
+    name: str,
+) -> None:
+    """Archive the newest vibe session created since ``before`` under
+    ``output_dir/<name>/trace/``."""
+    if not sessions_dir.is_dir():
+        return
+    new = [
+        p
+        for p in sessions_dir.iterdir()
+        if p.is_dir()
+        and p.name.startswith(_SESSION_PREFIX)
+        and p.name not in before
+    ]
+    if not new:
+        return
+    latest = max(new, key=lambda p: p.stat().st_mtime)
+    dest = Path(output_dir) / name / "trace"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(latest, dest)
+
+
 def _worker(
     workspace: Path,
     input_queue: Queue,
     output_queue: Queue,
     agent: AgentConfig,
+    output_dir: Path,
 ) -> None:
     """Consume test cases, prove them in ``workspace``, and report ``Spec.lean``."""
     spec_path = workspace / LIB / "Spec.lean"
+    sessions_dir = workspace / ".vibe" / "sessions"
     while True:
         try:
             item = input_queue.get_nowait()
@@ -90,6 +136,7 @@ def _worker(
                 continue
 
             print(f"=== [{name}] running agent in {workspace.name} ===", flush=True)
+            before = _session_dirs(sessions_dir)
             cmd = [agent.command, "-p", agent.prompt] + agent.args
             try:
                 subprocess.run(cmd, cwd=workspace, timeout=agent.timeout)
@@ -99,6 +146,7 @@ def _worker(
                     flush=True,
                 )
 
+            _save_trace(sessions_dir, before, output_dir, name)
             output_queue.put((name, spec_path.read_text(), "ok"))
         except Exception as exc:  # a worker must never die silently
             output_queue.put((name, None, f"error: {exc}"))
@@ -112,6 +160,9 @@ class LeanProverEngine:
         self.input_queue: Queue = Queue()
         self.output_queue: Queue = Queue()
         self.testcases: list = []
+        self.mcp = MCPServer(
+            self.config.workspaces, log_dir=self.config.output_dir / "mcp"
+        )
 
     def setup(self) -> None:
         """Scan the benchmark and prepare the workspaces (build the base image
@@ -126,8 +177,10 @@ class LeanProverEngine:
 
         if config.base_dir is not None:
             create_workspace(str(config.base_dir), config.vibe_dir)
-        for ws in config.workspaces:
-            create_workspace(str(ws), config.vibe_dir, config.base_dir)
+        for i, ws in enumerate(config.workspaces):
+            create_workspace(
+                str(ws), config.vibe_dir, config.base_dir, mcp_port=self.mcp.port_for(i)
+            )
 
     def prove(self) -> None:
         """Run the proving agent over every test case and write out results."""
@@ -141,7 +194,13 @@ class LeanProverEngine:
         workers = [
             Process(
                 target=_worker,
-                args=(ws, self.input_queue, self.output_queue, config.agent),
+                args=(
+                    ws,
+                    self.input_queue,
+                    self.output_queue,
+                    config.agent,
+                    config.output_dir,
+                ),
             )
             for ws in config.workspaces
         ]
@@ -169,9 +228,13 @@ class LeanProverEngine:
         self._summarize(results)
 
     def start(self) -> None:
-        """Convenience: run the full pipeline (setup then prove)."""
+        """Convenience: run the full pipeline (setup then prove), then tear down."""
         self.setup()
-        self.prove()
+        self.mcp.start()
+        try:
+            self.prove()
+        finally:
+            self.mcp.stop()
 
     def _save(
         self, name: str, func_src: str, spec_src: str | None, status: str
@@ -216,4 +279,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     engine = LeanProverEngine(Config.load(Path(args.config)))
-    engine.setup()
+    engine.start()
