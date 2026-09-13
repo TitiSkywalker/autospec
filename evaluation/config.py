@@ -16,16 +16,28 @@ class AgentConfig:
     prompt: str
     args: list[str]
     timeout: float
+    output: str = "streaming"
+
+
+@dataclass
+class McpConfig:
+    command: list[str]  # e.g. ["uvx", "lean-lsp-mcp"]
+    transport: str
+    host: str
+    start_port: int  # worker i -> start_port + i
+    ready_timeout: float
 
 
 @dataclass
 class Config:
     input_dir: Path
     output_dir: Path
-    workspaces: list[Path]
+    base_dir: Path
+    worker_dir: Path
+    num_workers: int
     agent: AgentConfig
+    mcp: McpConfig
     vibe_dir: Path | None
-    base_dir: Path | None
 
     @classmethod
     def load(cls, path: Path = DEFAULT_CONFIG) -> "Config":
@@ -39,19 +51,28 @@ class Config:
 
         prover = data["prover"]
         agent = prover["agent"]
+        mcp = prover["mcp"]
         workspace = data["workspace"]
         vibe_dir = workspace.get("vibe_dir")
-        base_dir = workspace.get("base_dir")
         return cls(
             input_dir=resolve(prover["input_dir"]),
             output_dir=resolve(prover["output_dir"]),
-            workspaces=[resolve(p) for p in workspace["candidates"]],
+            base_dir=resolve(workspace["base_dir"]),
+            worker_dir=resolve(workspace["worker_dir"]),
+            num_workers=int(workspace["workers"]),
             agent=AgentConfig(
                 command=agent["command"],
                 prompt=agent["prompt"],
                 args=agent["args"],
                 timeout=float(agent["timeout"]),
+                output=agent.get("output", "streaming"),
+            ),
+            mcp=McpConfig(
+                command=mcp["command"],
+                transport=mcp["transport"],
+                host=mcp["host"],
+                start_port=int(mcp["start_port"]),
+                ready_timeout=float(mcp["ready_timeout"]),
             ),
             vibe_dir=resolve(vibe_dir) if vibe_dir else None,
-            base_dir=resolve(base_dir) if base_dir else None,
         )

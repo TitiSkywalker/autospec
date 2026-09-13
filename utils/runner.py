@@ -16,8 +16,9 @@ from pathlib import Path
 
 
 class CmdRunner:
-    def __init__(self, cwd: str | None = None):
+    def __init__(self, cwd: str | None = None, verbose: bool = True):
         self.cwd = Path(cwd or os.getcwd()).resolve()
+        self.verbose = verbose
 
     def cd(self, path: str):
         new_cwd = (self.cwd / path).resolve()
@@ -28,10 +29,11 @@ class CmdRunner:
     def run(
         self,
         command: str,
-        verbose: bool = True,
+        verbose: bool | None = None,
         panic: bool = True,
         timeout: float | None = None,
     ) -> int:
+        verbose = self.verbose if verbose is None else verbose
         if verbose:
             print(f"Executing: {command}")
 

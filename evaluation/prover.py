@@ -1,282 +1,288 @@
 """
-Agent evaluation pipeline.
+Proving agent execution.
 
-A producer-consumer pipeline: the producer scans the benchmark and feeds ``(name, function, specification)`` tuples into a queue; each worker is bound to an independent workspace, runs the proving agent inside it, then reports the resulting ``Spec.lean`` back.
-
-Usage::
-
-    python -m evaluation.prover --config evaluation/local/config.toml
+``Prover`` owns one workspace: it copies the base mirror into
+``worker_dir/ws-<i>/``, starts a lean-lsp-mcp server, proves test cases by
+spawning the vibe agent (streaming tool activity and turn progress), then tears
+down the server and its temporary copy.
 """
 
-import argparse
+import json
+import os
 import re
 import shutil
+import socket
 import subprocess
 import time
-from multiprocessing import Process, Queue
 from pathlib import Path
-from queue import Empty
+from threading import Thread
 
-from evaluation.config import DEFAULT_CONFIG, AgentConfig, Config
-from evaluation.mcp_server import MCPServer
-from evaluation.workspace import LIB, clear_workspace, create_workspace, setup_testcase
-
-# Sentinel marking the end of the input queue.
-_STOP = None
-
-# Test-case directories that are not part of the benchmark.
-_EXCLUDED = {"failure", "lean_mode"}
-
-# Lean "cheating" tactics; a proved specification must be free of them.
-_SORRY_RE = re.compile(r"\b(sorry|admit)\b")
-
-# Sleep interval between non-blocking queue polls, in seconds.
-_POLL_INTERVAL = 0.1
-
-# vibe session directories are named "<prefix>_<timestamp>_<hash>"; this prefix
-# also lets us skip non-session dirs (e.g. the "active" lock dir) in the same folder.
-_SESSION_PREFIX = "session"
+from evaluation.config import AgentConfig, McpConfig
+from evaluation.logger import get_logger
+from evaluation.workspace import create_workspace
 
 
-def scan_testcases(input_dir: Path) -> list[tuple[str, str, str]]:
-    """Return (name, func_src, spec_src) for every test case under"""
-    testcases: list[tuple[str, str, str]] = []
-    for d in sorted(input_dir.iterdir()):
-        if not d.is_dir() or d.name in _EXCLUDED:
-            continue
-        spec = d / "Spec.lean"
-        funcs = [
-            f for f in d.glob("*.lean") if f.stem not in {"Spec", "Test_test", "Basic"}
-        ]
-        assert len(funcs) == 1
-        if spec.exists() and len(funcs) == 1:
-            testcases.append((d.name, funcs[0].read_text(), spec.read_text()))
-    return testcases
+class Prover:
+    """Prove test cases inside one workspace.
 
+    Owns the workspace copy, its lean-lsp-mcp server, and the vibe agent
+    subprocess. Use as a context manager so the server and temporary copy are torn down on exit.
+    """
 
-def _has_sorry(spec: str) -> bool:
-    return _SORRY_RE.search(spec) is not None
+    _STOP_EVENT_RE = re.compile(r"<vibe_stop_event>(.*?)</vibe_stop_event>", re.DOTALL)
+    _SESSION_PREFIX = "session"
 
+    def __init__(
+        self,
+        base_dir: Path,
+        worker_dir: Path,
+        index: int,
+        agent: AgentConfig,
+        mcp: McpConfig,
+        output_dir: Path,
+    ):
+        self.base_dir = base_dir
+        self.ws = worker_dir / f"ws-{index}"
+        self.port = mcp.start_port + index
+        self.agent = agent
+        self.mcp = mcp
+        self.output_dir = output_dir
+        self.mcp_proc: subprocess.Popen | None = None
+        self.logger = get_logger(self)
 
-def _build(workspace: Path, name: str) -> bool:
-    """Run ``lake build`` to confirm the installed test case compiles."""
-    result = subprocess.run(
-        ["lake", "build"], cwd=workspace, capture_output=True, text=True
-    )
-    if result.returncode == 0:
-        return True
-    tail = "\n".join((result.stderr or result.stdout).splitlines()[-6:])
-    print(f"[{name}] baseline build failed:\n{tail}", flush=True)
-    return False
+    def __enter__(self) -> "Prover":
+        create_workspace(str(self.ws), base_dir=self.base_dir, mcp_port=self.port)
+        self.mcp_proc = self._start_mcp()
+        return self
 
-
-def _session_dirs(sessions_dir: Path) -> set[str]:
-    """Names of vibe session directories already present under ``sessions_dir``."""
-    if not sessions_dir.is_dir():
-        return set()
-    return {
-        p.name
-        for p in sessions_dir.iterdir()
-        if p.is_dir() and p.name.startswith(_SESSION_PREFIX)
-    }
-
-
-def _save_trace(
-    sessions_dir: Path,
-    before: set[str],
-    output_dir: Path,
-    name: str,
-) -> None:
-    """Archive the newest vibe session created since ``before`` under
-    ``output_dir/<name>/trace/``."""
-    if not sessions_dir.is_dir():
-        return
-    new = [
-        p
-        for p in sessions_dir.iterdir()
-        if p.is_dir()
-        and p.name.startswith(_SESSION_PREFIX)
-        and p.name not in before
-    ]
-    if not new:
-        return
-    latest = max(new, key=lambda p: p.stat().st_mtime)
-    dest = Path(output_dir) / name / "trace"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(latest, dest)
-
-
-def _worker(
-    workspace: Path,
-    input_queue: Queue,
-    output_queue: Queue,
-    agent: AgentConfig,
-    output_dir: Path,
-) -> None:
-    """Consume test cases, prove them in ``workspace``, and report ``Spec.lean``."""
-    spec_path = workspace / LIB / "Spec.lean"
-    sessions_dir = workspace / ".vibe" / "sessions"
-    while True:
+    def __exit__(self, *exc_info) -> bool:
+        self.mcp_proc.terminate()
         try:
-            item = input_queue.get_nowait()
-        except Empty:
-            time.sleep(_POLL_INTERVAL)
-            continue
-        if item is _STOP:
-            return
-        name, func_src, spec_src = item
+            self.mcp_proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.mcp_proc.kill()
+        shutil.rmtree(self.ws, ignore_errors=True)
+        return False
+
+    def prove(self, case) -> tuple[str, str | None, str]:
+        """Install, build, and prove ``case``; return ``(name, spec, status)``."""
         try:
-            setup_testcase(str(workspace), func_src, spec_src)
-
-            # The translated function + spec must compile before the agent runs.
-            if not _build(workspace, name):
-                output_queue.put((name, spec_src, "build_failed"))
-                continue
-
-            print(f"=== [{name}] running agent in {workspace.name} ===", flush=True)
-            before = _session_dirs(sessions_dir)
-            cmd = [agent.command, "-p", agent.prompt] + agent.args
-            try:
-                subprocess.run(cmd, cwd=workspace, timeout=agent.timeout)
-            except subprocess.TimeoutExpired:
-                print(
-                    f"=== [{name}] agent timed out after {agent.timeout}s ===",
-                    flush=True,
+            case.install(self.ws)
+            if self._build(case.name):
+                spec = case.extract(
+                    self.ws, self.output_dir, self._run_agent(case.name)
                 )
-
-            _save_trace(sessions_dir, before, output_dir, name)
-            output_queue.put((name, spec_path.read_text(), "ok"))
+                return case.name, spec, "ok"
+            return case.name, None, "build_failed"
         except Exception as exc:  # a worker must never die silently
-            output_queue.put((name, None, f"error: {exc}"))
+            return case.name, None, f"error: {exc}"
         finally:
-            clear_workspace(str(workspace))
+            case.reset(self.ws)
 
+    def _build(self, name: str) -> bool:
+        """Run ``lake build`` to confirm the installed case compiles."""
+        result = subprocess.run(
+            ["lake", "build"], cwd=self.ws, capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            return True
+        tail = "\n".join((result.stderr or result.stdout).splitlines()[-6:])
+        self.logger.warning(f"[{name}] baseline build failed:\n{tail}")
+        return False
 
-class LeanProverEngine:
-    def __init__(self, config: Config | None = None):
-        self.config = config or Config.load(DEFAULT_CONFIG)
-        self.input_queue: Queue = Queue()
-        self.output_queue: Queue = Queue()
-        self.testcases: list = []
-        self.mcp = MCPServer(
-            self.config.workspaces, log_dir=self.config.output_dir / "mcp"
+    def _start_mcp(self) -> subprocess.Popen:
+        """Launch a lean-lsp-mcp HTTP server and wait until it binds ``self.port``."""
+        cfg = self.mcp
+        proc = subprocess.Popen(
+            cfg.command
+            + [
+                "--transport",
+                cfg.transport,
+                "--host",
+                cfg.host,
+                "--port",
+                str(self.port),
+                "--lean-project-path",
+                str(self.ws),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        deadline = time.time() + cfg.ready_timeout
+        while time.time() < deadline and proc.poll() is None:
+            try:
+                with socket.create_connection((cfg.host, self.port), timeout=1.0):
+                    return proc
+            except OSError:
+                time.sleep(1.0)
+        self.logger.warning(f"lean-lsp-mcp on port {self.port} not ready")
+        return proc
+
+    def _run_agent(self, name: str) -> Path | None:
+        """Spawn the vibe agent, stream its log + turn progress, and return the
+        newest vibe session (or None)."""
+        max_turns = self._max_turns(self.agent.args)
+        before = {p.name for p in self._session_dirs()}
+
+        header = f"[{name}] running agent in {self.ws.name}"
+        if max_turns is not None:
+            header += f" (max {max_turns} turns)"
+        self.logger.info(header)
+
+        cmd = (
+            [self.agent.command, "-p", self.agent.prompt]
+            + self.agent.args
+            + ["--output", self.agent.output]
+        )
+        if self.agent.output != "streaming":
+            try:
+                subprocess.run(cmd, cwd=self.ws, timeout=self.agent.timeout)
+            except subprocess.TimeoutExpired:
+                self.logger.warning(f"[{name}] agent timed out after {self.agent.timeout}s")
+            return self._newest_session(before)
+
+        # ``--output streaming`` emits one JSON line per history entry: an "effect"
+        # is a completed tool call, an assistant "message" is model text. Vibe does
+        # not surface its turn counter, so turns are read from the session log.
+        proc = subprocess.Popen(
+            cmd,
+            cwd=self.ws,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
 
-    def setup(self) -> None:
-        """Scan the benchmark and prepare the workspaces (build the base image
-        once, then initialize every workspace from it)."""
-        config = self.config
-        if not config.workspaces:
-            raise ValueError("config.toml: [workspace].candidates is empty")
+        last_answer = ""
+        stop_reported = False
+        session = None
+        turn_count = 0
 
-        self.testcases = scan_testcases(config.input_dir)
-        if not self.testcases:
-            print(f"No testcases found in {config.input_dir}")
-
-        if config.base_dir is not None:
-            create_workspace(str(config.base_dir), config.vibe_dir)
-        for i, ws in enumerate(config.workspaces):
-            create_workspace(
-                str(ws), config.vibe_dir, config.base_dir, mcp_port=self.mcp.port_for(i)
+        def report_stop(text: str) -> None:
+            nonlocal stop_reported
+            if stop_reported:
+                return
+            stop_reported = True
+            m = self._STOP_EVENT_RE.search(text)
+            self.logger.info(
+                f"[{name}] agent stopped: {m.group(1).strip() if m else text.strip()}"
             )
 
-    def prove(self) -> None:
-        """Run the proving agent over every test case and write out results."""
-        config = self.config
-        testcases = self.testcases
-        if not testcases:
-            return
-        funcs = {name: func for name, func, _ in testcases}
-
-        # Start one worker process per workspace.
-        workers = [
-            Process(
-                target=_worker,
-                args=(
-                    ws,
-                    self.input_queue,
-                    self.output_queue,
-                    config.agent,
-                    config.output_dir,
-                ),
-            )
-            for ws in config.workspaces
-        ]
-        for w in workers:
-            w.start()
-
-        # Produce: feed the queue, then send one sentinel per worker.
-        for tc in testcases:
-            self.input_queue.put(tc)
-        for _ in workers:
-            self.input_queue.put(_STOP)
-
-        # Consume: collect results and write them out.
-        results = []
-        while len(results) < len(testcases):
+        def relay(line: str) -> None:
+            nonlocal last_answer
+            line = line.rstrip("\n")
+            if not line:
+                return
             try:
-                results.append(self.output_queue.get_nowait())
-            except Empty:
-                time.sleep(_POLL_INTERVAL)
-        for w in workers:
-            w.join()
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                if "vibe_stop_event" in line:
+                    report_stop(line)
+                else:
+                    self.logger.info(line)  # e.g. trust warning -> pass through
+                return
+            kind = entry.get("type")
+            if kind == "effect":
+                detail = entry.get("detail") or {}
+                tool = entry.get("title") or detail.get("toolName") or "tool"
+                status = (entry.get("state") or {}).get("status")
+                mark = (
+                    "✓"
+                    if status == "completed"
+                    else "✗" if status in ("failed", "cancelled") else "•"
+                )
+                self.logger.debug(f"[{name}] {tool} {mark}")
+            elif kind == "message" and entry.get("role") == "assistant":
+                for block in entry.get("content") or []:
+                    if not isinstance(block, dict) or block.get("type") != "text":
+                        continue
+                    text = block.get("text", "").strip()
+                    if not text:
+                        continue
+                    if "vibe_stop_event" in text:
+                        report_stop(text)
+                    else:
+                        last_answer = text
 
-        for name, spec, status in results:
-            self._save(name, funcs[name], spec, status)
-        self._summarize(results)
+        def poll() -> None:
+            nonlocal session, turn_count
+            if session is None:
+                session = self._newest_session(before)
+            if session is not None:
+                n = self._turns(session / "messages.jsonl")
+                if n != turn_count:
+                    turn_count = n
+                    total = f"/{max_turns}" if max_turns else ""
+                    self.logger.info(
+                        f"[{name}] [{self._bar(n, max_turns)}] {n}{total}"
+                    )
 
-    def start(self) -> None:
-        """Convenience: run the full pipeline (setup then prove), then tear down."""
-        self.setup()
-        self.mcp.start()
+        def reader() -> None:
+            for line in proc.stdout:
+                relay(line)
+                poll()
+            poll()  # catch the final turn
+
+        rt = Thread(target=reader, daemon=True)
+        rt.start()
         try:
-            self.prove()
-        finally:
-            self.mcp.stop()
+            proc.wait(timeout=self.agent.timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            self.logger.warning(f"[{name}] agent timed out after {self.agent.timeout}s")
+        rt.join(timeout=5)
 
-    def _save(
-        self, name: str, func_src: str, spec_src: str | None, status: str
-    ) -> None:
-        out = self.config.output_dir / name
-        out.mkdir(parents=True, exist_ok=True)
-        (out / "Function.lean").write_text(func_src)
-        (out / "status.txt").write_text(status + "\n")
-        if spec_src is not None:
-            (out / "Spec.lean").write_text(spec_src)
+        if last_answer:
+            self.logger.info(f"[{name}] final answer:\n{last_answer}")
+
+        return self._newest_session(before)
+
+    # --- session-log helpers ---
+
+    def _session_dirs(self) -> list[Path]:
+        sessions = self.ws / ".vibe" / "sessions"
+        if not sessions.is_dir():
+            return []
+        return [
+            p
+            for p in sessions.iterdir()
+            if p.is_dir() and p.name.startswith(self._SESSION_PREFIX)
+        ]
+
+    def _newest_session(self, before: set[str]) -> Path | None:
+        new = [p for p in self._session_dirs() if p.name not in before]
+        return max(new, key=lambda p: p.stat().st_mtime) if new else None
 
     @staticmethod
-    def _summarize(results) -> None:
-        def verdict(spec: str | None, status: str) -> str:
-            if status == "build_failed":
-                return "BUILD_FAIL"
-            if status != "ok":
-                return "ERROR"
-            return "UNPROVED" if spec and _has_sorry(spec) else "PROVED"
+    def _turns(messages_file: Path) -> int:
+        """Number of assistant entries in a session's messages.jsonl (one per turn)."""
+        try:
+            n = 0
+            with messages_file.open() as f:
+                for line in f:
+                    try:
+                        if json.loads(line).get("role") == "assistant":
+                            n += 1
+                    except json.JSONDecodeError:
+                        pass  # trailing partial line still being written
+            return n
+        except OSError:
+            return 0
 
-        print("\n=== Evaluation summary ===")
-        for name, spec, status in results:
-            print(f"  {name:<40} {verdict(spec, status)}")
+    @staticmethod
+    def _bar(done: int, total: int, width: int = 20) -> str:
+        if total <= 0:
+            return f"{done}"
+        filled = min(width, round(done / total * width))
+        return "█" * filled + "░" * (width - filled)
 
-        counts: dict[str, int] = {}
-        for _, spec, status in results:
-            v = verdict(spec, status)
-            counts[v] = counts.get(v, 0) + 1
-        print(
-            f"\n{len(results)} testcases -> "
-            + ", ".join(
-                f"{v}: {counts.get(v, 0)}"
-                for v in ("PROVED", "UNPROVED", "BUILD_FAIL", "ERROR")
-            )
-        )
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the agent evaluation pipeline")
-    parser.add_argument(
-        "--config", default=str(DEFAULT_CONFIG), help="Path to config.toml"
-    )
-    args = parser.parse_args()
-    engine = LeanProverEngine(Config.load(Path(args.config)))
-    engine.start()
+    @staticmethod
+    def _max_turns(args: list[str]) -> int | None:
+        if "--max-turns" not in args:
+            return None
+        try:
+            return int(args[args.index("--max-turns") + 1])
+        except (ValueError, IndexError):
+            return None

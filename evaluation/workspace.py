@@ -8,10 +8,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from evaluation.logger import get_logger
 from utils.runner import CmdRunner
 
-# The Lean library name. `create_workspace` produces a package named after it and `setup_testcase` copies each benchmark case into `<LIB>/Function.lean` and `<LIB>/Spec.lean`.
+# The Lean library name. `create_workspace` produces a package named after it.
 LIB = "RustVerif"
+logger = get_logger(None, "Workspace")
 
 
 def aeneas_pinned_commit() -> str:
@@ -49,22 +51,27 @@ def create_workspace(
     workspace = Path(workspace_path)
     # Already initialized (e.g. from a previous run): reuse it as-is.
     if (workspace / ".git").exists():
+        logger.info(f"reusing workspace {workspace}")
         return
 
     # Toolchain: build aeneas + Mathlib from scratch, or copy a prebuilt base.
     if base_dir is not None and Path(base_dir).is_dir():
+        logger.info(f"copying base mirror -> {workspace}")
         shutil.copytree(base_dir, workspace, symlinks=True, dirs_exist_ok=True)
     else:
         _build_workspace(workspace_path)
 
     # Deploy the project-local vibe config (config.toml, agents/, ...).
     if vibe_dir is not None and Path(vibe_dir).is_dir():
+        logger.info(f"deploying vibe config -> {workspace / '.vibe'}")
         shutil.copytree(vibe_dir, workspace / ".vibe", dirs_exist_ok=True)
     if mcp_port is not None:
+        logger.info(f"pointing mcp server at port {mcp_port}")
         point_mcp_server(workspace, mcp_port)
 
     # Save a checkpoint so the workspace can be reset between test cases.
-    runner = CmdRunner(cwd=workspace_path)
+    logger.info(f"saving git checkpoint in {workspace}")
+    runner = CmdRunner(cwd=workspace_path, verbose=False)
     runner.run("git init")
     runner.run("git add -A")
     runner.run(
@@ -92,16 +99,19 @@ def _build_workspace(workspace_path: str):
     """Build the aeneas toolchain and Mathlib from scratch in ``workspace_path``."""
     workspace = Path(workspace_path)
     os.makedirs(workspace, exist_ok=True)
-    runner = CmdRunner(cwd=workspace_path)
+    logger.info(f"building workspace {workspace} from scratch")
+    runner = CmdRunner(cwd=workspace_path, verbose=False)
     runner.run(f"lake init {LIB}")
 
     # Pin aeneas to the same commit this repository's submodule uses
     aeneas_commit = aeneas_pinned_commit()
+    logger.info(f"cloning aeneas @ {aeneas_commit[:8]}")
     runner.run("git clone https://github.com/AeneasVerif/aeneas.git")
     runner.cd("aeneas")
     runner.run(f"git checkout {aeneas_commit}")
     # Fail fast if the checkout did not land on the expected commit.
     runner.run(f'test "$(git rev-parse HEAD)" = "{aeneas_commit}"')
+    logger.info("building aeneas (make setup-charon && make)")
     runner.run("make setup-charon")
     runner.run("make")
     runner.cd("..")
@@ -127,27 +137,11 @@ path = "./aeneas/backends/lean"\n
         f'import {LIB}\n\ndef main : IO Unit :=\n  IO.println s!"Hello, {{hello}}!"\n'
     )
 
+    logger.info("lake update")
     runner.run("cp ./aeneas/backends/lean/lean-toolchain ./lean-toolchain")
     runner.run("lake update -v")
+    logger.info("lake build (Mathlib)")
     runner.run("lake build")
-
-
-def setup_testcase(workspace_path: str, func_src: str, spec_src: str):
-    """Install a test case's translated function and specification.
-
-    The translated function is written to ``RustVerif/Function.lean`` (it only imports ``Aeneas``, so no import fixing is needed). The specification's ``import LeanMode.<dir>.<Crate>`` line is rewritten to ``import RustVerif.Function``.
-    """
-    lib = Path(workspace_path) / LIB
-    (lib / "Function.lean").write_text(func_src)
-    spec_src = re.sub(r"import LeanMode\.[^\n]+", f"import {LIB}.Function", spec_src)
-    (lib / "Spec.lean").write_text(spec_src)
-
-
-def clear_workspace(workspace_path: str):
-    """Restore the workspace to its checkpoint, keeping ``.lake`` and ``aeneas``."""
-    runner = CmdRunner(cwd=workspace_path)
-    runner.run("git reset --hard HEAD", verbose=False, panic=False)
-    runner.run("git clean -fd", verbose=False, panic=False)
 
 
 if __name__ == "__main__":
