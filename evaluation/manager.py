@@ -17,7 +17,8 @@ from multiprocessing import Process, Queue
 from pathlib import Path
 
 from evaluation.config import AgentConfig, Config, DEFAULT_CONFIG, McpConfig
-from evaluation.logger import get_logger
+from evaluation.logger import configure, get_logger
+from evaluation.progress import StatusBoard
 from evaluation.prover import Prover
 from evaluation.testcase import TestCase
 from evaluation.workspace import create_workspace
@@ -35,13 +36,30 @@ def _worker(
     mcp: McpConfig,
     output_dir: Path,
 ) -> None:
-    """One worker process: prove queued test cases in its own workspace copy."""
-    with Prover(base_dir, worker_dir, index, agent, mcp, output_dir) as prover:
+    """One worker process: prove queued test cases in its own workspace copy.
+
+    All output is shipped to the manager over ``output_queue`` as tagged tuples
+    — ``("log", text)``, ``("progress", index, text)``, ``("result", index,
+    name, spec, status)`` — so a single writer owns the terminal.
+    """
+    configure(
+        lambda m: output_queue.put(("log", m.rstrip("\n"))),
+        colorize=True,
+    )
+    with Prover(
+        base_dir,
+        worker_dir,
+        index,
+        agent,
+        mcp,
+        output_dir,
+        progress=lambda text: output_queue.put(("progress", index, text)),
+    ) as prover:
         while True:
             case = input_queue.get()
             if case is None:
                 return
-            output_queue.put(prover.prove(case))
+            output_queue.put(("result", index, *prover.prove(case)))
 
 
 class Manager:
@@ -80,12 +98,27 @@ class Manager:
         for w in workers:
             w.start()
 
+        board = StatusBoard([f"ws-{i}" for i in range(self.config.num_workers)])
+
         for case in cases:
             self.input_queue.put(case)
         for _ in workers:
             self.input_queue.put(None)
 
-        results = [self.output_queue.get() for _ in cases]
+        results = []
+        pending = len(cases)
+        while pending:
+            msg = self.output_queue.get()
+            kind = msg[0]
+            if kind == "log":
+                board.log(msg[1])
+            elif kind == "progress":
+                board.update(msg[1], msg[2])
+            else:  # ("result", index, name, spec, status)
+                _, index, name, spec, status = msg
+                results.append((name, spec, status))
+                pending -= 1
+                board.update(index, f"{name} · {status}")
         for w in workers:
             w.join()
 

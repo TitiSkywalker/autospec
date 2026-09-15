@@ -40,6 +40,7 @@ class Prover:
         agent: AgentConfig,
         mcp: McpConfig,
         output_dir: Path,
+        progress=None,
     ):
         self.base_dir = base_dir
         self.ws = worker_dir / f"ws-{index}"
@@ -47,6 +48,7 @@ class Prover:
         self.agent = agent
         self.mcp = mcp
         self.output_dir = output_dir
+        self.progress = progress  # callable(text) -> reports turn progress
         self.mcp_proc: subprocess.Popen | None = None
         self.logger = get_logger(self)
 
@@ -215,9 +217,11 @@ class Prover:
                 if n != turn_count:
                     turn_count = n
                     total = f"/{max_turns}" if max_turns else ""
-                    self.logger.info(
-                        f"[{name}] [{self._bar(n, max_turns)}] {n}{total}"
-                    )
+                    line = f"{name} {self._bar(n, max_turns)} {n}{total}"
+                    if self.progress is not None:
+                        self.progress(line)
+                    else:
+                        self.logger.info(line)
 
         def reader() -> None:
             for line in proc.stdout:
