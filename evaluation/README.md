@@ -30,6 +30,42 @@ The Lean proving agent could be any system that runs inside a terminal. We simpl
 vibe -p "Prove the theorems inside `RustVerif/Spec.lean`" --agent lean --auto-approve --max-turns N
 ```
 
+Two agent backends are supported, both listed in one config file under
+`[prover.agent.vibe]` and `[prover.agent.claude]`; the `backend` key under
+`[prover]` selects which one to run (see `evaluation/agents.py`). Each table
+takes `command`, `prompt`, `model`, `base_url`, `api_key`, `max_turns`, `args`,
+`timeout`, and `output`:
+
+```toml
+[prover]
+backend = "vibe"            # or "claude"
+
+[prover.agent.vibe]
+command = "vibe"
+model = "leanstral"                      # -> VIBE_ACTIVE_MODEL
+base_url = "http://localhost:9000/v1"    # -> provider api_base in .vibe/agents/
+max_turns = 50                           # -> --max-turns 50
+
+[prover.agent.claude]
+command = "claude"
+model = "claude-opus-4-8"                # -> --model
+base_url = ""                            # -> ANTHROPIC_BASE_URL (empty = default)
+api_key = ""                             # -> ANTHROPIC_AUTH_TOKEN (empty = inherit)
+max_turns = 50                           # -> CLAUDE_CODE_MAX_TURNS
+```
+
+- `vibe` — the Leanstral CLI, streaming via `--output streaming`, trace in
+  `.vibe/sessions/`. `model`/`base_url` override the values in
+  `vibe_dir/agents/*.toml` (leave empty to use those defaults).
+- `claude` — the Claude Code CLI, streaming via `--output-format stream-json`,
+  trace in `~/.claude/projects/...`. It is pointed at the per-workspace
+  lean-lsp-mcp HTTP server with an inline `--mcp-config`. `model` becomes
+  `--model`, `base_url` becomes `ANTHROPIC_BASE_URL`, `api_key` becomes the
+  `ANTHROPIC_AUTH_TOKEN` bearer token, and `max_turns` becomes
+  `CLAUDE_CODE_MAX_TURNS` (empty fields fall back to the ambient shell env).
+  Claude Code has no `--max-turns` flag; use `max_turns` (turns) or add
+  `--max-budget-usd <amount>` to `args` (cost).
+
 > Optionally, we should setup SKILLs and MCP servers for agents.
 
 ## Evaluation

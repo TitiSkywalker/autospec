@@ -52,11 +52,19 @@ class TestCase:
         runner.run("git clean -fd", verbose=False, panic=False)
 
     def extract(self, ws: Path, output_dir: Path, session: Path | None) -> str:
-        """Archive the vibe trace (if any) and return the proved ``Spec.lean`` text."""
+        """Archive the agent trace (if any) and return the proved ``Spec.lean`` text.
+
+        ``session`` is a directory for vibe (``.vibe/sessions/...``) or a single
+        transcript file for claude code (``*.jsonl``).
+        """
         if session is not None:
             trace = output_dir / self.name / "trace"
             trace.parent.mkdir(parents=True, exist_ok=True)
             if trace.exists():
                 shutil.rmtree(trace)
-            shutil.copytree(session, trace)
+            if session.is_dir():
+                shutil.copytree(session, trace)
+            else:
+                trace.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(session, trace / session.name)
         return (ws / LIB / "Spec.lean").read_text()

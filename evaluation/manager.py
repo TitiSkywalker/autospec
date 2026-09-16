@@ -118,12 +118,11 @@ class Manager:
                 _, index, name, spec, status = msg
                 results.append((name, spec, status))
                 pending -= 1
+                self._save(name, funcs[name], spec, status)
                 board.update(index, f"{name} · {status}")
         for w in workers:
             w.join()
 
-        for name, spec, status in results:
-            self._save(name, funcs[name], spec, status)
         self._summarize(results)
 
     def _prepare(self) -> None:

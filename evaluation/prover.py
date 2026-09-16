@@ -3,11 +3,10 @@ Proving agent execution.
 
 ``Prover`` owns one workspace: it copies the base mirror into
 ``worker_dir/ws-<i>/``, starts a lean-lsp-mcp server, proves test cases by
-spawning the vibe agent (streaming tool activity and turn progress), then tears
-down the server and its temporary copy.
+spawning the configured agent (vibe or claude code, streaming tool activity and
+turn progress), then tears down the server and its temporary copy.
 """
 
-import json
 import os
 import re
 import shutil
@@ -17,6 +16,7 @@ import time
 from pathlib import Path
 from threading import Thread
 
+from evaluation.agents import make_agent
 from evaluation.config import AgentConfig, McpConfig
 from evaluation.logger import get_logger
 from evaluation.workspace import create_workspace
@@ -25,12 +25,11 @@ from evaluation.workspace import create_workspace
 class Prover:
     """Prove test cases inside one workspace.
 
-    Owns the workspace copy, its lean-lsp-mcp server, and the vibe agent
+    Owns the workspace copy, its lean-lsp-mcp server, and the proving agent
     subprocess. Use as a context manager so the server and temporary copy are torn down on exit.
     """
 
     _STOP_EVENT_RE = re.compile(r"<vibe_stop_event>(.*?)</vibe_stop_event>", re.DOTALL)
-    _SESSION_PREFIX = "session"
 
     def __init__(
         self,
@@ -53,8 +52,12 @@ class Prover:
         self.logger = get_logger(self)
 
     def __enter__(self) -> "Prover":
+        self._agent = make_agent(self.agent, self.mcp, self.port)
+        self._progress("copying base mirror...")
         create_workspace(str(self.ws), base_dir=self.base_dir, mcp_port=self.port)
+        self._progress("starting mcp server...")
         self.mcp_proc = self._start_mcp()
+        self._progress("ready")
         return self
 
     def __exit__(self, *exc_info) -> bool:
@@ -83,14 +86,24 @@ class Prover:
 
     def _build(self, name: str) -> bool:
         """Run ``lake build`` to confirm the installed case compiles."""
+        self._progress(f"{name} building...")
         result = subprocess.run(
             ["lake", "build"], cwd=self.ws, capture_output=True, text=True
         )
         if result.returncode == 0:
+            self._progress(f"{name} build ok")
             return True
         tail = "\n".join((result.stderr or result.stdout).splitlines()[-6:])
         self.logger.warning(f"[{name}] baseline build failed:\n{tail}")
+        self._progress(f"{name} build failed")
         return False
+
+    def _progress(self, text: str) -> None:
+        """Route a status line to the progress board (or the log when standalone)."""
+        if self.progress is not None:
+            self.progress(text)
+        else:
+            self.logger.info(text)
 
     def _start_mcp(self) -> subprocess.Popen:
         """Launch a lean-lsp-mcp HTTP server and wait until it binds ``self.port``."""
@@ -121,46 +134,64 @@ class Prover:
         return proc
 
     def _run_agent(self, name: str) -> Path | None:
-        """Spawn the vibe agent, stream its log + turn progress, and return the
-        newest vibe session (or None)."""
-        max_turns = self._max_turns(self.agent.args)
-        before = {p.name for p in self._session_dirs()}
+        """Spawn the proving agent, stream its log + turn progress, and return
+        the newest session trace (or None)."""
+        max_turns = self.agent.max_turns
+        before = {p.name for p in self._agent.sessions(self.ws)}
 
-        header = f"[{name}] running agent in {self.ws.name}"
+        header = f"[{name}] running {self._agent.kind} agent in {self.ws.name}"
         if max_turns is not None:
             header += f" (max {max_turns} turns)"
         self.logger.info(header)
 
-        cmd = (
-            [self.agent.command, "-p", self.agent.prompt]
-            + self.agent.args
-            + ["--output", self.agent.output]
-        )
-        if self.agent.output != "streaming":
+        self._agent.prepare(self.ws)
+        cmd = self._agent.argv()
+        if not self._agent.is_streaming():
             try:
-                subprocess.run(cmd, cwd=self.ws, timeout=self.agent.timeout)
+                subprocess.run(
+                    cmd, cwd=self.ws, timeout=self.agent.timeout,
+                    env={**os.environ, **self._agent.env()},
+                    stdin=subprocess.DEVNULL,
+                )
             except subprocess.TimeoutExpired:
-                self.logger.warning(f"[{name}] agent timed out after {self.agent.timeout}s")
-            return self._newest_session(before)
+                self.logger.warning(
+                    f"[{name}] agent timed out after {self.agent.timeout}s"
+                )
+            return self._newest(self._agent.sessions(self.ws), before)
 
-        # ``--output streaming`` emits one JSON line per history entry: an "effect"
-        # is a completed tool call, an assistant "message" is model text. Vibe does
-        # not surface its turn counter, so turns are read from the session log.
+        # Streaming output emits one JSON line per history entry; the agent
+        # backend maps each line to a normalized event (a completed tool call
+        # is the main unit of work). The session trace is written in batches,
+        # so reading it lags behind the live stream.
         proc = subprocess.Popen(
             cmd,
             cwd=self.ws,
+            stdin=subprocess.DEVNULL,  # agents run non-interactively: don't wait on stdin
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             encoding="utf-8",
             errors="replace",
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env={**os.environ, "PYTHONUNBUFFERED": "1", **self._agent.env()},
         )
 
         last_answer = ""
         stop_reported = False
-        session = None
-        turn_count = 0
+        steps = 0
+        last_tool = ""
+        started = time.monotonic()
+
+        def progress_line() -> str:
+            line = (
+                f"{name} · {steps} tools · "
+                f"{self._fmt_elapsed(time.monotonic() - started)}"
+            )
+            if last_tool:
+                line += f" · {last_tool}"
+            return line
+
+        def report_progress() -> None:
+            self._progress(progress_line())
 
         def report_stop(text: str) -> None:
             nonlocal stop_reported
@@ -173,64 +204,37 @@ class Prover:
             )
 
         def relay(line: str) -> None:
-            nonlocal last_answer
-            line = line.rstrip("\n")
-            if not line:
+            nonlocal last_answer, steps, last_tool
+            event = self._agent.parse_stream_line(line.rstrip("\n"))
+            if event is None:
                 return
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                if "vibe_stop_event" in line:
-                    report_stop(line)
-                else:
-                    self.logger.info(line)  # e.g. trust warning -> pass through
-                return
-            kind = entry.get("type")
-            if kind == "effect":
-                detail = entry.get("detail") or {}
-                tool = entry.get("title") or detail.get("toolName") or "tool"
-                status = (entry.get("state") or {}).get("status")
-                mark = (
-                    "✓"
-                    if status == "completed"
-                    else "✗" if status in ("failed", "cancelled") else "•"
-                )
-                self.logger.debug(f"[{name}] {tool} {mark}")
-            elif kind == "message" and entry.get("role") == "assistant":
-                for block in entry.get("content") or []:
-                    if not isinstance(block, dict) or block.get("type") != "text":
-                        continue
-                    text = block.get("text", "").strip()
-                    if not text:
-                        continue
-                    if "vibe_stop_event" in text:
-                        report_stop(text)
-                    else:
-                        last_answer = text
-
-        def poll() -> None:
-            nonlocal session, turn_count
-            if session is None:
-                session = self._newest_session(before)
-            if session is not None:
-                n = self._turns(session / "messages.jsonl")
-                if n != turn_count:
-                    turn_count = n
-                    total = f"/{max_turns}" if max_turns else ""
-                    line = f"{name} {self._bar(n, max_turns)} {n}{total}"
-                    if self.progress is not None:
-                        self.progress(line)
-                    else:
-                        self.logger.info(line)
+            if event.pass_through:
+                self.logger.info(event.pass_through)
+            if event.step:
+                steps += 1
+                last_tool = event.tool
+                if event.tool:
+                    self.logger.debug(f"[{name}] {event.tool}")
+            if event.answer:
+                last_answer = event.answer
+            if event.stop:
+                report_stop(event.stop)
+            report_progress()
 
         def reader() -> None:
             for line in proc.stdout:
                 relay(line)
-                poll()
-            poll()  # catch the final turn
+            report_progress()  # final state
+
+        def heartbeat() -> None:
+            while proc.poll() is None:
+                report_progress()
+                time.sleep(1.0)
 
         rt = Thread(target=reader, daemon=True)
+        ht = Thread(target=heartbeat, daemon=True)
         rt.start()
+        ht.start()
         try:
             proc.wait(timeout=self.agent.timeout)
         except subprocess.TimeoutExpired:
@@ -241,52 +245,23 @@ class Prover:
         if last_answer:
             self.logger.info(f"[{name}] final answer:\n{last_answer}")
 
-        return self._newest_session(before)
+        return self._newest(self._agent.sessions(self.ws), before)
 
     # --- session-log helpers ---
 
-    def _session_dirs(self) -> list[Path]:
-        sessions = self.ws / ".vibe" / "sessions"
-        if not sessions.is_dir():
-            return []
-        return [
-            p
-            for p in sessions.iterdir()
-            if p.is_dir() and p.name.startswith(self._SESSION_PREFIX)
-        ]
-
-    def _newest_session(self, before: set[str]) -> Path | None:
-        new = [p for p in self._session_dirs() if p.name not in before]
+    @staticmethod
+    def _newest(sessions: list[Path], before: set[str]) -> Path | None:
+        """The newest trace (file or dir) created after ``before`` was sampled."""
+        new = [p for p in sessions if p.name not in before]
         return max(new, key=lambda p: p.stat().st_mtime) if new else None
 
     @staticmethod
-    def _turns(messages_file: Path) -> int:
-        """Number of assistant entries in a session's messages.jsonl (one per turn)."""
-        try:
-            n = 0
-            with messages_file.open() as f:
-                for line in f:
-                    try:
-                        if json.loads(line).get("role") == "assistant":
-                            n += 1
-                    except json.JSONDecodeError:
-                        pass  # trailing partial line still being written
-            return n
-        except OSError:
-            return 0
-
-    @staticmethod
-    def _bar(done: int, total: int, width: int = 20) -> str:
-        if total <= 0:
-            return f"{done}"
-        filled = min(width, round(done / total * width))
-        return "█" * filled + "░" * (width - filled)
-
-    @staticmethod
-    def _max_turns(args: list[str]) -> int | None:
-        if "--max-turns" not in args:
-            return None
-        try:
-            return int(args[args.index("--max-turns") + 1])
-        except (ValueError, IndexError):
-            return None
+    def _fmt_elapsed(seconds: float) -> str:
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds}s"
+        m, s = divmod(seconds, 60)
+        if m < 60:
+            return f"{m}m{s:02d}s"
+        h, m = divmod(m, 60)
+        return f"{h}h{m:02d}m"
