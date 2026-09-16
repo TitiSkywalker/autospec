@@ -177,6 +177,7 @@ class Prover:
 
         last_answer = ""
         stop_reported = False
+        capped = False
         steps = 0
         last_tool = ""
         started = time.monotonic()
@@ -204,7 +205,7 @@ class Prover:
             )
 
         def relay(line: str) -> None:
-            nonlocal last_answer, steps, last_tool
+            nonlocal last_answer, steps, last_tool, capped
             event = self._agent.parse_stream_line(line.rstrip("\n"))
             if event is None:
                 return
@@ -215,6 +216,20 @@ class Prover:
                 last_tool = event.tool
                 if event.tool:
                     self.logger.debug(f"[{name}] {event.tool}")
+                cap = self.agent.max_turns
+                if (
+                    not capped
+                    and self._agent.external_max_turns
+                    and cap is not None
+                    and steps > cap
+                ):
+                    # Codex has no native turn cap: enforce ``max_turns`` here by
+                    # killing the process once it exceeds the allowed tool calls.
+                    capped = True
+                    proc.kill()
+                    self.logger.warning(
+                        f"[{name}] stopped: exceeded {cap} tool calls (max_turns)"
+                    )
             if event.answer:
                 last_answer = event.answer
             if event.stop:

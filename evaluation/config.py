@@ -67,7 +67,7 @@ class Config:
         if isinstance(selected, dict):
             agent = selected
         kind = backend
-        default_output = "stream-json" if kind == "claude" else "streaming"
+        default_output = "stream-json" if kind in ("claude", "codex") else "streaming"
         max_turns = agent.get("max_turns")
         max_turns = int(max_turns) if max_turns is not None else None
         return cls(

@@ -36,6 +36,9 @@ class Agent:
 
     kind = "base"
     streaming_output = ""  # the ``cfg.output`` value that selects live streaming
+    # True when the CLI has no native turn cap: the pipeline then enforces
+    # ``max_turns`` itself by killing the process once ``steps`` exceeds it.
+    external_max_turns = False
 
     def __init__(self, cfg: AgentConfig):
         self.cfg = cfg
@@ -243,8 +246,124 @@ class ClaudeAgent(Agent):
         return list(project.glob("*.jsonl"))
 
 
+class CodexAgent(Agent):
+    """OpenAI Codex CLI (``codex exec --json``)."""
+
+    kind = "codex"
+    streaming_output = "stream-json"
+    # Codex has no native turn cap, so the pipeline kills the process once the
+    # number of completed tool calls exceeds ``max_turns``.
+    external_max_turns = True
+    _PROVIDER = "pipeline"  # self-contained provider built from ``base_url``/``api_key``
+    # ``item.completed`` payloads that count as a unit of work (a tool call).
+    _TOOL_TYPES = (
+        "command_execution",
+        "local_shell_call",
+        "mcp_tool_call",
+        "web_search",
+        "computer_use",
+        "apply_patch",
+    )
+
+    def __init__(self, cfg: AgentConfig, mcp: McpConfig, port: int):
+        super().__init__(cfg)
+        self.mcp = mcp
+        self.port = port
+
+    def argv(self) -> list[str]:
+        argv = [self.cfg.command, "exec", self.cfg.prompt] + self.cfg.args
+        if self.cfg.model:
+            argv += ["-m", self.cfg.model]
+        argv += self._provider_overrides()
+        argv += self._mcp_override()
+        if self.is_streaming():
+            argv += ["--json"]
+        return argv
+
+    def _provider_overrides(self) -> list[str]:
+        # When ``base_url`` is set, route through a self-contained provider so the
+        # endpoint/auth are fully specified by config (mirrors claude's
+        # ANTHROPIC_BASE_URL/AUTH_TOKEN). Otherwise inherit ``~/.codex/config.toml``.
+        if not self.cfg.base_url:
+            return []
+        p = self._PROVIDER
+        values = [
+            f"model_provider={p}",
+            f'model_providers.{p}.name="{p}"',
+            f'model_providers.{p}.wire_api="responses"',
+            f'model_providers.{p}.env_key="CODEX_API_KEY"',
+            f'model_providers.{p}.base_url="{self.cfg.base_url}"',
+        ]
+        return [flag for value in values for flag in ("-c", value)]
+
+    def _mcp_override(self) -> list[str]:
+        # Attach this workspace's lean-lsp-mcp HTTP server via a ``-c`` override so
+        # it never lands in the workspace git checkpoint (mirrors ClaudeAgent's
+        # inline ``--mcp-config``).
+        return [
+            "-c",
+            f'mcp_servers.lean-lsp.url="http://{self.mcp.host}:{self.port}/mcp"',
+        ]
+
+    def env(self) -> dict[str, str]:
+        extra = {}
+        if self.cfg.api_key:
+            extra["CODEX_API_KEY"] = self.cfg.api_key
+        return extra
+
+    def parse_stream_line(self, line: str) -> StreamEvent | None:
+        if not line:
+            return None
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            return StreamEvent(pass_through=line)
+
+        if entry.get("type") != "item.completed":
+            return None
+        item = entry.get("item") or {}
+        itype = item.get("type")
+        if itype == "agent_message":
+            return StreamEvent(answer=(item.get("text") or "").strip())
+        if itype in self._TOOL_TYPES:
+            if itype == "mcp_tool_call":
+                label = f"{item.get('server', 'mcp')}/{item.get('tool', 'tool')}"
+            else:
+                label = (item.get("command") or "").strip() or itype
+            return StreamEvent(step=True, tool=f"{label} ✓")
+        # ``reasoning`` and any other payload are not user-visible work units.
+        return None
+
+    def sessions(self, ws: Path) -> list[Path]:
+        # Codex stores one rollout JSONL per session under ~/.codex/sessions/
+        # YYYY/MM/DD/ (shared across all workspaces), keyed by the session's
+        # ``cwd``. Filter to this workspace so concurrent workers don't cross-pick.
+        root = Path.home() / ".codex" / "sessions"
+        if not root.is_dir():
+            return []
+        targets = {str(ws), str(ws.resolve())}
+        out = []
+        for p in root.rglob("*.jsonl"):
+            try:
+                with p.open() as fh:
+                    # Read the whole session_meta line: it embeds the (large)
+                    # base_instructions, so a bounded readline would truncate it.
+                    head = fh.readline()
+            except OSError:
+                continue
+            try:
+                cwd = json.loads(head).get("payload", {}).get("cwd", "")
+            except json.JSONDecodeError:
+                continue
+            if cwd in targets:
+                out.append(p)
+        return out
+
+
 def make_agent(cfg: AgentConfig, mcp: McpConfig, port: int) -> Agent:
     """Factory returning the backend matching ``cfg.kind`` (mirrors algoveri)."""
     if cfg.kind == "claude":
         return ClaudeAgent(cfg, mcp, port)
+    if cfg.kind == "codex":
+        return CodexAgent(cfg, mcp, port)
     return VibeAgent(cfg)

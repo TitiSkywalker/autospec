@@ -30,15 +30,15 @@ The Lean proving agent could be any system that runs inside a terminal. We simpl
 vibe -p "Prove the theorems inside `RustVerif/Spec.lean`" --agent lean --auto-approve --max-turns N
 ```
 
-Two agent backends are supported, both listed in one config file under
-`[prover.agent.vibe]` and `[prover.agent.claude]`; the `backend` key under
-`[prover]` selects which one to run (see `evaluation/agents.py`). Each table
-takes `command`, `prompt`, `model`, `base_url`, `api_key`, `max_turns`, `args`,
-`timeout`, and `output`:
+Three agent backends are supported, all listed in one config file under
+`[prover.agent.vibe]`, `[prover.agent.claude]`, and `[prover.agent.codex]`; the
+`backend` key under `[prover]` selects which one to run (see
+`evaluation/agents.py`). Each table takes `command`, `prompt`, `model`,
+`base_url`, `api_key`, `max_turns`, `args`, `timeout`, and `output`:
 
 ```toml
 [prover]
-backend = "vibe"            # or "claude"
+backend = "vibe"            # or "claude" / "codex"
 
 [prover.agent.vibe]
 command = "vibe"
@@ -52,6 +52,13 @@ model = "claude-opus-4-8"                # -> --model
 base_url = ""                            # -> ANTHROPIC_BASE_URL (empty = default)
 api_key = ""                             # -> ANTHROPIC_AUTH_TOKEN (empty = inherit)
 max_turns = 50                           # -> CLAUDE_CODE_MAX_TURNS
+
+[prover.agent.codex]
+command = "codex"
+model = "gpt-5-codex"                    # -> -m
+base_url = ""                            # -> self-contained provider (empty = inherit ~/.codex/config.toml)
+api_key = ""                             # -> CODEX_API_KEY (empty = inherit shell env)
+max_turns = 50                           # -> pipeline-level tool-call cap (see note below)
 ```
 
 - `vibe` — the Leanstral CLI, streaming via `--output streaming`, trace in
@@ -65,6 +72,17 @@ max_turns = 50                           # -> CLAUDE_CODE_MAX_TURNS
   `CLAUDE_CODE_MAX_TURNS` (empty fields fall back to the ambient shell env).
   Claude Code has no `--max-turns` flag; use `max_turns` (turns) or add
   `--max-budget-usd <amount>` to `args` (cost).
+- `codex` — the OpenAI Codex CLI, streaming via `--json`, trace in
+  `~/.codex/sessions/YYYY/MM/DD/`. It is pointed at the per-workspace
+  lean-lsp-mcp HTTP server with `-c mcp_servers.lean-lsp.url=...`. `model`
+  becomes `-m`; when `base_url` is set, Codex routes through a self-contained
+  `pipeline` provider (with `env_key = "CODEX_API_KEY"`) so `base_url` and
+  `api_key` fully specify the endpoint/token (empty `base_url` inherits
+  `~/.codex/config.toml`). `api_key` becomes the `CODEX_API_KEY` env var (empty
+  = inherit the shell env). **Codex has no native turn cap**, so the pipeline
+  enforces `max_turns` itself: it kills the process once the number of completed
+  tool calls exceeds `max_turns` (Codex's stream has no turn boundary, so
+  "turns" ≈ tool calls here). `timeout` remains the wall-clock backstop.
 
 > Optionally, we should setup SKILLs and MCP servers for agents.
 
