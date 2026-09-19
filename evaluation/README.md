@@ -104,3 +104,22 @@ Each testcase is a Rust-Lean project. It contains Rust source and translated Lea
 During evaluation, `ArrayBinarySearch.lean` and `Spec.lean` should be extracted and copied into workspace directory. This also includes fixing the imports of Lean files.
 
 After the agent stops, we need to check the `Spec.lean` independently to prevent agent from cheating. We collect and save the modified `Spec.lean` to another independent directory for verification.
+
+## Verification
+
+The proving pipeline labels a case `PROVED` only from a `sorry`/`admit` regex
+heuristic and never compiles the agent's final `Spec.lean`. Run the independent
+verifier after proving to actually typecheck each saved proof:
+
+```
+python -m evaluation.verifier --config evaluation/local/config.toml
+```
+
+Each verifier worker copies the base mirror into its own workspace
+(`[verifier].worker_dir`), compiles `<case>/Function.lean` + `<case>/Spec.lean`
+with `lake build`, and writes `<case>/verdict.txt` (plus `<case>/build.log` on
+failure). Verdicts:
+
+- `PROVED` — compiles and no `sorry`/`admit` remain.
+- `UNPROVED` — compiles but the spec still has `sorry`/`admit`.
+- `BUILD_FAIL` — does not compile (broken/inconsistent proof).

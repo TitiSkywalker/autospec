@@ -34,6 +34,12 @@ class McpConfig:
 
 
 @dataclass
+class VerifierConfig:
+    worker_dir: Path  # where verifier workers copy the base mirror
+    workers: int      # number of parallel verifier processes
+
+
+@dataclass
 class Config:
     input_dir: Path
     output_dir: Path
@@ -42,6 +48,7 @@ class Config:
     num_workers: int
     agent: AgentConfig
     mcp: McpConfig
+    verifier: VerifierConfig
     vibe_dir: Path | None
 
     @classmethod
@@ -58,6 +65,13 @@ class Config:
         mcp = prover["mcp"]
         workspace = data["workspace"]
         vibe_dir = workspace.get("vibe_dir")
+
+        # ``[verifier]`` configures the independent proof-verification stage.
+        verifier = data.get("verifier", {})
+        verifier_workers = int(verifier.get("workers", workspace["workers"]))
+        verifier_worker_dir = resolve(
+            verifier.get("worker_dir", "evaluation/local/verify_workers/")
+        )
 
         # ``backend`` selects one of the ``[prover.agent.<backend>]`` tables.
         # Fall back to a flat ``[prover.agent]`` table for backwards compat.
@@ -94,6 +108,10 @@ class Config:
                 host=mcp["host"],
                 start_port=int(mcp["start_port"]),
                 ready_timeout=float(mcp["ready_timeout"]),
+            ),
+            verifier=VerifierConfig(
+                worker_dir=verifier_worker_dir,
+                workers=verifier_workers,
             ),
             vibe_dir=resolve(vibe_dir) if vibe_dir else None,
         )
