@@ -11,6 +11,10 @@ import sys
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 _CLEAR = "\x1b[2K"  # erase the entire line
+# Status-board lines are rendered faint (dim) so they read as lighter than the
+# scrolling log lines above them. Swap to "\x1b[90m" for an explicit gray.
+_DIM = "\x1b[2m"
+_RESET = "\x1b[0m"
 
 
 class StatusBoard:
@@ -53,7 +57,8 @@ class StatusBoard:
 
     def _slot(self, i):
         text = self.texts[i]
-        return f"[{self.labels[i]}] {text}" if text else f"[{self.labels[i]}]"
+        line = f"[{self.labels[i]}] {text}" if text else f"[{self.labels[i]}]"
+        return f"{_DIM}{line}{_RESET}"
 
     @staticmethod
     def _plain(text):

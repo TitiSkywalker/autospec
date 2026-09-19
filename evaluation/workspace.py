@@ -145,4 +145,4 @@ path = "./aeneas/backends/lean"\n
 
 
 if __name__ == "__main__":
-    create_workspace("./local/base/")
+    create_workspace("evaluation/local/base/")
