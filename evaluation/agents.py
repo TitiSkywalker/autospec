@@ -24,11 +24,11 @@ from evaluation.config import AgentConfig, McpConfig
 class StreamEvent:
     """One normalized event parsed from an agent's live stdout stream."""
 
-    step: bool = False          # counts as one unit of work (a tool call / turn)
-    tool: str = ""              # label for the progress line, e.g. "Bash ✓"
-    answer: str = ""            # latest assistant text (the final answer)
-    stop: str = ""              # non-empty => agent signalled completion
-    pass_through: str = ""      # raw line to log verbatim (e.g. trust warnings)
+    step: bool = False  # counts as one unit of work (a tool call / turn)
+    tool: str = ""  # label for the progress line, e.g. "Bash ✓"
+    answer: str = ""  # latest assistant text (the final answer)
+    stop: str = ""  # non-empty => agent signalled completion
+    pass_through: str = ""  # raw line to log verbatim (e.g. trust warnings)
 
 
 class Agent:
@@ -66,6 +66,20 @@ class Agent:
     def sessions(self, ws: Path) -> list[Path]:
         """Trace candidates (files or dirs) a run in ``ws`` may have produced."""
         raise NotImplementedError
+
+    def resume_argv(self, session_id: str) -> list[str]:
+        """argv to resume ``session_id`` after an abnormal exit."""
+        raise NotImplementedError
+
+    def session_id(self, trace: Path) -> str | None:
+        """Extract the resume-able session id from a trace path, or ``None``."""
+        return None
+
+    def is_limit_stop(self, stop: str) -> bool:
+        """Whether a reported ``stop`` signal means the agent exhausted its own
+        budget (a controlled limit stop, e.g. ``max_turns``), as opposed to a
+        backend/crash failure. The pipeline skips resume-retries for limit stops."""
+        return False
 
 
 class VibeAgent(Agent):
@@ -154,6 +168,25 @@ class VibeAgent(Agent):
             if p.is_dir() and p.name.startswith(self._SESSION_PREFIX)
         ]
 
+    def resume_argv(self, session_id: str) -> list[str]:
+        # ``--resume`` re-enters programmatic mode but still requires a prompt
+        # (appended as the follow-up message), so re-send the original goal.
+        argv = [self.cfg.command, "-p", self.cfg.prompt, "--resume", session_id]
+        argv += self.cfg.args
+        if self.cfg.max_turns is not None:
+            argv += ["--max-turns", str(self.cfg.max_turns)]
+        return argv + ["--output", self.cfg.output]
+
+    def session_id(self, trace: Path) -> str | None:
+        # A vibe trace is a session dir; the resume id is ``meta.json``'s UUID.
+        meta = trace / "meta.json"
+        if not meta.is_file():
+            return None
+        try:
+            return json.loads(meta.read_text()).get("session_id")
+        except (json.JSONDecodeError, OSError):
+            return None
+
 
 class ClaudeAgent(Agent):
     """Claude Code CLI (``claude -p --output-format stream-json``)."""
@@ -166,11 +199,11 @@ class ClaudeAgent(Agent):
         self.mcp = mcp
         self.port = port
 
-    def argv(self) -> list[str]:
+    def _mcp_json(self) -> str:
         # Point Claude Code at this workspace's lean-lsp-mcp HTTP server. The
         # JSON is passed inline so it never lands in the workspace's git
         # checkpoint (which ``git reset`` would otherwise wipe between cases).
-        mcp_json = json.dumps(
+        return json.dumps(
             {
                 "mcpServers": {
                     "lean-lsp": {
@@ -180,13 +213,20 @@ class ClaudeAgent(Agent):
                 }
             }
         )
+
+    def argv(self) -> list[str]:
         argv = [self.cfg.command, "-p", self.cfg.prompt] + self.cfg.args
         if self.cfg.model:
             argv += ["--model", self.cfg.model]
         if self.is_streaming():
             # ``-p --output-format stream-json`` requires --verbose.
             argv += ["--verbose"]
-        return argv + ["--output-format", self.cfg.output, "--mcp-config", mcp_json]
+        return argv + [
+            "--output-format",
+            self.cfg.output,
+            "--mcp-config",
+            self._mcp_json(),
+        ]
 
     def env(self) -> dict[str, str]:
         extra = {}
@@ -245,6 +285,30 @@ class ClaudeAgent(Agent):
             return []
         return list(project.glob("*.jsonl"))
 
+    def resume_argv(self, session_id: str) -> list[str]:
+        argv = [self.cfg.command, "--resume", session_id, "-p", self.cfg.prompt]
+        argv += self.cfg.args
+        if self.cfg.model:
+            argv += ["--model", self.cfg.model]
+        if self.is_streaming():
+            argv += ["--verbose"]
+        return argv + [
+            "--output-format",
+            self.cfg.output,
+            "--mcp-config",
+            self._mcp_json(),
+        ]
+
+    def session_id(self, trace: Path) -> str | None:
+        # A claude trace is ``<session-uuid>.jsonl``; the id is the filename stem.
+        return trace.stem or None
+
+    def is_limit_stop(self, stop: str) -> bool:
+        # Claude Code's stream-json ends with a ``result`` event whose ``subtype``
+        # reports the stop reason; ``error_max_turns`` is its own turn budget
+        # (CLAUDE_CODE_MAX_TURNS), not a backend failure.
+        return stop == "error_max_turns"
+
 
 class CodexAgent(Agent):
     """OpenAI Codex CLI (``codex exec --json``)."""
@@ -254,7 +318,9 @@ class CodexAgent(Agent):
     # Codex has no native turn cap, so the pipeline kills the process once the
     # number of completed tool calls exceeds ``max_turns``.
     external_max_turns = True
-    _PROVIDER = "pipeline"  # self-contained provider built from ``base_url``/``api_key``
+    _PROVIDER = (
+        "pipeline"  # self-contained provider built from ``base_url``/``api_key``
+    )
     # ``item.completed`` payloads that count as a unit of work (a tool call).
     _TOOL_TYPES = (
         "command_execution",
@@ -358,6 +424,28 @@ class CodexAgent(Agent):
             if cwd in targets:
                 out.append(p)
         return out
+
+    def resume_argv(self, session_id: str) -> list[str]:
+        # ``codex exec resume <id> <prompt>`` re-attaches to the session and
+        # sends ``prompt`` as the follow-up message.
+        argv = [self.cfg.command, "exec", "resume", session_id, self.cfg.prompt]
+        if self.cfg.model:
+            argv += ["-m", self.cfg.model]
+        argv += self._provider_overrides()
+        argv += self._mcp_override()
+        if self.is_streaming():
+            argv += ["--json"]
+        return argv
+
+    def session_id(self, trace: Path) -> str | None:
+        # A codex trace is a rollout JSONL; the resume id lives in the first
+        # line's ``session_meta`` payload.
+        try:
+            with trace.open() as fh:
+                head = fh.readline()
+            return json.loads(head).get("payload", {}).get("session_id")
+        except (json.JSONDecodeError, OSError, AttributeError):
+            return None
 
 
 def make_agent(cfg: AgentConfig, mcp: McpConfig, port: int) -> Agent:

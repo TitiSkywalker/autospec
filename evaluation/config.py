@@ -22,6 +22,8 @@ class AgentConfig:
     base_url: str = ""   # API base URL (empty => backend default)
     api_key: str = ""    # API/auth token (empty => inherit from environment)
     max_turns: int | None = None  # turn cap (None => unlimited)
+    retries: int = 0            # resume-retries after an abnormal agent exit
+    retry_backoff: float = 0.0  # base backoff seconds (exponential + jitter)
 
 
 @dataclass
@@ -84,6 +86,8 @@ class Config:
         default_output = "stream-json" if kind in ("claude", "codex") else "streaming"
         max_turns = agent.get("max_turns")
         max_turns = int(max_turns) if max_turns is not None else None
+        retries = int(agent.get("retries", 0))
+        retry_backoff = float(agent.get("retry_backoff", 0.0))
         return cls(
             input_dir=resolve(prover["input_dir"]),
             output_dir=resolve(prover["output_dir"]),
@@ -101,6 +105,8 @@ class Config:
                 base_url=agent.get("base_url", ""),
                 api_key=agent.get("api_key", ""),
                 max_turns=max_turns,
+                retries=retries,
+                retry_backoff=retry_backoff,
             ),
             mcp=McpConfig(
                 command=mcp["command"],

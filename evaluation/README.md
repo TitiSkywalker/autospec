@@ -34,7 +34,8 @@ Three agent backends are supported, all listed in one config file under
 `[prover.agent.vibe]`, `[prover.agent.claude]`, and `[prover.agent.codex]`; the
 `backend` key under `[prover]` selects which one to run (see
 `evaluation/agents.py`). Each table takes `command`, `prompt`, `model`,
-`base_url`, `api_key`, `max_turns`, `args`, `timeout`, and `output`:
+`base_url`, `api_key`, `max_turns`, `retries`, `retry_backoff`, `args`,
+`timeout`, and `output`:
 
 ```toml
 [prover]
@@ -45,6 +46,8 @@ command = "vibe"
 model = "leanstral"                      # -> VIBE_ACTIVE_MODEL
 base_url = "http://localhost:9000/v1"    # -> provider api_base in .vibe/agents/
 max_turns = 50                           # -> --max-turns 50
+retries = 3                              # -> resume-retries after an abnormal exit
+retry_backoff = 10.0                     # -> base backoff seconds (exponential + jitter)
 
 [prover.agent.claude]
 command = "claude"
@@ -83,6 +86,15 @@ max_turns = 50                           # -> pipeline-level tool-call cap (see 
   enforces `max_turns` itself: it kills the process once the number of completed
   tool calls exceeds `max_turns` (Codex's stream has no turn boundary, so
   "turns" ≈ tool calls here). `timeout` remains the wall-clock backstop.
+
+**Resilience.** A non-zero agent exit that the pipeline didn't cause itself
+(timeout / `max_turns` cap) is treated as a backend failure. When `retries >
+0`, the prover re-launches the agent with its CLI resume flag — `vibe
+--resume`, `claude --resume`, `codex exec resume` — after an exponential
+backoff with jitter (`retry_backoff` seconds, doubling each attempt). The
+resume session id is read from the newest session trace, so each backend keeps
+its proof progress across a transient vLLM / external-API outage instead of
+losing it. `retries = 0` (the default) disables this.
 
 > Optionally, we should setup SKILLs and MCP servers for agents.
 

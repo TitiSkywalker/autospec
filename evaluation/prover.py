@@ -8,8 +8,10 @@ turn progress), then tears down the server and its temporary copy.
 """
 
 import os
+import random
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import time
@@ -134,8 +136,7 @@ class Prover:
         return proc
 
     def _run_agent(self, name: str) -> Path | None:
-        """Spawn the proving agent, stream its log + turn progress, and return
-        the newest session trace (or None)."""
+        """Spawn the proving agent, resume it on abnormal exit, and return the newest session trace (or None)."""
         max_turns = self.agent.max_turns
         before = {p.name for p in self._agent.sessions(self.ws)}
 
@@ -145,11 +146,43 @@ class Prover:
         self.logger.info(header)
 
         self._agent.prepare(self.ws)
-        cmd = self._agent.argv()
+
+        session_id = None
+        attempt = 0
+        while True:
+            cmd = (
+                self._agent.argv()
+                if attempt == 0
+                else self._agent.resume_argv(session_id)
+            )
+            if not self._run_once(name, cmd) or attempt >= self.agent.retries:
+                break
+            attempt += 1
+            newest = self._newest(self._agent.sessions(self.ws), before)
+            session_id = self._agent.session_id(newest) if newest else None
+            if session_id is None:
+                self.logger.warning(
+                    f"[{name}] agent died but no session id found; giving up"
+                )
+                break
+            delay = self._retry_delay(attempt)
+            self.logger.warning(
+                f"[{name}] agent died; resuming session {session_id[:8]}… "
+                f"in {delay:.1f}s (attempt {attempt}/{self.agent.retries})"
+            )
+            time.sleep(delay)
+
+        return self._newest(self._agent.sessions(self.ws), before)
+
+    def _run_once(self, name: str, cmd: list[str]) -> bool:
+        """Run one agent invocation; return True when it exited abnormally
+        (a backend failure worth resuming), False otherwise."""
         if not self._agent.is_streaming():
             try:
-                subprocess.run(
-                    cmd, cwd=self.ws, timeout=self.agent.timeout,
+                result = subprocess.run(
+                    cmd,
+                    cwd=self.ws,
+                    timeout=self.agent.timeout,
                     env={**os.environ, **self._agent.env()},
                     stdin=subprocess.DEVNULL,
                 )
@@ -157,7 +190,13 @@ class Prover:
                 self.logger.warning(
                     f"[{name}] agent timed out after {self.agent.timeout}s"
                 )
-            return self._newest(self._agent.sessions(self.ws), before)
+                return False
+            if result.returncode != 0:
+                self.logger.warning(
+                    f"[{name}] agent failed: {self._exit_reason(result.returncode)}"
+                )
+                return True
+            return False
 
         # Streaming output emits one JSON line per history entry; the agent
         # backend maps each line to a normalized event (a completed tool call
@@ -176,6 +215,7 @@ class Prover:
         )
 
         last_answer = ""
+        stop_reason = ""
         stop_reported = False
         capped = False
         steps = 0
@@ -205,7 +245,7 @@ class Prover:
             )
 
         def relay(line: str) -> None:
-            nonlocal last_answer, steps, last_tool, capped
+            nonlocal last_answer, stop_reason, steps, last_tool, capped
             event = self._agent.parse_stream_line(line.rstrip("\n"))
             if event is None:
                 return
@@ -233,6 +273,7 @@ class Prover:
             if event.answer:
                 last_answer = event.answer
             if event.stop:
+                stop_reason = event.stop
                 report_stop(event.stop)
             report_progress()
 
@@ -250,19 +291,53 @@ class Prover:
         ht = Thread(target=heartbeat, daemon=True)
         rt.start()
         ht.start()
+        timed_out = False
         try:
             proc.wait(timeout=self.agent.timeout)
         except subprocess.TimeoutExpired:
+            timed_out = True
             proc.kill()
             self.logger.warning(f"[{name}] agent timed out after {self.agent.timeout}s")
         rt.join(timeout=5)
 
+        # A non-zero exit that we didn't cause ourselves means the agent died on
+        # its own — e.g. a backend failure or a crash — so surface it instead of
+        # silently treating it as "ok". A controlled limit stop (e.g. claude's
+        # ``error_max_turns``) is not a failure: it exhausted its budget cleanly,
+        # so do not resume it.
+        code = proc.returncode
+        limit_stop = self._agent.is_limit_stop(stop_reason)
+        abnormal = code not in (0, None) and not timed_out and not capped and not limit_stop
+        if abnormal:
+            self.logger.warning(f"[{name}] agent failed: {self._exit_reason(code)}")
+
         if last_answer:
             self.logger.info(f"[{name}] final answer:\n{last_answer}")
 
-        return self._newest(self._agent.sessions(self.ws), before)
+        return abnormal
 
     # --- session-log helpers ---
+
+    def _retry_delay(self, attempt: int) -> float:
+        """Exponential backoff with jitter for resume-retries."""
+        base = self.agent.retry_backoff
+        if base <= 0:
+            return 0.0
+        return base * (2 ** (attempt - 1)) * (0.5 + random.random())
+
+    @staticmethod
+    def _exit_reason(code: int | None) -> str:
+        """Human-readable description of an agent subprocess exit status."""
+        if code is None:
+            return "still running"
+        if code == 0:
+            return "exited cleanly"
+        if code < 0:
+            try:
+                return f"killed by {signal.Signals(-code).name}"
+            except ValueError:
+                return f"killed by signal {-code}"
+        return f"exit code {code}"
 
     @staticmethod
     def _newest(sessions: list[Path], before: set[str]) -> Path | None:

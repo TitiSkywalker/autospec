@@ -71,11 +71,22 @@ class Manager:
         self.output_queue: Queue = Queue()
         self.logger = get_logger(self)
 
-    def run(self) -> None:
+    def run(self, skip_existing: bool = False) -> None:
         self._prepare()
         cases = TestCase.scan(self.config.input_dir)
         if not cases:
             self.logger.warning(f"No testcases found in {self.config.input_dir}")
+            return
+        if skip_existing:
+            done = [c for c in cases if self._already_done(c.name)]
+            if done:
+                self.logger.info(
+                    f"Skipping {len(done)} already-produced testcase(s): "
+                    + ", ".join(c.name for c in done)
+                )
+            cases = [c for c in cases if not self._already_done(c.name)]
+        if not cases:
+            self.logger.info("All testcases already produced; nothing to do.")
             return
         funcs = {case.name: case.func_src for case in cases}
 
@@ -138,6 +149,10 @@ class Manager:
             shutil.rmtree(c.worker_dir)
         c.worker_dir.mkdir(parents=True, exist_ok=True)
 
+    def _already_done(self, name: str) -> bool:
+        """True when ``name`` already has a saved result in ``output_dir``."""
+        return (self.config.output_dir / name / "status.txt").exists()
+
     def _save(
         self, name: str, func_src: str, spec_src: str | None, status: str
     ) -> None:
@@ -180,8 +195,13 @@ def main() -> None:
     parser.add_argument(
         "--config", default=str(DEFAULT_CONFIG), help="Path to config.toml"
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip testcases that already have a result in output_dir",
+    )
     args = parser.parse_args()
-    Manager(Config.load(Path(args.config))).run()
+    Manager(Config.load(Path(args.config))).run(skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":
