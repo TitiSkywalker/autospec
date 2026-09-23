@@ -118,12 +118,30 @@ def _build_workspace(workspace_path: str):
 
     # Ignore the nested aeneas repo on top of the `.lake` that `lake init` ignored.
     with open(workspace / ".gitignore", "a") as file:
-        file.write("/aeneas\n")
+        file.write("/aeneas\n/comparator\n")
+
+    # Vendor the Comparator judge (vendored at repo root with a backported fix
+    # so theorem statements that reference other theorems don't false-positive).
+    comparator_src = Path(__file__).resolve().parent.parent / "comparator"
+    logger.info("vendoring comparator -> workspace")
+    shutil.copytree(comparator_src, workspace / "comparator", dirs_exist_ok=True)
 
     with open(workspace / "lakefile.toml", "a") as file:
         file.write("""\n[[require]]
 name = "aeneas"
-path = "./aeneas/backends/lean"\n
+path = "./aeneas/backends/lean"
+
+# Trustworthy proof judge (Comparator), vendored to match the toolchain.
+# ``Challenge``/``Solution`` are the modules the verifier fills in.
+[[require]]
+name = "Comparator"
+path = "./comparator"
+
+[[lean_lib]]
+name = "Challenge"
+
+[[lean_lib]]
+name = "Solution"
 """)
 
     # Module skeleton: the library root imports Basic, which imports Spec, which (once a test case is installed) imports Function.
@@ -136,6 +154,9 @@ path = "./aeneas/backends/lean"\n
     (workspace / "Main.lean").write_text(
         f'import {LIB}\n\ndef main : IO Unit :=\n  IO.println s!"Hello, {{hello}}!"\n'
     )
+    # Comparator judge target: the verifier overwrites these per case.
+    (workspace / "Challenge.lean").write_text("-- Challenge (original spec).\n")
+    (workspace / "Solution.lean").write_text("-- Solution (agent proof).\n")
 
     logger.info("lake update")
     runner.run("cp ./aeneas/backends/lean/lean-toolchain ./lean-toolchain")

@@ -39,6 +39,9 @@ class McpConfig:
 class VerifierConfig:
     worker_dir: Path  # where verifier workers copy the base mirror
     workers: int      # number of parallel verifier processes
+    mode: str = "comparator"  # "comparator" (trustworthy judge) or "lake" (legacy sorry check)
+    sandbox: bool = False     # True = real landrun; False = landrun shim (no sandbox)
+    resume: bool = False      # reuse workspaces + skip cases that already have verdict.txt
 
 
 @dataclass
@@ -74,6 +77,9 @@ class Config:
         verifier_worker_dir = resolve(
             verifier.get("worker_dir", "evaluation/local/verify_workers/")
         )
+        verifier_mode = verifier.get("mode", "comparator")
+        verifier_sandbox = bool(verifier.get("sandbox", False))
+        verifier_resume = bool(verifier.get("resume", False))
 
         # ``backend`` selects one of the ``[prover.agent.<backend>]`` tables.
         # Fall back to a flat ``[prover.agent]`` table for backwards compat.
@@ -118,6 +124,9 @@ class Config:
             verifier=VerifierConfig(
                 worker_dir=verifier_worker_dir,
                 workers=verifier_workers,
+                mode=verifier_mode,
+                sandbox=verifier_sandbox,
+                resume=verifier_resume,
             ),
             vibe_dir=resolve(vibe_dir) if vibe_dir else None,
         )

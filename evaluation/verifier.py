@@ -1,15 +1,23 @@
 """
 Independent proof verification.
 
-The proving pipeline labels a case ``PROVED`` merely when ``Spec.lean`` has no
-``sorry``/``admit``; it never compiles the agent's final proof. This stage reads
-the saved results (``<case>/Function.lean`` + ``<case>/Spec.lean``) from
-``output_dir``, copies each into its own workspace, and actually compiles it with
-``lake build``. The verdict is then grounded in real typechecking:
+Two verification modes are selected by ``[verifier] mode``:
 
-* ``PROVED``     — ``lake build`` succeeds and no ``sorry``/``admit`` remain.
-* ``UNPROVED``   — ``lake build`` succeeds but the spec still has ``sorry``/``admit``.
-* ``BUILD_FAIL`` — ``lake build`` fails (the proof is broken/inconsistent).
+``comparator`` (default) — set up a ``Challenge.lean`` (the original benchmark
+spec, ``sorry`` intact) and a ``Solution.lean`` (the agent's output) in each
+workspace and run the Comparator trustworthy judge. Comparator proves that the
+solution (1) states the exact same theorems, (2) uses only the permitted axioms
+(no leftover ``sorry``, no injected ``axiom``), and (3) is accepted by the Lean
+kernel. Verdicts:
+
+* ``PROVED``      — "Your solution is okay!"
+* ``UNPROVED``    — the proof still depends on ``sorry`` (``sorryAx``).
+* ``BUILD_FAIL``  — ``lake build Solution`` (or export) fails.
+* ``CHEAT``       — statement mismatch / injected axiom / missing theorem.
+* ``KERNEL_FAIL`` — the Lean kernel rejects the proof.
+
+``lake`` (legacy) — compile ``Spec.lean`` with ``lake build`` and grep for
+``sorry``/``admit``. Faster, but gamed by statement-weakening or axiom injection.
 
 Usage::
 
@@ -17,9 +25,12 @@ Usage::
 """
 
 import argparse
+import json
+import os
 import re
 import shutil
 import subprocess
+from datetime import datetime
 from multiprocessing import Process, Queue
 from pathlib import Path
 
@@ -29,9 +40,19 @@ from evaluation.progress import StatusBoard
 from evaluation.workspace import LIB, create_workspace
 
 _SORRY_RE = re.compile(r"\b(sorry|admit)\b")
+# Original benchmark specs import their per-case aeneas module (e.g.
+# ``import LeanMode.foo.Bar``); in the workspace that translation lives at
+# ``RustVerif.Function``.
+_IMPORT_RE = re.compile(r"import LeanMode\.[^\n]+")
+# Top-level ``theorem <name>`` declarations the solution must match.
+_THEOREM_RE = re.compile(r"^theorem\s+(\S+)", re.MULTILINE)
+_PERMITTED_AXIOMS = ["propext", "Quot.sound", "Classical.choice"]
+
+_VERDICTS = ("PROVED", "UNPROVED", "BUILD_FAIL", "CHEAT", "KERNEL_FAIL")
 
 
-def _classify(returncode: int, spec: str) -> str:
+def _classify_lake(returncode: int, spec: str) -> str:
+    """Legacy verdict from ``lake build`` + a ``sorry``/``admit`` grep."""
     if returncode != 0:
         return "BUILD_FAIL"
     if _SORRY_RE.search(spec):
@@ -39,14 +60,101 @@ def _classify(returncode: int, spec: str) -> str:
     return "PROVED"
 
 
+def _classify_comparator(returncode: int, output: str) -> str:
+    """Map Comparator's output to a verdict."""
+    if returncode == 0 and "Your solution is okay!" in output:
+        return "PROVED"
+    if "Illegal axiom detected: 'sorryAx'" in output:
+        return "UNPROVED"
+    if "rejects the solution" in output:
+        return "KERNEL_FAIL"
+    # Any of Comparator's mismatch / illegal-axiom errors mean the solution did
+    # not faithfully prove the challenge's statement (weakened theorem, changed
+    # a definition the statement depends on, injected an axiom, ...).
+    if any(
+        m in output
+        for m in (
+            "Illegal axiom detected",
+            "statement do not match",
+            "Const does not match",
+            "Const not found",
+            "kind don't match",
+            "not a definition",
+            "not a theorem",
+        )
+    ):
+        return "CHEAT"
+    return "BUILD_FAIL"
+
+
+def _verify_lake(ws: Path, lib: Path, func: str, spec: str) -> tuple[str, str]:
+    """Legacy mode: compile the spec and grep for ``sorry``."""
+    (lib / "Function.lean").write_text(func)
+    (lib / "Spec.lean").write_text(spec)
+    result = subprocess.run(
+        ["lake", "build"], cwd=ws, capture_output=True, text=True
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+    tail = "\n".join(output.splitlines()[-100:])
+    return _classify_lake(result.returncode, spec), tail
+
+
+def _verify_comparator(
+    ws: Path, lib: Path, func: str, spec: str, challenge: str, sandbox: bool
+) -> tuple[str, str]:
+    """Comparator mode: prove the agent's ``Solution`` matches the ``Challenge``."""
+    (lib / "Function.lean").write_text(func)
+    (ws / "Challenge.lean").write_text(challenge)
+    (ws / "Solution.lean").write_text(spec)
+    theorem_names = _THEOREM_RE.findall(challenge)
+    config = {
+        "challenge_module": "Challenge",
+        "solution_module": "Solution",
+        "theorem_names": theorem_names,
+        "permitted_axioms": _PERMITTED_AXIOMS,
+        "enable_nanoda": False,
+    }
+    (ws / "config.json").write_text(json.dumps(config, indent=2))
+
+    pkg = ws / ".lake" / "packages"
+    vendor = ws / "comparator"  # path-dep vendored source, built in-place
+    env = os.environ.copy()
+    env["COMPARATOR_LEAN4EXPORT"] = str(
+        pkg / "lean4export" / ".lake" / "build" / "bin" / "lean4export"
+    )
+    if sandbox:
+        env["COMPARATOR_LANDRUN"] = "landrun"
+    else:
+        env["COMPARATOR_LANDRUN"] = str(vendor / "scripts" / "fake-landrun.sh")
+    comparator = vendor / ".lake" / "build" / "bin" / "comparator"
+
+    result = subprocess.run(
+        ["lake", "env", str(comparator), "config.json"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    output = (result.stdout or "") + (result.stderr or "")
+    verdict = _classify_comparator(result.returncode, output)
+    tail = "\n".join(output.splitlines()[-100:])
+    return verdict, tail
+
+
 def _worker(
-    base_dir: Path, worker_dir: Path, index: int, in_q: Queue, out_q: Queue
+    base_dir: Path,
+    worker_dir: Path,
+    index: int,
+    mode: str,
+    sandbox: bool,
+    in_q: Queue,
+    out_q: Queue,
 ) -> None:
-    """One verifier process: compile queued cases in its own workspace copy.
+    """One verifier process: judge queued cases in its own workspace copy.
 
     All output is shipped to the manager over ``out_q`` as tagged tuples —
     ``("log", text)``, ``("progress", index, text)``, ``("result", index, name,
-    verdict, build_tail)`` — mirroring ``manager._worker``.
+    verdict, tail)`` — mirroring ``manager._worker``.
     """
     configure(lambda m: out_q.put(("log", m.rstrip("\n"))), colorize=True)
     ws = worker_dir / f"vs-{index}"
@@ -58,24 +166,18 @@ def _worker(
         case = in_q.get()
         if case is None:
             break
-        name, func, spec = case
+        name, func, spec, challenge = case
         out_q.put(("progress", index, f"{name} · verifying..."))
-        (lib / "Function.lean").write_text(func)
-        (lib / "Spec.lean").write_text(spec)
-        result = subprocess.run(
-            ["lake", "build"], cwd=ws, capture_output=True, text=True
-        )
-        verdict = _classify(result.returncode, spec)
-        # ``lake`` prints the real compile error on stdout (the "error: build
-        # failed" summary line goes to stderr), so keep both.
-        output = (result.stdout or "") + (result.stderr or "")
-        tail = "\n".join(output.splitlines()[-100:])
+        if mode == "comparator" and challenge is not None:
+            verdict, tail = _verify_comparator(ws, lib, func, spec, challenge, sandbox)
+        else:
+            verdict, tail = _verify_lake(ws, lib, func, spec)
         out_q.put(("result", index, name, verdict, tail))
     shutil.rmtree(ws, ignore_errors=True)
 
 
 class Verifier:
-    """Compile every saved proof in its own workspace and report a verdict."""
+    """Independently judge every saved proof and report a verdict."""
 
     def __init__(self, config: Config | None = None):
         self.config = config or Config.load(DEFAULT_CONFIG)
@@ -99,6 +201,8 @@ class Verifier:
                     self.config.base_dir,
                     self.config.verifier.worker_dir,
                     i,
+                    self.config.verifier.mode,
+                    self.config.verifier.sandbox,
                     self.in_q,
                     self.out_q,
                 ),
@@ -134,15 +238,20 @@ class Verifier:
             w.join()
 
         self._summarize(results)
+        self._save_metadata(results)
 
     def _prepare(self) -> None:
         c = self.config.verifier
-        if c.worker_dir.exists():
+        if c.worker_dir.exists() and not c.resume:
             shutil.rmtree(c.worker_dir)
         c.worker_dir.mkdir(parents=True, exist_ok=True)
 
-    def _scan(self) -> list[tuple[str, str, str]]:
-        """Every ``<case>/`` with both a Function.lean and a Spec.lean."""
+    def _scan(self) -> list[tuple[str, str, str, str | None]]:
+        """Every ``<case>/`` with both a Function.lean and a Spec.lean.
+
+        Returns ``(name, func, spec, challenge)`` where ``challenge`` is the
+        original benchmark spec (``None`` if ``input_dir`` has no such case).
+        """
         out = self.config.output_dir
         if not out.is_dir():
             return []
@@ -150,16 +259,53 @@ class Verifier:
         for d in sorted(out.iterdir()):
             if not d.is_dir():
                 continue
+            if self.config.verifier.resume and (d / "verdict.txt").is_file():
+                continue
             func, spec = d / "Function.lean", d / "Spec.lean"
             if func.is_file() and spec.is_file():
-                cases.append((d.name, func.read_text(), spec.read_text()))
+                cases.append((d.name, func.read_text(), spec.read_text(), self._challenge(d.name)))
         return cases
+
+    def _challenge(self, name: str) -> str | None:
+        """The original benchmark spec, with its aeneas import pointed at the
+        workspace's ``RustVerif.Function`` module."""
+        src = self.config.input_dir / name / "Spec.lean"
+        if not src.is_file():
+            return None
+        return _IMPORT_RE.sub(f"import {LIB}.Function", src.read_text())
 
     def _save(self, name: str, verdict: str, tail: str) -> None:
         out = self.config.output_dir / name
         (out / "verdict.txt").write_text(verdict + "\n")
-        if verdict == "BUILD_FAIL":
-            (out / "build.log").write_text(tail + "\n")
+        if verdict != "PROVED":
+            (out / "verify.log").write_text(tail + "\n")
+
+    def _save_metadata(self, results) -> None:
+        """Persist the verification outcome as one JSON file in ``output_dir``.
+
+        ``verdict.txt``/``verify.log`` are per-case; this is the machine-readable
+        aggregate (config provenance + counts + one entry per case), so a later
+        analysis step doesn't have to re-scan every case directory.
+        """
+        c = self.config.verifier
+        summary: dict[str, int] = {v: 0 for v in _VERDICTS}
+        cases = []
+        for name, verdict, _ in sorted(results, key=lambda r: r[0]):
+            summary[verdict] = summary.get(verdict, 0) + 1
+            cases.append({"name": name, "verdict": verdict})
+        meta = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "mode": c.mode,
+            "sandbox": c.sandbox,
+            "permitted_axioms": _PERMITTED_AXIOMS,
+            "input_dir": str(self.config.input_dir),
+            "total": len(results),
+            "summary": summary,
+            "cases": cases,
+        }
+        path = self.config.output_dir / "verification_meta.json"
+        path.write_text(json.dumps(meta, indent=2) + "\n")
+        self.logger.info(f"metadata -> {path}")
 
     def _summarize(self, results) -> None:
         self.logger.info("\n=== Verification summary ===")
@@ -172,9 +318,7 @@ class Verifier:
             counts[verdict] = counts.get(verdict, 0) + 1
         self.logger.info(
             f"\n{len(results)} cases -> "
-            + ", ".join(
-                f"{v}: {counts.get(v, 0)}" for v in ("PROVED", "UNPROVED", "BUILD_FAIL")
-            )
+            + ", ".join(f"{v}: {counts.get(v, 0)}" for v in _VERDICTS)
         )
 
 
