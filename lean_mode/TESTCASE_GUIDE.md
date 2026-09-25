@@ -307,6 +307,16 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   taking a function `f`) — such testcases were abandoned.
 - **Nested `for` loops** can leave `sorry` bodies in AENEAS; the pipeline auto-retries with
   loop flattening, but flat `while` loops are safest.
+- **Rolling scalar DP state → "Could not compute a loop fixed point in 2 iterations"**:
+  a `while` loop whose only loop-carried state is several mutually-assigned local scalars
+  (the two-variable `prev2 = prev1; prev1 = cur;` Fibonacci-style recurrence in
+  `dp_house_robber`) made AENEAS abandon the *entire* function body as `sorry`, so
+  `#eval` aborted with "depends on `sorry`".  The translator still reported
+  `aeneas ok` / `output 1 defs` — the `sorry` is only visible in the generated
+  `<Crate>.lean`.  **Fix:** reformulate as an explicit DP array (`vec![0usize; n + 2]`)
+  indexed by `usize`, exactly like `dp_knapsack`.  (A single scalar accumulator loop
+  like `integer_pow`'s `result/base/exp` is fine; it's the mutually-assigned pair that
+  trips the fixed-point computation.)
 - **`f64` comparison inside an `if` condition** can trigger binop errors — hoist it:
   `let cond = a > b; if cond { ... }`.
 - **Don't mix `||`/`&&` with `<=`/`>=` on `f64`.** `x <= 0.0 || y <= t` short-circuits into
@@ -364,6 +374,13 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
   `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
+- **DP classics** (Rat; all have `Test_test.lean`): `dp_knapsack` (0/1,
+  `nat`), `dp_coin_change` (`nat`), `dp_house_robber` (`nat`),
+  `dp_maximum_subarray` (Kadane, `int`), `dp_longest_common_subsequence`
+  (`nat`), `dp_jump_game` (`nat`).  Specs are the
+  "optimality + attainability over a predicate" shape (`is_valid_strategy` /
+  `is_valid_robbery` / `is_subsequence` / `is_valid_jump_path`), except LCS
+  whose predicate recurses structurally (see §9).
 - **`bitvec`** (Rat, unsigned → `BitVec w`, has `Test_test.lean`): `bitvec_ops`
   (rotate / wrapping arithmetic / bitwise / shifts / popcount), `crypto_aes128`
   (AES-128 encrypt+decrypt, table-driven, conformance + roundtrip), `crypto_des128`
