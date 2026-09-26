@@ -367,13 +367,40 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   the code was right, the vector wasn't. Web-check the FIPS/NIST table before debugging.
   When using Wikipedia test vectors for TEA, verify byte-endianness — the reference's
   `to_block`/`from_block` is little-endian; raw `u64` values are not portable.
+- **Early `return` inside a deeply-nested loop turns the whole function into a
+  `noncomputable axiom`** — `graph_bipartite_check`'s first version used `return None`
+  inside `while k < m` inside `while head < tail` inside `if color[s] == 2` inside
+  `while s < n`; AENEAS emitted `noncomputable axiom is_bipartite …` (0 `sorry`, but
+  the body was gone), and the translator still reported `aeneas ok / output 1 defs`.
+  A single top-level `return Err(())` (like `graph_bellman_ford`'s negative-cycle loop)
+  is fine; the deep nesting is what breaks it.  **Fix:** thread a `bool` flag
+  (`conflict = true;`) instead of early-returning, and branch on it once at the end.
+- **`.to_vec()` on a slice of `Option`/other ADT elements pulls in a `noncomputable
+  axiom` (the `Clone` instance) and makes the whole function noncomputable, so `#eval`
+  aborts** — `graph_floyd_warshall`'s first `Option<i64>` version used
+  `weight.to_vec()`, and AENEAS emitted `noncomputable axiom
+  core.option.Option.Insts.CoreCloneClone.clone`; every `floyd_warshall_*` def was
+  marked `noncomputable` (0 `sorry`, but noncomputable = not `#eval`-able).  **Fix:**
+  copy element-by-element with a `while` + `Vec.push` loop instead of `.to_vec()`.
 
 ---
 
 ## 10. Implemented testcases by float-model
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
-  `vector_gram_schmidt`, `graph_*`, `array_*`, … (pure arithmetic).
+  `vector_gram_schmidt`, `array_*`, … (pure arithmetic).
+- **Graph algorithms** (Rat; all have `Test_test.lean`, `int` model): single-source
+  shortest path `graph_dijkstra` (non-negative weights) and `graph_bellman_ford`
+  (negative weights + negative-cycle detection); MST `graph_kruskal` / `graph_prim`;
+  DAG ordering `graph_topological_sort` (Kahn's algorithm); 2-coloring
+  `graph_bipartite_check` (BFS); all-pairs shortest path `graph_floyd_warshall`
+  (dense O(V³) DP, negative weights + negative-cycle detection; distances are
+  `Option<i64>` — `None` = no path — so no `INF` sentinel pollutes the integer
+  domain).  Specs follow the
+  `Finset`-of-edges (or weight-matrix) pattern with an inductive `has_path`, then
+  "soundness + completeness" theorems; `graph_topological_sort` adds an
+  `is_topological_ordering` predicate and `graph_bipartite_check` an
+  `is_valid_coloring` predicate.
 - **DP classics** (Rat; all have `Test_test.lean`): `dp_knapsack` (0/1,
   `nat`), `dp_coin_change` (`nat`), `dp_house_robber` (`nat`),
   `dp_maximum_subarray` (Kadane, `int`), `dp_longest_common_subsequence`
