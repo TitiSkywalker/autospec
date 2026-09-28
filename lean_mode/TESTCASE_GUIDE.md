@@ -401,6 +401,14 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   "soundness + completeness" theorems; `graph_topological_sort` adds an
   `is_topological_ordering` predicate and `graph_bipartite_check` an
   `is_valid_coloring` predicate.
+- **Data structures** (Rat; all have `Test_test.lean`, `int` model): `ds_bst`
+  (recursive BST — insert / find / delete / `extract_min`), `ds_max_heap` (array
+  binary max-heap, push/pop-max), `ds_trie` (binary trie, insert/search).
+  Recursive ADTs use `Option<Box<Node>>` (`Box` erased to a pure inductive in
+  Lean); specs use a mutually-recursive `view` (set of stored elements/keys)
+  plus a structural invariant (`is_bst` / `is_heap`), with the "set/multiset
+  changes by exactly one element" shape (`view t ∪ {v}`, `view t \ {v}`,
+  `view h + {v}`, `view h - {max}`).
 - **DP classics** (Rat; all have `Test_test.lean`): `dp_knapsack` (0/1,
   `nat`), `dp_coin_change` (`nat`), `dp_house_robber` (`nat`),
   `dp_maximum_subarray` (Kadane, `int`), `dp_longest_common_subsequence`
