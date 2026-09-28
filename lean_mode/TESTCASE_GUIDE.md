@@ -348,6 +348,21 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `PartialEq` isn't imported under that name. `Vec<usize>` (→ `Vec Std.Usize`) compares
   fine. Fix: compare element-by-element — `assert_eq!(f.len(), n)` + `assert_eq!(f[0], x)`
   etc. (see `integer_factors` / `integer_prime_factors` tests).
+- **`assert_eq!` on a tuple `(T, T)` fails** (`Pair.Insts.CoreCmpPartialEqPair.eq` unknown):
+  comparing a tuple-returning call with `assert_eq!(f(...), (a, b))` emits an unresolved
+  `Pair.Insts…PartialEq` instance and the whole test becomes noncomputable (`#eval` aborts).
+  Fix: destructure then compare scalars — `let (x, y) = f(...); assert_eq!(x, a); assert_eq!(y, b);`
+  (see `crypto_hill`; `crypto_mpc_gc` returns a 3-tuple and already destructures).
+- **Bare `%` (modulo) as a function's final expression is not `ok`-wrapped**: a function
+  whose tail is `x % CONST` (constant divisor) with only `massert`/pure `let`s — no `←`
+  bind, no `if` tail, no `while` loop — translates to `Result Nat := do … x % CONST`, but
+  `x % CONST` has type `Nat` (not `Result Nat`) so `lake build` fails with a type mismatch.
+  AENEAS *does* `ok`-wrap the tail when the body has a `←` bind (e.g. `affine_decrypt`,
+  `mod_inverse`) or an `if` tail (`integer_div_mod`'s `mod_floor`), and `-` (subtraction)
+  tails (`crypto_hill`'s `determinant`) — it's the bare `%`-by-constant that's special-cased
+  wrong. Fix: route through a Result-returning helper, e.g. a `while`-based reduction
+  `fn mod26(x) { let mut r = x; while r >= 26 { r = r - 26; } r }` and return `mod26(expr)`
+  (see `crypto_affine`).
 - **Integer casts (`as`) between unsigned types are supported under `bitvec`** —
   `u8 as usize`, `u8 as u32`, `u32 as u8` etc. lower to `UScalar.cast`/`IScalar.cast`
   and are rewritten to `BitVec` conversions by `_bitvec_ops_to_bv` (see §5 `bitvec`).
@@ -382,6 +397,39 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   core.option.Option.Insts.CoreCloneClone.clone`; every `floyd_warshall_*` def was
   marked `noncomputable` (0 `sorry`, but noncomputable = not `#eval`-able).  **Fix:**
   copy element-by-element with a `while` + `Vec.push` loop instead of `.to_vec()`.
+- **A recursive function returning a primitive int (`u64`/`usize`) whose result is
+  used in arithmetic at tail position drops the `ok` wrapper** — `ds_linked_list`'s
+  `length` (`1 + length(*tail)`) generated `let i ← length tail; 1 + i` (no `ok`),
+  which fails with `HAdd ℕ ℤ (Result ℤ)` (`1` elaborates as `Nat`).  **Fix:** thread
+  the count as an accumulator parameter (`fn length_acc(list, n) { … length_acc(*tail, n+1) }`)
+  and return `n` at the base case, or accumulate into a `Vec` and return `.len()`.
+- **A private `&mut Vec` helper in `src/lib.rs` is re-emitted into `Test_test.lean`,
+  colliding with the copy in `<Crate>.lean`** ("already been declared") —
+  `ds_linked_list`'s `collect_into(list, acc: &mut Vec<i32>)` was duplicated into the
+  test file (which imports the impl), while a by-value helper (`reverse_acc`) was not.
+  **Fix:** avoid `&mut Vec` helpers in `lib.rs`; pass the accumulator by value and return
+  it.  (`&mut Vec` helpers in `tests/test.rs` are fine — they're translated once.)
+- **`assert_eq!(opt, Some(x))` / `assert_eq!(opt, None)` on an `Option` value fails**
+  with `Unknown identifier core.option.Option.Insts.CoreCmpPartialEqOption.eq`.  **Fix:**
+  unwrap with a sentinel and compare the scalar — `let h = match v { Some(x) => x, None => -1 };
+  assert_eq!(h, 1);` — or `let b = match v { Some(_) => false, None => true }; assert!(b);`.
+- **`assert!(false)` in a test body turns the whole test function into `sorry`**
+  (`ds_queue`'s `None => assert!(false)` branch).  **Fix:** compute a `bool` via
+  `match` and `assert!` it, instead of asserting a literal `false`.
+- **Arithmetic (`%`, `+`, `-`, `*`) on *locally-derived* `usize` values in a
+  straight-line function body gets mis-classified as `Int` and converted to pure `:=`**
+  (`ds_queue`'s `enqueue`/`dequeue`: `let idx := i % cap` where `i`/`cap` came from field
+  reads / `Vec.len`).  The `monadic_ops_to_pure` pass tracks `usize`-ness of function
+  *parameters* and `#usize` literals only — not locals derived from `Vec.len` or struct
+  fields.  Arithmetic *inside* a `while` loop is fine (the loop body becomes a `rust_loop`
+  whose params are tracked).  **Fix:** replace `% cap` with `if x >= cap { x - cap } else { x }`
+  (exact when `x < 2·cap`), or hoist the arithmetic into a `rust_loop`/helper with `usize` params.
+- **A field access (`st.k`) inside arithmetic isn't matched by the operand regex
+  (`\w+`), so its result is untracked and a downstream `+ j` is mis-classified as
+  `Int`** (`ds_sparse_table`'s `range_min`: `l * st.k` → `idx1 := i1 + j`).  Hoisting
+  `let k = st.k` does **not** help — rustc/charon inlines it back.  **Fix:** route the
+  arithmetic through a helper `fn flat_index(row, k, col)` so the field access becomes a
+  call *argument* (not arithmetic) and the helper's `usize` params are tracked.
 
 ---
 
@@ -403,12 +451,22 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `is_valid_coloring` predicate.
 - **Data structures** (Rat; all have `Test_test.lean`, `int` model): `ds_bst`
   (recursive BST — insert / find / delete / `extract_min`), `ds_max_heap` (array
-  binary max-heap, push/pop-max), `ds_trie` (binary trie, insert/search).
+  binary max-heap, push/pop-max), `ds_trie` (binary trie, insert/search),
+  `ds_linked_list` (recursive cons list — push/pop/append/reverse/length),
+  `ds_queue` (growable ring-buffer FIFO), `ds_deque` (growable ring-buffer
+  double-ended queue), `ds_union_find` (disjoint-set — iterative path-compression
+  find + union by size), `ds_fenwick` (binary-indexed tree — point update +
+  prefix sum), `ds_segment_tree` (iterative range-sum + point update),
+  `ds_sparse_table` (static RMQ).
   Recursive ADTs use `Option<Box<Node>>` (`Box` erased to a pure inductive in
   Lean); specs use a mutually-recursive `view` (set of stored elements/keys)
   plus a structural invariant (`is_bst` / `is_heap`), with the "set/multiset
   changes by exactly one element" shape (`view t ∪ {v}`, `view t \ {v}`,
-  `view h + {v}`, `view h - {max}`).
+  `view h + {v}`, `view h - {max}`).  The linear structures (`linked_list` /
+  `queue` / `deque`) use a `toList` order-preserving view; `union_find` uses a
+  fuel-bounded `root` + `connected_spec`; `fenwick` / `segment_tree` /
+  `sparse_table` state range-sum / RMQ soundness (`query` = prefix sum, point
+  update shifts exactly those prefixes ≥ i, `range_min` = the range minimum).
 - **DP classics** (Rat; all have `Test_test.lean`): `dp_knapsack` (0/1,
   `nat`), `dp_coin_change` (`nat`), `dp_house_robber` (`nat`),
   `dp_maximum_subarray` (Kadane, `int`), `dp_longest_common_subsequence`
