@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "bst_insert"
+name = "ds_bst"
 version = "0.1.0"

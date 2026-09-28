@@ -1,18 +1,17 @@
-import LeanMode.bst_insert.BstInsert
+import LeanMode.ds_bst.DsBst
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open bst_insert
+open ds_bst
 
 set_option linter.unusedVariables false
 
 /-!
-# Specification: BST Insert
+# Specification: Binary Search Tree
 
-`bst_insert t v` inserts `v` into the BST rooted at `t` and returns the new root.
-`bst_find t v` returns `true` iff `v` is present in the tree.
-
-The correctness is stated in terms of a `view` (the set of values in the tree) and `is_bst` (the BST structural invariant).
+`bst_insert` / `bst_find` / `bst_delete` operate on a recursive BST.  Correctness
+is stated in terms of a `view` (the set of values in the tree) and `is_bst` (the
+BST structural invariant).
 -/
 
 mutual
@@ -50,4 +49,14 @@ theorem bst_insert_correct (t : Option Node) (v : Int) (t' : Option Node)
     (h_pre : is_bst t)
     (h_insert : bst_insert t v = ok t') :
     is_bst t' ∧ view t' = view t ∪ {v} := by
+  sorry
+
+/-- Correctness of `bst_delete`:
+    If the input tree is a valid BST, then after deletion:
+    1. The result is still a valid BST.
+    2. The set of values is the original set with `v` removed. -/
+theorem bst_delete_correct (t : Option Node) (v : Int) (t' : Option Node)
+    (h_pre : is_bst t)
+    (h_delete : bst_delete t v = ok t') :
+    is_bst t' ∧ view t' = view t \ {v} := by
   sorry

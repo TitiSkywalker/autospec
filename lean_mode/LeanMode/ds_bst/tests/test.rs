@@ -1,4 +1,4 @@
-use bst_insert::{bst_insert, bst_find, Node};
+use ds_bst::{bst_insert, bst_find, bst_delete, Node};
 
 /// Helper: build a tree from a slice of values inserted in order.
 fn build_tree(values: &[i32]) -> Option<Box<Node>> {
@@ -97,4 +97,63 @@ fn test_insert_negative_values() {
 fn test_find_on_empty() {
     let root: Option<Box<Node>> = None;
     assert!(!bst_find(&root, 42));
+}
+
+#[test]
+fn test_delete_leaf() {
+    let root = build_tree(&[5, 3, 2]);
+    let root = bst_delete(root, 2);
+    assert!(!bst_find(&root, 2));
+    assert!(bst_find(&root, 5));
+    assert!(bst_find(&root, 3));
+}
+
+#[test]
+fn test_delete_one_child() {
+    // tree: 5 -> left 3 -> left 2.  Delete 3 (has one child 2).
+    let root = build_tree(&[5, 3, 2]);
+    let root = bst_delete(root, 3);
+    assert!(!bst_find(&root, 3));
+    assert!(bst_find(&root, 2));
+    assert!(bst_find(&root, 5));
+}
+
+#[test]
+fn test_delete_two_children() {
+    // full tree 5 / 3 7 / 2 4 6 8.  Delete root 5 → successor 6 takes its place.
+    let root = build_tree(&[5, 3, 7, 2, 4, 6, 8]);
+    let root = bst_delete(root, 5);
+    assert!(!bst_find(&root, 5));
+    assert!(bst_find(&root, 6));
+    assert!(bst_find(&root, 7));
+    assert!(bst_find(&root, 3));
+    assert!(bst_find(&root, 2));
+    assert!(bst_find(&root, 4));
+    assert!(bst_find(&root, 8));
+}
+
+#[test]
+fn test_delete_nonexistent() {
+    let root = build_tree(&[5, 3]);
+    let root = bst_delete(root, 99);
+    assert!(bst_find(&root, 5));
+    assert!(bst_find(&root, 3));
+    assert!(!bst_find(&root, 99));
+}
+
+#[test]
+fn test_delete_to_empty() {
+    let root: Option<Box<Node>> = None;
+    let root = bst_insert(root, 5);
+    let root = bst_delete(root, 5);
+    assert!(!bst_find(&root, 5));
+}
+
+#[test]
+fn test_delete_root_with_right_child_only() {
+    // tree: 5 -> right 7.  Delete 5 → 7 becomes root.
+    let root = build_tree(&[5, 7]);
+    let root = bst_delete(root, 5);
+    assert!(!bst_find(&root, 5));
+    assert!(bst_find(&root, 7));
 }
