@@ -147,7 +147,11 @@ set_option linter.dupNamespace false
 
 ### 3.4 本地未提交的 patch 会失效
 
-aeneas submodule 里有一个未提交改动：`backends/lean/Aeneas/Tactic/Step/Step.lean` 增加一行 `Std.WP.qimp_dspec` 匹配。目标版本中 `qimp_spec`/`qimp_dspec`/`qimp` 整族已被 PR #1383 删除，该 patch 应直接丢弃（如仍需，需重新定位等价物）。
+aeneas submodule 里有一个未提交改动：`backends/lean/Aeneas/Tactic/Step/Step.lean` 的
+`extractCallSiteTree` 增加一行 `Std.WP.qimp_dspec` 匹配。目标版本中 `qimp_spec`/`qimp_dspec`/`qimp`
+整族已被 PR #1383 删除，且 `extractCallSiteTree` 本身已被重写（不再按 `qimp_*` 形状 match），
+该 patch 应直接丢弃（如仍需，需按新版 `Step.lean` 结构重新定位）。详见
+[translation/local/AENEAS_PATCH.md](translation/local/AENEAS_PATCH.md)。
 
 ---
 
@@ -160,7 +164,7 @@ aeneas submodule 里有一个未提交改动：`backends/lean/Aeneas/Tactic/Step
 | `translation/translator/src/llbc/i64_adapter.rs` | `discover_i64_ids` 正则（Int→Integer/Signed）+ `find_bool_in_locals` + `ordered_decls` Option |
 | `translation/translator/src/lean_post.rs` | `import Aeneas` → `public import Aeneas`（Mathlib 插入点） |
 | `translation/translator/src/charon_aeneas.rs` | 预计无改动 |
-| aeneas submodule 本地 patch | 丢弃 `Step.lean` 的 `qimp_dspec` 改动 |
+| aeneas submodule 本地 patch | 丢弃 `Step.lean` 的 `qimp_dspec` 改动（见 [local/AENEAS_PATCH.md](translation/local/AENEAS_PATCH.md)） |
 
 > 注：`llbc/` 的适配器是"字符串/JSON 结构假设"式实现，没有用 charon 的 Rust AST 定义来解析。因此以上每一处都是**静默失效**（发现不到类型 → 直接 no-op，或注入的声明缺字段 → aeneas 报反序列化错）。修复后必须用实际 LLBC 样本验证注入的 helper 能被 aeneas 消费。
 
@@ -169,28 +173,31 @@ aeneas submodule 里有一个未提交改动：`backends/lean/Aeneas/Tactic/Step
 ## 5. 升级步骤（供后续执行）
 
 ```bash
-# 1. 更新 charon checkout 到新 pin 并重建
-cd aeneas/charon
-git checkout c8f15d7d658c86a95658f71ad99cddd4be002e04
-make            # cargo build + dune build → bin/charon
-
-# 2. 更新 aeneas submodule 到新 pin 并重建
+# 1. 更新 aeneas submodule 到新 pin
 cd /home/disk2/liguchan/Rust/autospec/aeneas
 git checkout 557eff83ecef5083b98a52a94ca7fae63d6c1dab
-# 丢弃本地 Step.lean patch
-git checkout -- backends/lean/Aeneas/Tactic/Step/Step.lean
-make build-dev  # 依赖 check-charon（会校验 charon-pin 与 bin/charon）
 
-# 3. 更新外层仓库的 submodule 指针并提交
+# 2. 丢弃本地 Step.lean patch（见 translation/local/AENEAS_PATCH.md）
+git checkout -- backends/lean/Aeneas/Tactic/Step/Step.lean
+
+# 3. 升级 charon + 构建 aeneas（无需手动碰 charon checkout）
+make setup-charon   # = ./scripts/check-charon-install.sh --force
+                    #   读 charon-pin → git fetch && git checkout <pin> → rebuild charon (make test)
+make                # = build → build-dev → build-bin/build-lib/build-bin-dir
+                    #   每个 target 依赖 check-charon（校验 pin 与 bin/charon）
+
+# 4. 更新外层仓库的 submodule 指针并提交
 cd /home/disk2/liguchan/Rust/autospec
 git add aeneas
 
-# 4. 修复 translator（见第 4 节），重建并回归
+# 5. 修复 translator（见第 4 节），重建并回归
 cargo build --manifest-path translation/translator/Cargo.toml
 # 用 translation/local/test_rust 或 lean_mode 下的用例回归
 ```
 
-注意：charon 构建需要对应 `rust-toolchain` 与 OCaml 环境；aeneas `make build-dev` 前要先 `make setup-charon`（或保证 `check-charon` 通过）。
+要点：`make setup-charon` 会**自动**按新的 `charon-pin` 把 `./charon` 检出到对应
+commit 并重建 charon；`make` 会构建 `bin/aeneas`。因此**不需要手动在 `aeneas/charon`
+里 checkout**。charon 重建仍需要对应 `rust-toolchain` 与 OCaml 环境。
 
 ---
 
