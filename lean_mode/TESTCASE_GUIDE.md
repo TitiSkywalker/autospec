@@ -105,7 +105,7 @@ During translation, `f64` is replaced:
   - The generated file gains `import Mathlib` and `noncomputable section` at the top.
 - **Under the Real float-model, `tests/test.rs` is NOT translated** (`translate.py` skips it,
   because `Real.sqrt` cannot be `#eval`'d). So sqrt-based testcases have only
-  `<Crate>.lean` + `Spec.lean` — **no `Test_test.lean`** (cf. `vector_norm`,
+  `<Crate>.lean` + `Spec.lean` — **no `Test_test.lean`** (cf. `array_norm`,
   `tensor_softmax_1d`, `matrix_qr`).
 - **Mark Real testcases explicitly**: set `float-model = "Real"` per testcase in
   `Cargo.toml` (mirrors `int-model` below); `translate.py` reads it and skips the
@@ -436,7 +436,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 ## 10. Implemented testcases by float-model
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
-  `vector_gram_schmidt`, `array_*`, … (pure arithmetic).
+  `array_gram_schmidt`, `array_*`, … (pure arithmetic).
 - **Graph algorithms** (Rat; all have `Test_test.lean`, `int` model): single-source
   shortest path `graph_dijkstra` (non-negative weights) and `graph_bellman_ford`
   (negative weights + negative-cycle detection); MST `graph_kruskal` / `graph_prim`;
@@ -481,7 +481,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   (TEA single-block encrypt+decrypt, 32-round Feistel, pure arithmetic).
 - **Real (no `Test_test.lean`)**: `matrix_bidiagonal`, `matrix_cholesky`,
   `matrix_hessenberg`, `matrix_qr`, `matrix_svd`, `matrix_symmetric_eigen`,
-  `tensor_softmax_1d`, `tensor_softmax_2d`, `vector_norm` (use `sqrt`/`exp`; each
+  `tensor_softmax_1d`, `tensor_softmax_2d`, `array_norm` (use `sqrt`/`exp`; each
   carries `float-model = "Real"` in its `Cargo.toml`).
 - **`failure/`**: testcases the translator can't handle — `random_integer` and a stale
   `matrix_bidiagonal` copy (the `isize`+`continue` version, superseded by the working
