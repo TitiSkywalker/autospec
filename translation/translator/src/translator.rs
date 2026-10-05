@@ -150,6 +150,7 @@ impl Translator {
         }
 
         // 2. Translate test files (skip for Real)
+        let mut failed_tests = 0usize;
         if float_model != "Real" {
             let tests_dir = project_path.join("tests");
             if tests_dir.is_dir() {
@@ -174,6 +175,8 @@ impl Translator {
                     if let Some(defs) = test_defs {
                         let stem = test_file.file_stem().unwrap_or_default().to_string_lossy();
                         results.push(("test".to_string(), format!("Test_{}.lean", stem), defs));
+                    } else {
+                        failed_tests += 1;
                     }
                 }
             }
@@ -189,6 +192,10 @@ impl Translator {
             "done",
             &format!("{} file(s), {} defs, float-model={}", total_files, total_defs, float_model),
         );
+        if failed_tests > 0 {
+            warn(&format!("{} test file(s) failed to translate", failed_tests));
+            return false;
+        }
         true
     }
 

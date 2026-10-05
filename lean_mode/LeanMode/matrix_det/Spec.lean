@@ -32,8 +32,7 @@ def toMatrix (s : Slice Rat) (rows cols : Nat)
           Nat.mul_le_mul_right cols (Nat.succ_le_of_lt hi)
     s[i.val * cols + j.val]'h_bound
 
-/-- Correctness: the result of `det matrix n` equals Mathlib's `Matrix.det`
-    of the n×n matrix. -/
+/-- Correctness: the result of `det matrix n` equals Mathlib's `Matrix.det` of the n×n matrix. -/
 theorem det_correct (matrix : Slice Rat) (n : Std.Usize) (d : Rat)
     (h_len : matrix.length = (n.val : Nat) * (n.val : Nat))
     (h : det matrix n = ok d) :

@@ -112,6 +112,17 @@ fn truncate(s: &str, max: usize) -> String {
     }
 }
 
+/// Strip ANSI CSI escape sequences (e.g. ``\x1b[91m``, ``\x1b[?25h``) from a
+/// line. Aeneas colorizes its log lines even when not attached to a TTY, so
+/// the raw text of an error line is ``[<red>Error</red>] …`` rather than the
+/// plain ``[Error] …`` this stage matches against.
+fn strip_ansi(s: &str) -> String {
+    regex::Regex::new(r"\x1b\[[0-9;?]*[a-zA-Z]")
+        .unwrap()
+        .replace_all(s, "")
+        .to_string()
+}
+
 /// Run aeneas on every ``.llbc`` file in *workdir*.
 ///
 /// Returns a list of warning strings, or None on error.
@@ -153,13 +164,13 @@ pub fn run_aeneas(
         );
 
         for line in combined.lines() {
-            let line = line.trim();
+            let line = strip_ansi(line).trim().to_string();
             if line.is_empty() {
                 continue;
             }
             log::dbg(&format!("[aeneas] {}", line));
             if line.contains("[Error") || line.to_lowercase().contains("error:") {
-                log::fail("aeneas", &truncate(line, 300));
+                log::fail("aeneas", &truncate(&line, 300));
                 return None;
             }
             if let Some(rest) = line
@@ -170,6 +181,14 @@ pub fn run_aeneas(
                     warnings.push(rest.to_string());
                 }
             }
+        }
+
+        // aeneas exits non-zero when it produces a partial file (bodies it
+        // could not translate become `sorry`); treat that as a failure too,
+        // as a backstop in case no `[Error]` line was emitted.
+        if !result.status.success() {
+            log::fail("aeneas", "exited with a non-zero status (partial translation)");
+            return None;
         }
     }
 

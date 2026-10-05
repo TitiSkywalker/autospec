@@ -213,9 +213,13 @@ pub fn lean_f64_to_rat(content: &str) -> Result<String, NonComputableError> {
 pub fn lean_f64_to_real(content: &str) -> String {
     let mut result = replace_f64_base(content, "ℝ", "RealClone");
 
-    // Add Mathlib import and noncomputable section
-    let re = Regex::new(r"import Aeneas\n").unwrap();
-    result = re.replace(&result, "import Aeneas\nimport Mathlib\n").to_string();
+    // Add Mathlib import and noncomputable section. New aeneas emits a
+    // `module` + `public import Aeneas` header, so insert the (top-level)
+    // `import Mathlib` before the `module` declaration.
+    let re = Regex::new(r"module\npublic import Aeneas\n").unwrap();
+    result = re
+        .replace(&result, "import Mathlib\n\nmodule\npublic import Aeneas\n")
+        .to_string();
     result = result.replace("noncomputable section\n", "");
     result = result.replace(
         "set_option linter.style.nameCheck false\n",

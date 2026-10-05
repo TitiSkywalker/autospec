@@ -13,7 +13,7 @@ pub fn is_target_ty(ty: &Value, type_ids: &std::collections::HashSet<i64>) -> bo
     if let Some(v) = ty.get("Deduplicated").and_then(|v| v.as_i64()) {
         return type_ids.contains(&v);
     }
-    if let Some(arr) = ty.get("HashConsedValue").and_then(|v| v.as_array()) {
+    if let Some(arr) = ty.get("Value").and_then(|v| v.as_array()) {
         if let Some(id) = arr.first().and_then(|v| v.as_i64()) {
             return type_ids.contains(&id);
         }
@@ -23,10 +23,10 @@ pub fn is_target_ty(ty: &Value, type_ids: &std::collections::HashSet<i64>) -> bo
 
 // ── Type discovery ─────────────────────────────────────────────────────────────
 
-/// Find the dedup ID for the Bool literal type from raw JSON.
+/// Find the dedup ID for the Bool scalar type from raw JSON.
 pub fn discover_bool_id(raw_json: &str) -> Option<i64> {
     let re = regex::Regex::new(
-        r#""HashConsedValue"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Literal"\s*:\s*"Bool"\s*\}"#,
+        r#""Value"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Scalar"\s*:\s*"Bool"\s*\}"#,
     )
     .ok()?;
     let caps = re.captures(raw_json)?;
@@ -85,8 +85,8 @@ pub fn make_fun_decl(
             {"Ident": [crate_name, 0]},
             {"Ident": [name, 0]},
         ]);
-        if let Some(_span) = fd["item_meta"]["span"].get("data") {
-            fd["item_meta"]["span"]["data"]["file_id"] = json!(0);
+        if let Some(_span) = fd["item_meta"]["span"].get("Untagged").and_then(|s| s.get("data")) {
+            fd["item_meta"]["span"]["Untagged"]["data"]["file_id"] = json!(0);
         }
         fd["item_meta"]["lang_item"] = Value::Null;
         fd["signature"]["inputs"] = json!(inputs);
@@ -103,12 +103,14 @@ pub fn make_fun_decl(
                 {"Ident": [name, 0]},
             ],
             "span": {
-                "data": {
-                    "file_id": 0,
-                    "beg": {"line": 0, "col": 0},
-                    "end": {"line": 0, "col": 0},
+                "Untagged": {
+                    "data": {
+                        "file_id": 0,
+                        "beg": {"line": 0, "col": 0},
+                        "end": {"line": 0, "col": 0},
+                    },
+                    "generated_from_span": null,
                 },
-                "generated_from_span": null,
             },
             "source_text": null,
             "attr_info": {
@@ -118,9 +120,12 @@ pub fn make_fun_decl(
                 "public": true,
             },
             "is_local": false,
+            "started_from": false,
+            "is_extern": false,
             "opacity": "Foreign",
             "lang_item": null,
             "diagnostic_item": null,
+            "has_errors": false,
         },
         "generics": {
             "regions": [],
@@ -156,7 +161,7 @@ pub fn call_stmt(func_id: i64, args: &[Value], dest: &Value, span: Option<&Value
                 "call": {
                     "func": {
                         "Regular": {
-                            "kind": {"Fun": {"Regular": func_id}},
+                            "kind": {"Fun": func_id},
                             "generics": {
                                 "regions": [],
                                 "types": [],
@@ -167,6 +172,7 @@ pub fn call_stmt(func_id: i64, args: &[Value], dest: &Value, span: Option<&Value
                     },
                     "args": args,
                     "dest": dest,
+                    "safety": "Inherit",
                 },
                 "on_unwind": {"span": span, "id": 0, "statements": []},
             }
@@ -178,8 +184,10 @@ pub fn call_stmt(func_id: i64, args: &[Value], dest: &Value, span: Option<&Value
 /// Generate a zero-location span.
 pub fn zero_span() -> Value {
     json!({
-        "data": {"file_id": 0, "beg": {"line": 0, "col": 0}, "end": {"line": 0, "col": 0}},
-        "generated_from_span": null,
+        "Untagged": {
+            "data": {"file_id": 0, "beg": {"line": 0, "col": 0}, "end": {"line": 0, "col": 0}},
+            "generated_from_span": null,
+        },
     })
 }
 
@@ -315,6 +323,7 @@ pub fn transform_switch_conditions(
                                                             "name": null,
                                                             "span": zero_span(),
                                                             "ty": &tmp_ty,
+                                                            "drop_flag_for": null,
                                                         }));
                                                     }
                                                     // Replace condition with Move(tmp)
@@ -423,11 +432,11 @@ fn find_bool_dedup(locals_info: &Value) -> Option<i64> {
     {
         let ty = loc.get("ty")?;
         let ty_str = ty.to_string();
-        if ty_str.contains(r#""Literal":"Bool""#) || ty_str.contains(r#""Literal": "Bool""#) {
+        if ty_str.contains(r#""Scalar":"Bool""#) || ty_str.contains(r#""Scalar": "Bool""#) {
             if let Some(did) = ty.get("Deduplicated").and_then(|v| v.as_i64()) {
                 return Some(did);
             }
-            if let Some(arr) = ty.get("HashConsedValue").and_then(|v| v.as_array()) {
+            if let Some(arr) = ty.get("Value").and_then(|v| v.as_array()) {
                 if let Some(id) = arr.first().and_then(|v| v.as_i64()) {
                     return Some(id);
                 }

@@ -42,11 +42,11 @@ const HELPER_SIGS: &[(&str, &[usize], usize)] = &[
 
 // ── Type discovery ────────────────────────────────────────────────────────────
 
-/// Find all dedup IDs whose definition is ``Literal(Float(F64))``.
+/// Find all dedup IDs whose definition is ``Scalar(Float(F64))``.
 pub fn discover_f64_ids(raw_json: &str) -> HashSet<i64> {
     let mut ids = HashSet::new();
     let re = regex::Regex::new(
-        r#""HashConsedValue"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Literal"\s*:\s*\{\s*"Float"\s*:\s*"F64"\s*\}"#,
+        r#""Value"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Scalar"\s*:\s*\{\s*"Float"\s*:\s*"F64"\s*\}"#,
     )
     .unwrap();
     for caps in re.captures_iter(raw_json) {
@@ -145,11 +145,11 @@ fn find_bool_in_locals(translated: &Value) -> Option<i64> {
                 None => continue,
             };
             let ty_str = ty.to_string();
-            if ty_str.contains(r#""Literal":"Bool""#) || ty_str.contains(r#""Literal": "Bool""#) {
+            if ty_str.contains(r#""Scalar":"Bool""#) || ty_str.contains(r#""Scalar": "Bool""#) {
                 if let Some(did) = ty.get("Deduplicated").and_then(|v| v.as_i64()) {
                     return Some(did);
                 }
-                if let Some(arr) = ty.get("HashConsedValue").and_then(|v| v.as_array()) {
+                if let Some(arr) = ty.get("Value").and_then(|v| v.as_array()) {
                     if let Some(id) = arr.first().and_then(|v| v.as_i64()) {
                         return Some(id);
                     }
@@ -226,21 +226,17 @@ fn collect_float_values(stmts: &[Value], id_map: &HashMap<i64, String>) -> HashS
     fn rec(node: &Value, id_map: &HashMap<i64, String>, vals: &mut HashSet<String>) {
         match node {
             Value::Object(map) => {
-                if let Some(float_val) = map.get("Float") {
-                    if let Some(float_obj) = float_val.as_object() {
-                        if float_obj.get("ty").and_then(|v| v.as_str()) == Some("F64") {
-                            if let Some(v) = float_obj.get("value").and_then(|v| v.as_str()) {
-                                vals.insert(v.to_string());
-                            }
-                        }
-                    }
-                }
-                // Float constants serialized hash-consed may appear only as a
-                // `Deduplicated` reference here (the `HashConsedValue` definition
-                // lives in another function body). Resolve them via the id map.
-                if let Some(dedup) = map.get("Deduplicated").and_then(|v| v.as_i64()) {
-                    if let Some(v) = id_map.get(&dedup) {
-                        vals.insert(v.clone());
+                // A Float(F64) constant only lives inside a `Const` operand.
+                // Resolve it through `const_float_value`, which correctly
+                // handles the hash-consed `Value`/`Untagged`/`Deduplicated`
+                // forms. Crucially, `Deduplicated` here is a *constant-expr*
+                // dedup id; the previous code applied the id map to *every*
+                // `Deduplicated` key it met (spans, types, …), which share a
+                // numeric namespace but not a dedup table, and so hoisted
+                // spurious float locals into functions that never use floats.
+                if let Some(const_val) = map.get("Const") {
+                    if let Some(v) = const_float_value(const_val, id_map) {
+                        vals.insert(v);
                     }
                 }
                 for v in map.values() {
@@ -278,16 +274,7 @@ fn expand_float_constants(
         .first()
         .and_then(|s| s.get("span"))
         .cloned()
-        .unwrap_or_else(|| {
-            serde_json::json!({
-                "data": {
-                    "file_id": 0,
-                    "beg": {"line": 0, "col": 0},
-                    "end": {"line": 0, "col": 0},
-                },
-                "generated_from_span": null,
-            })
-        });
+        .unwrap_or_else(crate::llbc::common::zero_span);
 
     let mut val_to_local: HashMap<String, i64> = HashMap::new();
     let mut init_stmts: Vec<Value> = Vec::new();
@@ -312,6 +299,7 @@ fn expand_float_constants(
                 "name": format!("_f64_{}", cname),
                 "span": span0,
                 "ty": {"Deduplicated": f64},
+                "drop_flag_for": null,
             }));
         }
 
@@ -335,21 +323,21 @@ fn expand_float_constants(
 }
 
 /// Build a hash-cons id → float value map by scanning the whole translated
-/// value for `HashConsedValue` constant exprs whose kind is `Literal(Float(F64))`.
+/// value for `Value` constant exprs whose kind is `Float(F64)`.
 ///
-/// Newer charon serializes `constant_expr` hash-consed: the first occurrence is
-/// `{"HashConsedValue": [id, [kind, ty]]}` and later ones are `{"Deduplicated":
+/// Charon serializes `constant_expr` hash-consed: the first occurrence is
+/// `{"Value": [id, [kind, ty]]}` and later ones are `{"Deduplicated":
 /// id}`. This map lets us resolve the latter back to their float value.
 fn build_float_const_id_map(trans: &Value) -> HashMap<i64, String> {
     let mut map = HashMap::new();
     fn rec(node: &Value, map: &mut HashMap<i64, String>) {
         match node {
             Value::Object(o) => {
-                if let Some(hcv) = o.get("HashConsedValue").and_then(|v| v.as_array()) {
-                    if let Some(inner) = hcv.get(1).and_then(|v| v.as_array()) {
-                        if let Some(id) = hcv.first().and_then(|v| v.as_i64()) {
-                            if let Some(lit) = inner.first().and_then(|k| k.get("Literal")) {
-                                if let Some(val) = extract_float_value(lit) {
+                if let Some(v) = o.get("Value").and_then(|v| v.as_array()) {
+                    if let Some(inner) = v.get(1).and_then(|v| v.as_array()) {
+                        if let Some(id) = v.first().and_then(|v| v.as_i64()) {
+                            if let Some(kind) = inner.first() {
+                                if let Some(val) = extract_float_value(kind) {
                                     map.insert(id, val);
                                 }
                             }
@@ -373,21 +361,21 @@ fn build_float_const_id_map(trans: &Value) -> HashMap<i64, String> {
 }
 
 /// Extract a Float(F64) value string from a hash-consed `constant_expr` (the
-/// JSON under a `Const` operand). Handles `HashConsedValue`, `Untagged` and
+/// JSON under a `Const` operand). Handles `Value`, `Untagged` and
 /// `Deduplicated` (resolved via `id_map`).
 fn const_float_value(const_val: &Value, id_map: &HashMap<i64, String>) -> Option<String> {
     let o = const_val.as_object()?;
-    if let Some(hcv) = o.get("HashConsedValue").and_then(|v| v.as_array()) {
+    if let Some(v) = o.get("Value").and_then(|v| v.as_array()) {
         // [id, [kind, ty]]
-        if let Some(inner) = hcv.get(1).and_then(|v| v.as_array()) {
-            if let Some(lit) = inner.first().and_then(|k| k.get("Literal")) {
-                return extract_float_value(lit);
+        if let Some(inner) = v.get(1).and_then(|v| v.as_array()) {
+            if let Some(kind) = inner.first() {
+                return extract_float_value(kind);
             }
         }
     } else if let Some(untagged) = o.get("Untagged").and_then(|v| v.as_array()) {
         // [kind, ty]
-        if let Some(lit) = untagged.first().and_then(|k| k.get("Literal")) {
-            return extract_float_value(lit);
+        if let Some(kind) = untagged.first() {
+            return extract_float_value(kind);
         }
     } else if let Some(id) = o.get("Deduplicated").and_then(|v| v.as_i64()) {
         return id_map.get(&id).cloned();
@@ -444,20 +432,10 @@ fn replace_float_nodes(
     }
 }
 
-fn extract_float_value(lit: &Value) -> Option<String> {
-    if let Some(float_obj) = lit.get("Float") {
+fn extract_float_value(kind: &Value) -> Option<String> {
+    if let Some(float_obj) = kind.get("Float") {
         if float_obj.get("ty").and_then(|v| v.as_str()) == Some("F64") {
             return float_obj.get("value").and_then(|v| v.as_str()).map(|s| s.to_string());
-        }
-    }
-    if let Some(scalar) = lit.get("Scalar") {
-        if let Some(float_obj) = scalar.get("Float") {
-            if float_obj.get("ty").and_then(|v| v.as_str()) == Some("F64") {
-                return float_obj
-                    .get("value")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-            }
         }
     }
     None

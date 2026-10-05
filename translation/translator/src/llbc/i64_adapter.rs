@@ -63,7 +63,7 @@ const I64_HELPER_SIGS: &[(&str, &[usize], usize)] = &[
 pub fn discover_i64_ids(raw_json: &str) -> HashSet<i64> {
     let mut ids = HashSet::new();
     let re = regex::Regex::new(
-        r#""HashConsedValue"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Literal"\s*:\s*\{\s*"Int"\s*:\s*"I64"\s*\}"#,
+        r#""Value"\s*:\s*\[(\d+)\s*,\s*\{?\s*"Scalar"\s*:\s*\{\s*"Integer"\s*:\s*\{\s*"Signed"\s*:\s*"I64"\s*\}\s*\}"#,
     )
     .unwrap();
     for caps in re.captures_iter(raw_json) {
@@ -160,11 +160,11 @@ fn find_bool_in_locals(translated: &Value) -> Option<i64> {
                 None => continue,
             };
             let ty_str = ty.to_string();
-            if ty_str.contains(r#""Literal":"Bool""#) || ty_str.contains(r#""Literal": "Bool""#) {
+            if ty_str.contains(r#""Scalar":"Bool""#) || ty_str.contains(r#""Scalar": "Bool""#) {
                 if let Some(did) = ty.get("Deduplicated").and_then(|v| v.as_i64()) {
                     return Some(did);
                 }
-                if let Some(arr) = ty.get("HashConsedValue").and_then(|v| v.as_array()) {
+                if let Some(arr) = ty.get("Value").and_then(|v| v.as_array()) {
                     if let Some(id) = arr.first().and_then(|v| v.as_i64()) {
                         return Some(id);
                     }

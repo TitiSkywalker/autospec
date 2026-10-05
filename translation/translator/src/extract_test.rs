@@ -48,13 +48,25 @@ where
     raw = re_fn.replace_all(&raw, "pub fn $1").to_string();
 
     // Remove `use` items that refer to the parent crate or the crate itself
-    let re_use = Regex::new(&format!(r"(?m)^use\s+(?:super|{})::.*\n?", regex::escape(&crate_name)))
-        .unwrap();
+    // (`use crypto_lwe;`, `use crypto_lwe::foo;`, `use super::foo;`, …).
+    // Once the test body is inlined into the crate these imports are either
+    // self-referential (unresolvable) or redundant.
+    let re_use = Regex::new(&format!(
+        r"(?m)^\s*use\s+(?:super|self|{})\b[^\n]*\n?",
+        regex::escape(&crate_name)
+    ))
+    .unwrap();
     raw = re_use.replace_all(&raw, "").to_string();
 
     // Replace crate-prefixed calls (e.g. matmul::matmul → matmul)
     let re_crate = Regex::new(&format!(r"\b{}::", regex::escape(&crate_name))).unwrap();
     raw = re_crate.replace_all(&raw, "").to_string();
+
+    // Inner doc comments (`//! …`) are only legal at the top of a crate, but
+    // this test file is appended after the library body below. Rewrite them as
+    // plain line comments so the combined crate still compiles.
+    let re_inner_doc = Regex::new(r"(?m)^(\s*)//!").unwrap();
+    raw = re_inner_doc.replace_all(&raw, "$1//").to_string();
 
     let stem = test_file.file_stem().unwrap_or_default().to_string_lossy();
 
