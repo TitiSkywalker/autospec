@@ -1,4 +1,4 @@
-import LeanMode.array_mean.VectorMean
+import LeanMode.array_mean.ArrayMean
 import Mathlib
 
 open Aeneas Aeneas.Std Result

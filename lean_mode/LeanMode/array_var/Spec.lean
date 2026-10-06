@@ -1,4 +1,4 @@
-import LeanMode.array_var.VectorVar
+import LeanMode.array_var.ArrayVar
 import Mathlib
 
 open Aeneas Aeneas.Std Result

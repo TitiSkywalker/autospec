@@ -1,4 +1,4 @@
-import LeanMode.array_sum.VectorSum
+import LeanMode.array_sum.ArraySum
 import Mathlib
 
 open Aeneas Aeneas.Std Result

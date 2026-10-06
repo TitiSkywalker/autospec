@@ -1,4 +1,4 @@
-import LeanMode.array_norm.VectorNorm
+import LeanMode.array_norm.ArrayNorm
 import Mathlib
 
 open Aeneas Aeneas.Std Result

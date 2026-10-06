@@ -1,4 +1,4 @@
-import LeanMode.array_gram_schmidt.VectorGramSchmidt
+import LeanMode.array_gram_schmidt.ArrayGramSchmidt
 import Mathlib.Tactic
 
 open Aeneas Aeneas.Std Result

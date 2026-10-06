@@ -2,9 +2,7 @@
 -- [tensor_softmax_2d]
 import Mathlib
 
-module
-public import Aeneas
-@[expose] public section
+import Aeneas
 open Aeneas Aeneas.Std Result ControlFlow Error
 set_option linter.dupNamespace false
 set_option linter.hashCommand false

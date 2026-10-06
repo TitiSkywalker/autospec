@@ -1,4 +1,4 @@
-import LeanMode.array_max.VectorMax
+import LeanMode.array_max.ArrayMax
 import Mathlib
 
 open Aeneas Aeneas.Std Result
