@@ -248,7 +248,7 @@ Key points:
    - **Hard-to-write condition** (e.g. `det ≠ 0` for invertibility) → encode it with `assert!`
      in Rust so an `ok` result *implies* the condition, and state the theorem unconditionally
      on the `ok` result instead of carrying the condition as a separate hypothesis. This is the
-     `matrix_inverse`/`matrix_inverse_2x2` pattern.
+     `matrix_inverse` pattern.
 
 ---
 
@@ -436,7 +436,7 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
 ## 10. Implemented testcases by float-model
 
 - **Rat (has `Test_test.lean`)**: `matrix_lu`, `matrix_ldlt`, `matrix_det`,
-  `array_gram_schmidt`, `array_*`, … (pure arithmetic).
+  `matrix_rank`, `array_gram_schmidt`, `array_*`, … (pure arithmetic).
 - **Graph algorithms** (Rat; all have `Test_test.lean`, `int` model): single-source
   shortest path `graph_dijkstra` (non-negative weights) and `graph_bellman_ford`
   (negative weights + negative-cycle detection); MST `graph_kruskal` / `graph_prim`;
@@ -449,6 +449,18 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   "soundness + completeness" theorems; `graph_topological_sort` adds an
   `is_topological_ordering` predicate and `graph_bipartite_check` an
   `is_valid_coloring` predicate.
+- **Maximum flow** (Rat; has `Test_test.lean`, `int` model): `graph_max_flow`
+  (Edmonds-Karp = Ford-Fulkerson with BFS shortest augmenting paths).  The graph
+  is a flat `n × n` row-major capacity matrix (`Vec<i64>` / `Slice Int`), indexed
+  via a private `idx(row, n, col)` helper (the `flat_index` pattern) so the
+  `row * n + col` arithmetic never appears inline in a slice read/write; the
+  reverse residual edge is read off the skew-symmetric flow (`flow[v,u] =
+  -flow[u,v]`), so there is no `i ^ 1` reverse-index trick.  The spec is
+  `is_flow` (capacity bound + skew symmetry + conservation at non-terminals) and
+  `flow_value`, with `max_flow_is_flow` / `max_flow_value` /
+  `max_flow_optimal` (`max_flow_optimal` is the max-flow ≤ min-cut direction).
+  The `source == sink` case is handled by initialising the outer loop flag to
+  `source != sink` rather than an early `return`.
 - **Data structures** (Rat; all have `Test_test.lean`, `int` model): `ds_bst`
   (recursive BST — insert / find / delete / `extract_min`), `ds_max_heap` (array
   binary max-heap, push/pop-max), `ds_trie` (binary trie, insert/search),
