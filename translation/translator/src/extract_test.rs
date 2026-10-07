@@ -174,6 +174,11 @@ where
             continue;
         }
 
+        // Drop the `module`/`@[expose]` header so the impl-module import uses
+        // plain `import` and `#eval` can interpret the impl module's
+        // `partial_fixpoint` defs (see `lean_post::strip_module_header`).
+        let test_text = lean_post::strip_module_header(&test_text);
+
         let impl_module = compute_module_path(project_path);
         let test_text = add_import(&test_text, &impl_module);
         let test_text = add_evals(&test_text, &eval_names);
@@ -242,12 +247,23 @@ fn add_import(lean_text: &str, module: &str) -> String {
     let mut lines: Vec<String> = lean_text.lines().map(|s| s.to_string()).collect();
     let mut last_import: Option<usize> = None;
     for (i, line) in lines.iter().enumerate() {
-        if line.starts_with("import ") {
+        let trimmed = line.trim_start();
+        // Old aeneas emits `import Aeneas`; the module-system aeneas emits
+        // `public import Aeneas` inside a `module` block.  Anchor on either so
+        // the impl-module import is appended after the existing imports.
+        if trimmed.starts_with("public import ") || trimmed.starts_with("import ") {
             last_import = Some(i);
         }
     }
     if let Some(idx) = last_import {
-        lines.insert(idx + 1, format!("import {}", module));
+        // Mirror the anchor's visibility: a module-system (`public import`)
+        // header must also import the impl module publicly, otherwise the impl
+        // module's defs are not exposed to this module.
+        let trimmed = lines[idx].trim_start();
+        let public = trimmed.starts_with("public import ");
+        let indent: String = lines[idx].chars().take_while(|c| c.is_whitespace()).collect();
+        let kw = if public { "public import" } else { "import" };
+        lines.insert(idx + 1, format!("{}{} {}", indent, kw, module));
     }
     lines.join("\n")
 }
@@ -258,6 +274,7 @@ fn add_evals(lean_text: &str, fn_names: &HashSet<String>) -> String {
     }
 
     let mut result = lean_text.to_string();
+
     let mut sorted: Vec<&String> = fn_names.iter().collect();
     sorted.sort();
 

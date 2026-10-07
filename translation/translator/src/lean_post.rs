@@ -893,6 +893,25 @@ fn fix_vec_is_empty(text: &str) -> String {
     result
 }
 
+/// Revert aeneas's module-system header (`module` + `public import` +
+/// `@[expose] public section`) back to the old top-level style.
+///
+/// The module system marks `partial_fixpoint` (loop) definitions so that an
+/// importing module can only *execute* them via native codegen, which
+/// `lake build <Module>` (olean-only) never produces — so `#eval` on the
+/// translated functions fails with "Could not find native implementation".
+/// Top-level files instead evaluate `partial_fixpoint` in the interpreter,
+/// restoring `#eval` (as it worked before the aeneas module-system upgrade).
+pub fn strip_module_header(content: &str) -> String {
+    let re_module = Regex::new(r"(?m)^[ \t]*module[ \t]*\n").unwrap();
+    let re_expose = Regex::new(r"(?m)^[ \t]*@\[expose\] public section[ \t]*\n").unwrap();
+    let re_public_import = Regex::new(r"(?m)^([ \t]*)public import ").unwrap();
+    let mut result = re_module.replace_all(content, "").to_string();
+    result = re_expose.replace_all(&result, "").to_string();
+    result = re_public_import.replace_all(&result, "${1}import ").to_string();
+    result
+}
+
 // ── main entry point ───────────────────────────────────────────────────────────
 
 /// Post-process and copy Lean files from *workdir* to *output_path*.
@@ -966,6 +985,10 @@ pub fn write_lean_output(
         text = fix_partial_mutual(&text);
         text = fix_vec_is_empty(&text);
         text = mark_noncomputable_defs(&text);
+
+        // Drop the `module`/`@[expose]` header so `partial_fixpoint` defs stay
+        // interpreter-evaluable across modules (see `strip_module_header`).
+        text = strip_module_header(&text);
 
         let fname = f.file_name().unwrap_or_default().to_string_lossy().to_string();
         let out_path = output_path.join(&fname);
