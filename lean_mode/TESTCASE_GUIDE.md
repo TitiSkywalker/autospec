@@ -444,11 +444,13 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `graph_bipartite_check` (BFS); all-pairs shortest path `graph_floyd_warshall`
   (dense O(V³) DP, negative weights + negative-cycle detection; distances are
   `Option<i64>` — `None` = no path — so no `INF` sentinel pollutes the integer
-  domain).  Specs follow the
+  domain); unweighted shortest path `graph_bfs` (BFS, returns `Option<usize>`
+  distance-in-edges).  Specs follow the
   `Finset`-of-edges (or weight-matrix) pattern with an inductive `has_path`, then
   "soundness + completeness" theorems; `graph_topological_sort` adds an
   `is_topological_ordering` predicate and `graph_bipartite_check` an
-  `is_valid_coloring` predicate.
+  `is_valid_coloring` predicate, and `graph_bfs` an `is_shortest_distance`
+  (edge-count) predicate (`has_path` carries the distance instead of a weight).
 - **Maximum flow** (Rat; has `Test_test.lean`, `int` model): `graph_max_flow`
   (Edmonds-Karp = Ford-Fulkerson with BFS shortest augmenting paths).  The graph
   is a flat `n × n` row-major capacity matrix (`Vec<i64>` / `Slice Int`), indexed
