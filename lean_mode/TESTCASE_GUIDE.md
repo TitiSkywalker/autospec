@@ -451,6 +451,16 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `is_topological_ordering` predicate and `graph_bipartite_check` an
   `is_valid_coloring` predicate, and `graph_bfs` an `is_shortest_distance`
   (edge-count) predicate (`has_path` carries the distance instead of a weight).
+- **Recursive DFS / SCC** (Rat; has `Test_test.lean`, `int` model):
+  `graph_scc_tarjan` (Tarjan's strongly-connected-components via recursive DFS).
+  The whole mutable state (`index`, `lowlink`, `on_stack`, `stack` + cursor,
+  `comp`, `counter`, `comp_count`) is bundled into a `TarjanState` struct threaded
+  **by value** through the recursive `strongconnect` (spelling out AENEAS's
+  `&mut` = consume-and-return model explicitly), and the inner loops are lowered
+  to recursion by `-loops-to-rec`.  Output is a **flat** `Vec<usize>` of dense
+  component ids (never `Vec<Vec<usize>>`); the pop-loop's `break` is replaced by
+  a `done` flag.  Spec is `strongly_connected` (= `has_path u v ∧ has_path v u`)
+  plus `comp u = comp v ↔ strongly_connected u v`.
 - **Maximum flow** (Rat; has `Test_test.lean`, `int` model): `graph_max_flow`
   (Edmonds-Karp = Ford-Fulkerson with BFS shortest augmenting paths).  The graph
   is a flat `n × n` row-major capacity matrix (`Vec<i64>` / `Slice Int`), indexed
