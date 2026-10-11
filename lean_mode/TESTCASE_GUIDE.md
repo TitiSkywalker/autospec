@@ -430,6 +430,22 @@ python3 ../scripts/check_all.py                       # (optional) full regressi
   `let k = st.k` does **not** help — rustc/charon inlines it back.  **Fix:** route the
   arithmetic through a helper `fn flat_index(row, k, col)` so the field access becomes a
   call *argument* (not arithmetic) and the helper's `usize` params are tracked.
+- **Rust `==` translates to Lean `=` (`Prop`), but `!=` translates to `Bool`** — so
+  `let ok = s[a] == s[b];` assigns a `Prop` to a `bool`-typed variable and the whole
+  function breaks with `Application type mismatch … has type Prop but is expected to have
+  type Bool`.  `==` is only safe as an `if`/`while` *condition*; `!=` is safe both as a
+  condition and as a value.  **Fix:** for a boolean you'll reuse, write the test as `!=`
+  in an `if` (e.g. `if s[hi] != s[lo] { stop } else { … }`) instead of `==` → `bool`
+  (see `string_z_algorithm`, `string_manacher`).
+- **Integer `as` casts (`u8 as u64` etc.) only lower cleanly under `bitvec`** — under
+  `nat`/`int` they emit `lift (UScalar.cast .U64 b)` with `b : Nat`, which does **not**
+  typecheck (`UScalar.cast` expects a `UScalar`).  **Fix:** avoid casts by encoding
+  characters/values directly in the target type (e.g. `string_rabin_karp` uses `u64` chars,
+  `string_aho_corasick` uses `usize` chars — the plan's "整数编码字符" option).
+- **`i - j + 1` evaluates left-to-right in Rust**, so when `j > i` (e.g. a palindrome radius
+  `j = i+1`) the `i - j` underflows before the `+ 1` rescues it.  Rewrite as `i + 1 - j`
+  (mathematically identical, no underflow since `j ≤ i+1`).  Hit in `string_manacher`'s
+  `l = i - j + 1`.
 
 ---
 

@@ -19,8 +19,6 @@ set_option maxRecDepth 2048
 
 namespace crypto_lwe
 
-/- Integer types replaced with BitVec 64 by autospec -/
-
 /-- [crypto_lwe::encrypt]:
     Source: 'src/lib.rs', lines 92:0-99:1
     Visibility: public -/
@@ -109,35 +107,16 @@ def dot_product_one_sided : Result Unit := do
   massert (left_val = (50 : BitVec 64))
 
 /-- [crypto_lwe::encrypt_decrypt_small_values]:
-    Source: 'src/lib.rs', lines 165:0-180:1
+    Source: 'src/lib.rs', lines 165:0-176:1
     Visibility: public -/
 def encrypt_decrypt_small_values : Result Unit := do
   let (encoded, _, decrypted) ←
     encrypt_msg (3 : BitVec 64) (256 : BitVec 64) (17 : BitVec 64) ((42 : BitVec 64), (123 : BitVec 64)) ((7 : BitVec 64), (13 : BitVec 64))
   let right_val ← lift (encoded + (17 : BitVec 64))
-  if decrypted = right_val
-  then ok ()
-  else
-    let a ←
-      core.fmt.rt.Argument.new_display U64.Insts.CoreFmtDisplay decrypted
-    let a1 ←
-      core.fmt.rt.Argument.new_display U64.Insts.CoreFmtDisplay encoded
-    let a2 ← core.fmt.rt.Argument.new_display U64.Insts.CoreFmtDisplay (17 : BitVec 64)
-    let _ ←
-      core.fmt.Arguments.new
-        (Array.make 55#usize [
-          (11 : BitVec 8), (100 : BitVec 8), (101 : BitVec 8), (99 : BitVec 8), (114 : BitVec 8), (121 : BitVec 8), (112 : BitVec 8), (116 : BitVec 8), (101 : BitVec 8),
-          (100 : BitVec 8), (32 : BitVec 8), (40 : BitVec 8), (192 : BitVec 8), (24 : BitVec 8), (41 : BitVec 8), (32 : BitVec 8), (115 : BitVec 8), (104 : BitVec 8),
-          (111 : BitVec 8), (117 : BitVec 8), (108 : BitVec 8), (100 : BitVec 8), (32 : BitVec 8), (101 : BitVec 8), (113 : BitVec 8), (117 : BitVec 8), (97 : BitVec 8),
-          (108 : BitVec 8), (32 : BitVec 8), (101 : BitVec 8), (110 : BitVec 8), (99 : BitVec 8), (111 : BitVec 8), (100 : BitVec 8), (101 : BitVec 8), (100 : BitVec 8),
-          (32 : BitVec 8), (40 : BitVec 8), (192 : BitVec 8), (11 : BitVec 8), (41 : BitVec 8), (32 : BitVec 8), (43 : BitVec 8), (32 : BitVec 8), (110 : BitVec 8),
-          (111 : BitVec 8), (105 : BitVec 8), (115 : BitVec 8), (101 : BitVec 8), (32 : BitVec 8), (40 : BitVec 8), (192 : BitVec 8), (1 : BitVec 8), (41 : BitVec 8),
-          (0 : BitVec 8)
-          ]) (Array.make 3#usize [ a, a1, a2 ])
-    fail panic
+  massert (decrypted = right_val)
 
 /-- [crypto_lwe::encrypt_decrypt_binary_secret_key]:
-    Source: 'src/lib.rs', lines 182:0-193:1
+    Source: 'src/lib.rs', lines 178:0-189:1
     Visibility: public -/
 def encrypt_decrypt_binary_secret_key : Result Unit := do
   let (encoded, _, decrypted) ←
@@ -146,21 +125,15 @@ def encrypt_decrypt_binary_secret_key : Result Unit := do
   massert (decrypted = right_val)
 
 /-- [crypto_lwe::encrypt_decrypt_zero_noise]:
-    Source: 'src/lib.rs', lines 195:0-206:1
+    Source: 'src/lib.rs', lines 191:0-202:1
     Visibility: public -/
 def encrypt_decrypt_zero_noise : Result Unit := do
   let (encoded, _, decrypted) ←
     encrypt_msg (5 : BitVec 64) (100 : BitVec 64) (0 : BitVec 64) ((100 : BitVec 64), (200 : BitVec 64)) ((5 : BitVec 64), (6 : BitVec 64))
-  if decrypted = encoded
-  then ok ()
-  else
-    let _ ←
-      core.fmt.Arguments.from_str (toStr
-        "with zero noise, decrypted should equal encoded exactly")
-    fail panic
+  massert (decrypted = encoded)
 
 /-- [crypto_lwe::encrypt_decrypt_large_mask]:
-    Source: 'src/lib.rs', lines 208:0-219:1
+    Source: 'src/lib.rs', lines 204:0-215:1
     Visibility: public -/
 def encrypt_decrypt_large_mask : Result Unit := do
   let (encoded, _, decrypted) ←
@@ -170,7 +143,7 @@ def encrypt_decrypt_large_mask : Result Unit := do
   massert (decrypted = right_val)
 
 /-- [crypto_lwe::encrypt_decrypt_wrapping_arithmetic]:
-    Source: 'src/lib.rs', lines 221:0-232:1
+    Source: 'src/lib.rs', lines 217:0-228:1
     Visibility: public -/
 def encrypt_decrypt_wrapping_arithmetic : Result Unit := do
   let body ←
@@ -183,7 +156,7 @@ def encrypt_decrypt_wrapping_arithmetic : Result Unit := do
   massert (decrypted = right_val)
 
 /-- [crypto_lwe::encrypt_decrypt_message_is_additive]:
-    Source: 'src/lib.rs', lines 234:0-263:1
+    Source: 'src/lib.rs', lines 230:0-259:1
     Visibility: public -/
 def encrypt_decrypt_message_is_additive : Result Unit := do
   let encoded_a ← lift ((2 : BitVec 64) * (256 : BitVec 64))
@@ -203,19 +176,17 @@ def encrypt_decrypt_message_is_additive : Result Unit := do
   massert (left_val = right_val2)
 
 /-- [crypto_lwe::ciphertext_add_basic]:
-    Source: 'src/lib.rs', lines 269:0-273:1
+    Source: 'src/lib.rs', lines 265:0-271:1
     Visibility: public -/
-noncomputable def ciphertext_add_basic : Result Unit := do
+def ciphertext_add_basic : Result Unit := do
   let (s0, s1, s_body) ←
     lwe_ciphertext_add (1 : BitVec 64) (2 : BitVec 64) (3 : BitVec 64) (4 : BitVec 64) (5 : BitVec 64) (6 : BitVec 64)
-  let b ←
-    TupleVUT.Insts.CoreCmpPartialEqTupleVUT.eq PartialEqBitVec64
-      PartialEqBitVec64 PartialEqBitVec64 (s0, s1, s_body) ((5 : BitVec 64),
-      (7 : BitVec 64), (9 : BitVec 64))
-  massert b
+  massert (s0 = (5 : BitVec 64))
+  massert (s1 = (7 : BitVec 64))
+  massert (s_body = (9 : BitVec 64))
 
 /-- [crypto_lwe::ciphertext_add_wraps_on_overflow]:
-    Source: 'src/lib.rs', lines 275:0-281:1
+    Source: 'src/lib.rs', lines 273:0-279:1
     Visibility: public -/
 def ciphertext_add_wraps_on_overflow : Result Unit := do
   let (s0, s1, s_body) ←
@@ -226,7 +197,7 @@ def ciphertext_add_wraps_on_overflow : Result Unit := do
   massert (s_body = (3 : BitVec 64))
 
 /-- [crypto_lwe::homomorphism_encrypt_then_add_then_decrypt]:
-    Source: 'src/lib.rs', lines 283:0-337:1
+    Source: 'src/lib.rs', lines 281:0-327:1
     Visibility: public -/
 def homomorphism_encrypt_then_add_then_decrypt : Result Unit := do
   let encoded_a ← lift ((3 : BitVec 64) * (256 : BitVec 64))
@@ -239,28 +210,16 @@ def homomorphism_encrypt_then_add_then_decrypt : Result Unit := do
     ciphertext_add ((42 : BitVec 64), (123 : BitVec 64), body_a) ((10 : BitVec 64), (20 : BitVec 64), body_b)
   let plain_sum ← decrypt (mask_sum0, mask_sum1) ((7 : BitVec 64), (13 : BitVec 64)) body_sum
   let right_val ← lift (plain_a + plain_b)
-  if plain_sum = right_val
-  then
-    let i := (3 : BitVec 64) + (5 : BitVec 64)
-    let expected_encoded ← lift (i * (256 : BitVec 64))
-    let expected_noise ← lift ((17 : BitVec 64) + (23 : BitVec 64))
-    let right_val1 ←
-      lift (expected_encoded + expected_noise)
-    if plain_sum = right_val1
-    then ok ()
-    else
-      let _ ←
-        core.fmt.Arguments.from_str (toStr
-          "decrypted sum = encoded(msg_a + msg_b) + noise_sum")
-      fail panic
-  else
-    let _ ←
-      core.fmt.Arguments.from_str (toStr
-        "additive homomorphism: decrypt(ct_a + ct_b) should equal decrypt(ct_a) + decrypt(ct_b)")
-    fail panic
+  massert (plain_sum = right_val)
+  let i := (3 : BitVec 64) + (5 : BitVec 64)
+  let expected_encoded ← lift (i * (256 : BitVec 64))
+  let expected_noise ← lift ((17 : BitVec 64) + (23 : BitVec 64))
+  let right_val1 ←
+    lift (expected_encoded + expected_noise)
+  massert (plain_sum = right_val1)
 
 /-- [crypto_lwe::homomorphism_binary_secret_key]:
-    Source: 'src/lib.rs', lines 339:0-364:1
+    Source: 'src/lib.rs', lines 329:0-354:1
     Visibility: public -/
 def homomorphism_binary_secret_key : Result Unit := do
   let body_a ← encrypt ((100 : BitVec 64), (200 : BitVec 64)) ((0 : BitVec 64), (1 : BitVec 64)) (500 : BitVec 64) (1 : BitVec 64)
@@ -274,36 +233,22 @@ def homomorphism_binary_secret_key : Result Unit := do
   massert (plain_sum = right_val)
 
 /-- [crypto_lwe::homomorphism_noise_grows_with_addition]:
-    Source: 'src/lib.rs', lines 366:0-401:1
+    Source: 'src/lib.rs', lines 356:0-387:1
     Visibility: public -/
 def homomorphism_noise_grows_with_addition : Result Unit := do
   let body_a ← encrypt ((42 : BitVec 64), (123 : BitVec 64)) ((7 : BitVec 64), (13 : BitVec 64)) (0 : BitVec 64) (10 : BitVec 64)
   let body_b ← encrypt ((42 : BitVec 64), (123 : BitVec 64)) ((7 : BitVec 64), (13 : BitVec 64)) (0 : BitVec 64) (20 : BitVec 64)
   let plain_a ← decrypt ((42 : BitVec 64), (123 : BitVec 64)) ((7 : BitVec 64), (13 : BitVec 64)) body_a
   let plain_b ← decrypt ((42 : BitVec 64), (123 : BitVec 64)) ((7 : BitVec 64), (13 : BitVec 64)) body_b
-  if plain_a = (10 : BitVec 64)
-  then
-    if plain_b = (20 : BitVec 64)
-    then
-      let (mask_sum0, mask_sum1, body_sum) ←
-        ciphertext_add ((42 : BitVec 64), (123 : BitVec 64), body_a) ((42 : BitVec 64), (123 : BitVec 64), body_b)
-      let plain_sum ← decrypt (mask_sum0, mask_sum1) ((7 : BitVec 64), (13 : BitVec 64)) body_sum
-      let right_val ← lift ((10 : BitVec 64) + (20 : BitVec 64))
-      if plain_sum = right_val
-      then ok ()
-      else
-        let _ ←
-          core.fmt.Arguments.from_str (toStr
-            "noise is additive: noise_sum = noise_a + noise_b")
-        fail panic
-    else
-      let _ ←
-        core.fmt.Arguments.from_str (toStr "plain_b should be just noise_b")
-      fail panic
-  else
-    let _ ←
-      core.fmt.Arguments.from_str (toStr "plain_a should be just noise_a")
-    fail panic
+  massert (plain_a = (10 : BitVec 64))
+  massert (plain_b = (20 : BitVec 64))
+  let (mask_sum0, mask_sum1, body_sum) ←
+    ciphertext_add ((42 : BitVec 64), (123 : BitVec 64), body_a) ((42 : BitVec 64), (123 : BitVec 64), body_b)
+  let plain_sum ← decrypt (mask_sum0, mask_sum1) ((7 : BitVec 64), (13 : BitVec 64)) body_sum
+  let right_val ← lift ((10 : BitVec 64) + (20 : BitVec 64))
+  massert (plain_sum = right_val)
+
+#eval ciphertext_add_basic
 
 #eval ciphertext_add_wraps_on_overflow
 

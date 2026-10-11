@@ -112,11 +112,7 @@ fn encrypt_decrypt_small_values() {
 
     let (encoded, _body, decrypted) = encrypt_msg(msg, delta, noise, mask, sk);
 
-    assert_eq!(
-        decrypted,
-        encoded.wrapping_add(noise),
-        "decrypted ({decrypted}) should equal encoded ({encoded}) + noise ({noise})"
-    );
+    assert_eq!(decrypted, encoded.wrapping_add(noise));
 }
 
 #[test]
@@ -144,7 +140,7 @@ fn encrypt_decrypt_zero_noise() {
 
     let (encoded, _body, decrypted) = encrypt_msg(msg, delta, noise, mask, sk);
 
-    assert_eq!(decrypted, encoded, "with zero noise, decrypted should equal encoded exactly");
+    assert_eq!(decrypted, encoded);
 }
 
 #[test]
@@ -215,7 +211,9 @@ fn encrypt_decrypt_message_is_additive() {
 fn ciphertext_add_basic() {
     // Element-wise addition: (1,2,3) + (4,5,6) = (5,7,9)
     let (s0, s1, s_body) = crypto_lwe::lwe_ciphertext_add(1, 2, 3, 4, 5, 6);
-    assert_eq!((s0, s1, s_body), (5, 7, 9));
+    assert_eq!(s0, 5);
+    assert_eq!(s1, 7);
+    assert_eq!(s_body, 9);
 }
 
 #[test]
@@ -266,22 +264,14 @@ fn homomorphism_encrypt_then_add_then_decrypt() {
     let plain_sum = decrypt((mask_sum0, mask_sum1), sk, body_sum);
 
     // Homomorphism: decrypt(sum) == decrypt(a) + decrypt(b)
-    assert_eq!(
-        plain_sum,
-        plain_a.wrapping_add(plain_b),
-        "additive homomorphism: decrypt(ct_a + ct_b) should equal decrypt(ct_a) + decrypt(ct_b)"
-    );
+    assert_eq!(plain_sum, plain_a.wrapping_add(plain_b));
 
     // Also verify what the plaintext sum actually represents:
     // plain_a + plain_b = (encoded_a + noise_a) + (encoded_b + noise_b)
     //                   = (msg_a + msg_b) * delta + (noise_a + noise_b)
     let expected_encoded = (msg_a + msg_b).wrapping_mul(delta);
     let expected_noise = noise_a.wrapping_add(noise_b);
-    assert_eq!(
-        plain_sum,
-        expected_encoded.wrapping_add(expected_noise),
-        "decrypted sum = encoded(msg_a + msg_b) + noise_sum"
-    );
+    assert_eq!(plain_sum, expected_encoded.wrapping_add(expected_noise));
 }
 
 #[test]
@@ -332,8 +322,8 @@ fn homomorphism_noise_grows_with_addition() {
     let plain_a = decrypt(mask, sk, body_a);
     let plain_b = decrypt(mask, sk, body_b);
 
-    assert_eq!(plain_a, noise_a, "plain_a should be just noise_a");
-    assert_eq!(plain_b, noise_b, "plain_b should be just noise_b");
+    assert_eq!(plain_a, noise_a);
+    assert_eq!(plain_b, noise_b);
 
     // Add the two zero-message ciphertexts
     let ct_a = (mask.0, mask.1, body_a);
@@ -343,9 +333,5 @@ fn homomorphism_noise_grows_with_addition() {
     let plain_sum = decrypt((mask_sum0, mask_sum1), sk, body_sum);
 
     // The result is noise_a + noise_b (since messages are zero)
-    assert_eq!(
-        plain_sum,
-        noise_a.wrapping_add(noise_b),
-        "noise is additive: noise_sum = noise_a + noise_b"
-    );
+    assert_eq!(plain_sum, noise_a.wrapping_add(noise_b));
 }
