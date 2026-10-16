@@ -1,0 +1,9 @@
+[package]
+name = "array_separate_chaining"
+version = "0.1.0"
+edition = "2024"
+
+[package.metadata.autospec]
+int-model = "nat"
+
+[dependencies]
