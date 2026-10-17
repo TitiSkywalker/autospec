@@ -1,0 +1,9 @@
+[package]
+name = "tensor_cross_entropy"
+version = "0.1.0"
+edition = "2024"
+
+[package.metadata.autospec]
+float-model = "Real"
+
+[dependencies]
