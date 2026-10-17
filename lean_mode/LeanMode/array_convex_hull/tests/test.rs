@@ -1,7 +1,7 @@
 #[test]
 fn test_square() {
     let p = [0.0, 0.0, 4.0, 0.0, 4.0, 4.0, 0.0, 4.0];
-    let h = geometry_convex_hull::convex_hull(&p, 4);
+    let h = array_convex_hull::convex_hull(&p, 4);
     // CCW: (0,0), (4,0), (4,4), (0,4).
     assert_eq!(h.len(), 8);
     assert_eq!(h[0], 0.0);
@@ -17,7 +17,7 @@ fn test_square() {
 #[test]
 fn test_square_with_interior_point() {
     let p = [0.0, 0.0, 4.0, 0.0, 4.0, 4.0, 0.0, 4.0, 2.0, 2.0];
-    let h = geometry_convex_hull::convex_hull(&p, 5);
+    let h = array_convex_hull::convex_hull(&p, 5);
     assert_eq!(h.len(), 8);
     assert_eq!(h[0], 0.0);
     assert_eq!(h[1], 0.0);
@@ -33,7 +33,7 @@ fn test_square_with_interior_point() {
 fn test_collinear_dropped() {
     // Three collinear points: the middle one is not an extreme vertex.
     let p = [0.0, 0.0, 1.0, 1.0, 2.0, 2.0];
-    let h = geometry_convex_hull::convex_hull(&p, 3);
+    let h = array_convex_hull::convex_hull(&p, 3);
     assert_eq!(h.len(), 4);
     assert_eq!(h[0], 0.0);
     assert_eq!(h[1], 0.0);
@@ -44,7 +44,7 @@ fn test_collinear_dropped() {
 #[test]
 fn test_triangle() {
     let p = [0.0, 0.0, 2.0, 0.0, 0.0, 2.0];
-    let h = geometry_convex_hull::convex_hull(&p, 3);
+    let h = array_convex_hull::convex_hull(&p, 3);
     assert_eq!(h.len(), 6);
     assert_eq!(h[0], 0.0);
     assert_eq!(h[1], 0.0);
@@ -57,7 +57,7 @@ fn test_triangle() {
 #[test]
 fn test_single_point() {
     let p = [3.0, 4.0];
-    let h = geometry_convex_hull::convex_hull(&p, 1);
+    let h = array_convex_hull::convex_hull(&p, 1);
     assert_eq!(h.len(), 2);
     assert_eq!(h[0], 3.0);
     assert_eq!(h[1], 4.0);

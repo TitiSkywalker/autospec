@@ -1,8 +1,8 @@
-import LeanMode.geometry_closest_pair.GeometryClosestPair
+import LeanMode.array_closest_pair.ArrayClosestPair
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open geometry_closest_pair
+open array_closest_pair
 
 set_option linter.unusedVariables false
 

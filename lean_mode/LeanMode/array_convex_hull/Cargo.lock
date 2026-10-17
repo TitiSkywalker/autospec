@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "geometry_convex_hull"
+name = "array_convex_hull"
 version = "0.1.0"

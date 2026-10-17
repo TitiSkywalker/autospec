@@ -1,8 +1,8 @@
-import LeanMode.geometry_convex_hull.GeometryConvexHull
+import LeanMode.array_convex_hull.ArrayConvexHull
 import Mathlib
 
 open Aeneas Aeneas.Std Result
-open geometry_convex_hull
+open array_convex_hull
 
 set_option linter.unusedVariables false
 

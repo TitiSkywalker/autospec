@@ -1,5 +1,5 @@
 [package]
-name = "geometry_convex_hull"
+name = "array_closest_pair"
 version = "0.1.0"
 edition = "2024"
 

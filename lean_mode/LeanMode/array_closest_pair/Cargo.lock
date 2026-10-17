@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "geometry_closest_pair"
+name = "array_closest_pair"
 version = "0.1.0"
