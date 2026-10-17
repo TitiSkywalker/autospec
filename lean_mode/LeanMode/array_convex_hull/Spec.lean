@@ -27,7 +27,8 @@ def insideConvex (hull : List Rat) (m : Nat) (p : Rat × Rat) : Prop :=
 
 /-- The hull is convex (all consecutive turns are strictly left, CCW) and contains every input point. -/
 theorem convex_hull_correct (points : Slice Rat) (n : Std.Usize)
-    (result : alloc.vec.Vec Rat) (h : convex_hull points n = ok result) :
+    (result : alloc.vec.Vec Rat) (h : convex_hull points n = ok result)
+    (h_len : (points : List Rat).length = 2 * n.val) :
     let hull := (alloc.vec.Vec.deref result : List Rat)
     let m := hull.length / 2
     (∀ v, v < m → ∃ i, i < n.val ∧ pt hull v = pt (points : List Rat) i) ∧

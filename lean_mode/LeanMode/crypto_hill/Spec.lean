@@ -25,6 +25,7 @@ Conformance is checked by `#eval` in `Test_test.lean`.
 /-- Correctness of the modular inverse: `mod_inverse a m = ok d` implies
     `(a · d) mod m = 1`. -/
 theorem mod_inverse_correct (a m d : Int)
+    (h_m : 1 < m)
     (h : mod_inverse a m = ok d) :
     (a * d) % m = 1 := by
   sorry

@@ -67,6 +67,8 @@ theorem topological_sort_correct_some
     (n : Std.Usize)
     (g : CsrGraph)
     (order : alloc.vec.Vec Std.Usize)
+    (h_bounds : (∀ x ∈ (g.from_list : List Std.Usize), x.val < n.val) ∧
+                (∀ x ∈ (g.to_list : List Std.Usize), x.val < n.val))
     (h_len : order.length = n.val)
     (h : topological_sort n g.from_list g.to_list = ok (some order)) :
     ¬ graph_has_cycle g ∧
@@ -77,6 +79,8 @@ theorem topological_sort_correct_some
 theorem topological_sort_correct_none
     (n : Std.Usize)
     (g : CsrGraph)
+    (h_bounds : (∀ x ∈ (g.from_list : List Std.Usize), x.val < n.val) ∧
+                (∀ x ∈ (g.to_list : List Std.Usize), x.val < n.val))
     (h : topological_sort n g.from_list g.to_list = ok none) :
     graph_has_cycle g := by
   sorry

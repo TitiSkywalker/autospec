@@ -13,8 +13,9 @@ set_option linter.unusedVariables false
 square-and-multiply (requires `modulus > 0`).
 -/
 
-/-- Correctness of modular exponentiation. -/
+/-- Correctness of modular exponentiation (for modulus ≥ 2). -/
 theorem mod_pow_correct (base exp modulus result : Nat)
+    (h_mod : 1 < modulus)
     (h : mod_pow base exp modulus = ok result) :
     result = (base ^ exp) % modulus := by
   sorry

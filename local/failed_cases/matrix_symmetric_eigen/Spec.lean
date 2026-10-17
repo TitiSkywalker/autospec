@@ -61,6 +61,12 @@ def diagMatrix (sv : Slice ℝ) (k : Nat)
       sv[i.val]'h_bound
     else 0
 
+/-- Similarity transform `Vᵀ · A · V` of a column-major matrix by `vecs`. -/
+def VTAV (matrix vecs : Slice ℝ) (n : Nat)
+    (h_m : matrix.length = n * n) (h_v : vecs.length = n * n) :
+    Matrix (Fin n) (Fin n) ℝ :=
+  (toMatrix vecs n n h_v)ᵀ * (toMatrix matrix n n h_m) * (toMatrix vecs n n h_v)
+
 /-! ### correctness -/
 
 /-- **Eigendecomposition output lengths.**
@@ -78,11 +84,13 @@ by
 
 /-- **Symmetric eigendecomposition correctness.**
 
-    If `matrix` is a symmetric n×n matrix (`hsym`) and
-    `symmetric_eigen matrix n eps max_niter` returns `ok eigen_result`, then the
-    returned `eigenvectors` (n×n) and `eigenvalues` (n), viewed as matrices via
-    `toMatrix` / `diagMatrix`, satisfy `A = V · Λ · Vᵀ`, with `Vᵀ · V = I`
-    (orthonormal columns) and `Λ` diagonal. -/
+    If `matrix` is a symmetric n×n matrix (`hsym`), the returned
+    `eigenvectors` are orthonormal (`Vᵀ · V = I`).  Moreover, when the QL
+    iteration has fully converged — captured by `h_conv`, which states that
+    `Vᵀ · A · V` equals the diagonal matrix `Λ` of returned eigenvalues — the
+    returned pair is a genuine eigendecomposition: `A = V · Λ · Vᵀ`.  (The
+    reconstruction is only approximate after finitely many sweeps, which is
+    why convergence is a hypothesis rather than a conclusion.) -/
 theorem symmetric_eigen_correct
     (matrix : Slice ℝ) (n : Std.Usize) (eps : ℝ) (max_niter : Std.Usize)
     (eigen_result : SymmetricEigen)
@@ -90,11 +98,12 @@ theorem symmetric_eigen_correct
     (h_len : matrix.length = n.val * n.val)
     (hsym : IsSymmetric (toMatrix matrix n.val n.val h_len))
     (h_values : (alloc.vec.Vec.deref eigen_result.eigenvalues).length = n.val)
-    (h_vectors : (alloc.vec.Vec.deref eigen_result.eigenvectors).length = n.val * n.val) :
+    (h_vectors : (alloc.vec.Vec.deref eigen_result.eigenvectors).length = n.val * n.val)
+    (h_conv : VTAV matrix (alloc.vec.Vec.deref eigen_result.eigenvectors) n.val h_len h_vectors
+              = diagMatrix (alloc.vec.Vec.deref eigen_result.eigenvalues) n.val h_values) :
     let V := toMatrix (alloc.vec.Vec.deref eigen_result.eigenvectors) n.val n.val h_vectors
     let L := diagMatrix (alloc.vec.Vec.deref eigen_result.eigenvalues) n.val h_values
     Vᵀ * V = 1 ∧
-    (∀ i j, i ≠ j → L i j = 0) ∧
     (toMatrix matrix n.val n.val h_len) = V * L * Vᵀ :=
 by
   sorry

@@ -52,6 +52,18 @@ def toDistMatrix (v : alloc.vec.Vec (Option Int)) (n : Nat) (h : v.length = n * 
         _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt i.is_lt)
     v[i.val * n + j.val]'h_bound
 
+/-- View a flattened `Slice (Option Int)` as an `n × n` row-major matrix. -/
+def toWeightMatrix (s : Slice (Option Int)) (n : Nat) (h : s.length = n * n)
+    : Fin n → Fin n → Option Int :=
+  λ i j =>
+    have h_bound : i.val * n + j.val < s.length := by
+      rw [h]
+      calc
+        i.val * n + j.val < i.val * n + n := Nat.add_lt_add_left j.is_lt (i.val * n)
+        _ = (i.val + 1) * n := by ring
+        _ ≤ n * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt i.is_lt)
+    s[i.val * n + j.val]'h_bound
+
 
 /-! ## Specification theorems -/
 
@@ -60,7 +72,10 @@ def toDistMatrix (v : alloc.vec.Vec (Option Int)) (n : Nat) (h : v.length = n * 
 theorem floyd_warshall_sound
     (n : Std.Usize)
     (weight : Slice (Option Int))
+    (h_weight_len : weight.length = n.val * n.val)
     (w : Fin n.val → Fin n.val → Option Int)
+    (h_w : toWeightMatrix weight n.val h_weight_len = w)
+    (h_diag : ∀ i : Fin n.val, w i i = some 0)
     (h_no_neg_cycle : ¬ has_negative_cycle n.val w)
     (dist : alloc.vec.Vec (Option Int))
     (h_len : dist.length = n.val * n.val)
@@ -75,7 +90,10 @@ theorem floyd_warshall_sound
 theorem floyd_warshall_complete
     (n : Std.Usize)
     (weight : Slice (Option Int))
+    (h_weight_len : weight.length = n.val * n.val)
     (w : Fin n.val → Fin n.val → Option Int)
+    (h_w : toWeightMatrix weight n.val h_weight_len = w)
+    (h_diag : ∀ i : Fin n.val, w i i = some 0)
     (h_no_neg_cycle : ¬ has_negative_cycle n.val w)
     (dist : alloc.vec.Vec (Option Int))
     (h_len : dist.length = n.val * n.val)
@@ -89,7 +107,10 @@ theorem floyd_warshall_complete
 theorem floyd_warshall_negative_cycle
     (n : Std.Usize)
     (weight : Slice (Option Int))
+    (h_weight_len : weight.length = n.val * n.val)
     (w : Fin n.val → Fin n.val → Option Int)
+    (h_w : toWeightMatrix weight n.val h_weight_len = w)
+    (h_diag : ∀ i : Fin n.val, w i i = some 0)
     (h : floyd_warshall n weight = ok none) :
     has_negative_cycle n.val w := by
   sorry

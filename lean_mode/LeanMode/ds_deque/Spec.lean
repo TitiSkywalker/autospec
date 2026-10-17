@@ -19,6 +19,13 @@ def toList (d : Deque) : List Int :=
   let l := (alloc.vec.Vec.deref d.buf : List Int)
   (List.range d.len.val).map (fun i => l.getD ((d.head.val + i) % l.length) 0)
 
+/-- Ring-buffer well-formedness: the occupied range fits in the buffer, and
+    either the deque is empty (`head` is never read) or `head` points inside
+    the buffer. -/
+def WellFormed (d : Deque) : Prop :=
+  d.len.val ≤ (alloc.vec.Vec.deref d.buf : List Int).length ∧
+  (d.len.val = 0 ∨ d.head.val < (alloc.vec.Vec.deref d.buf : List Int).length)
+
 
 /-! ## Specification theorems -/
 
@@ -30,12 +37,14 @@ theorem deque_new_correct (d : Deque)
 
 /-- `push_back` appends exactly `v`. -/
 theorem push_back_correct (d r : Deque) (v : Int)
+    (hwf : WellFormed d)
     (h : push_back d v = ok r) :
     toList r = toList d ++ [v] := by
   sorry
 
 /-- `push_front` prepends exactly `v`. -/
 theorem push_front_correct (d r : Deque) (v : Int)
+    (hwf : WellFormed d)
     (h : push_front d v = ok r) :
     toList r = v :: toList d := by
   sorry

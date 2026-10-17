@@ -43,6 +43,7 @@ theorem garble_and_gate_correct
     (gate_num a b delta gate0 gate1 c0 : BitVec 64)
     (a_bit b_bit : BitVec 64)
     (h_garble : garble_and_gate gate_num a b delta = ok (gate0, gate1, c0))
+    (h_delta : delta &&& 1#64 = 1#64)
     (h_a_val : a_bit = 0#64 || a_bit = 1#64)
     (h_b_val : b_bit = 0#64 || b_bit = 1#64)
     (h_eval : evaluate_and_gate gate_num

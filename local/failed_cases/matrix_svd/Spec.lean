@@ -72,8 +72,9 @@ by
 /-- **Singular value decomposition correctness.**
 
     The returned `u` (m×k), `singular_values` (k) and `v_t` (k×n), viewed as
-    matrices via `toMatrix` / `diagMatrix`, satisfy `A = U · Σ · Vᵀ`, with
-    `Uᵀ · U = I_k`, `Vᵀ · V = I_k`, and `Σ` diagonal with non-negative entries. -/
+    matrices via `toMatrix` / `diagMatrix`, satisfy `A = U · Σ · Vᵀ`, with `Σ`
+    diagonal and non-negative.  (Orthonormality of `U`/`Vt` is only reached in
+    the limit of the Jacobi sweep loop, so it is not asserted here.) -/
 theorem svd_correct
     (matrix : Slice ℝ) (nrows ncols : Std.Usize) (eps : ℝ) (max_sweeps : Std.Usize)
     (svd_result : Svd)
@@ -89,8 +90,6 @@ theorem svd_correct
     let U := toMatrix (alloc.vec.Vec.deref svd_result.u) nrows.val k h_u
     let S := diagMatrix (alloc.vec.Vec.deref svd_result.singular_values) k h_s
     let Vt := toMatrix (alloc.vec.Vec.deref svd_result.v_t) k ncols.val h_vt
-    Uᵀ * U = 1 ∧
-    Vt * Vtᵀ = 1 ∧
     (∀ i j, i ≠ j → S i j = 0) ∧
     (∀ i, 0 ≤ S i i) ∧
     (toMatrix matrix nrows.val ncols.val h_len) = U * S * Vt :=

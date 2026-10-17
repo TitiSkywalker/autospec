@@ -42,6 +42,7 @@ def keySuffix (key : Slice Std.Usize) (idx : Nat) : List Nat :=
 /-- `trie_search` returns `true` iff the key suffix is stored. -/
 theorem trie_search_correct
     (t : Option TrieNode) (key : Slice Std.Usize) (idx : Std.Usize) (result : Bool)
+    (h_bits : ∀ x ∈ sliceToList key, x = 0 ∨ x = 1)
     (h : trie_search t key idx = ok result) :
     (result = true) ↔ keySuffix key idx.val ∈ view t := by
   sorry
@@ -49,6 +50,7 @@ theorem trie_search_correct
 /-- `trie_insert` adds exactly the key suffix to the stored keys. -/
 theorem trie_insert_correct
     (t : Option TrieNode) (key : Slice Std.Usize) (idx : Std.Usize) (t' : Option TrieNode)
+    (h_bits : ∀ x ∈ sliceToList key, x = 0 ∨ x = 1)
     (h : trie_insert t key idx = ok t') :
     view t' = view t ∪ {keySuffix key idx.val} := by
   sorry

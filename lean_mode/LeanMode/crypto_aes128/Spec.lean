@@ -16,6 +16,7 @@ Encrypt/decrypt conformance against FIPS-197 / SP 800-38A is checked by
 /-- Decryption inverts encryption: `decrypt(encrypt(x, k), k) = x`. -/
 theorem decrypt_encrypt_roundtrip
     (block key : Slice (BitVec 8)) (ct pt : alloc.vec.Vec (BitVec 8))
+    (h_len : (block : List (BitVec 8)).length = 16)
     (h1 : aes_encrypt block key = ok ct)
     (h2 : aes_decrypt (alloc.vec.Vec.deref ct) key = ok pt) :
     alloc.vec.Vec.deref pt = block := by

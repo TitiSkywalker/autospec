@@ -13,9 +13,11 @@ set_option linter.unusedVariables false
 Bézout identity `a * x + b * y = g` holds.
 -/
 
-/-- Correctness of the extended Euclidean algorithm: the first component is
-    the gcd and the coefficients satisfy Bézout's identity. -/
+/-- Correctness of the extended Euclidean algorithm on non-negative inputs:
+    the first component is the gcd and the coefficients satisfy Bézout's
+    identity. -/
 theorem extended_gcd_correct (a b g x y : Int)
+    (h_nonneg : 0 ≤ a ∧ 0 ≤ b)
     (h : extended_gcd a b = ok (g, x, y)) :
     g = Int.gcd a b ∧ a * x + b * y = g := by
   sorry

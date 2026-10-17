@@ -23,8 +23,9 @@ theorem gcd_correct (a b result : Nat)
   sorry
 
 /-- Correctness of modular exponentiation: `mod_pow base exp modulus`
-    computes `base^exp mod modulus`. -/
+    computes `base^exp mod modulus` (for modulus ≥ 2). -/
 theorem mod_pow_correct (base exp modulus result : Nat)
+    (h_mod : 1 < modulus)
     (h : mod_pow base exp modulus = ok result) :
     result = (base ^ exp) % modulus := by
   sorry
@@ -38,12 +39,17 @@ theorem mod_inverse_correct (e phi d : Nat)
 
 /-- RSA roundtrip: decryption inverts encryption when the keys are correct.
     Requires:
-    - `n = p * q` (modulus is product of two primes)
+    - `p`, `q` are distinct primes and `n = p * q`
+    - `message < n`
     - `e` is coprime to `φ(n) = (p-1)*(q-1)`
     - `d` is the modular inverse of `e` modulo `φ(n)` -/
 theorem rsa_decrypt_encrypt_roundtrip
     (message e d n p q : Nat)
     (h_n : n = p * q)
+    (hp : Nat.Prime p)
+    (hq : Nat.Prime q)
+    (hpq : p ≠ q)
+    (h_msg : message < n)
     (h_coprime : Nat.gcd e ((p - 1) * (q - 1)) = 1)
     (h_inv : mod_inverse e ((p - 1) * (q - 1)) = ok d)
     (h_enc : rsa_encrypt message e n = ok result) :

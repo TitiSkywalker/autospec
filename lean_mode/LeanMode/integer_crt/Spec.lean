@@ -18,6 +18,7 @@ def crt_solution (residues moduli : List Int) (x : Int) : Prop :=
   List.Forall₂ (fun r m => (x - r) % m = 0) residues moduli
 
 theorem crt_correct (residues moduli : Slice Int) (result : Int)
+    (h_len : (residues : List Int).length = (moduli : List Int).length)
     (h : crt residues moduli = ok result) :
     crt_solution (residues : List Int) (moduli : List Int) result ∧ 0 ≤ result := by
   sorry

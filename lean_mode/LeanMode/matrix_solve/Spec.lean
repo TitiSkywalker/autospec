@@ -52,9 +52,10 @@ def toVector (s : Slice Rat) (n : Nat) (h : s.length = n) : Fin n → Rat :=
 
 /-- **Lower-triangular solve output length.**
 
-    The returned solution vector has length n. -/
+    The returned solution vector has length `n` (given `b` has length `n`). -/
 theorem solve_lower_triangular_length
     (matrix : Slice Rat) (b : Slice Rat) (n : Std.Usize) (x : alloc.vec.Vec Rat)
+    (h_b : b.length = n.val)
     (h : solve_lower_triangular matrix b n = ok x) :
     (alloc.vec.Vec.deref x).length = n.val :=
 by
@@ -80,9 +81,10 @@ by
 
 /-- **Upper-triangular solve output length.**
 
-    The returned solution vector has length n. -/
+    The returned solution vector has length `n` (given `b` has length `n`). -/
 theorem solve_upper_triangular_length
     (matrix : Slice Rat) (b : Slice Rat) (n : Std.Usize) (x : alloc.vec.Vec Rat)
+    (h_b : b.length = n.val)
     (h : solve_upper_triangular matrix b n = ok x) :
     (alloc.vec.Vec.deref x).length = n.val :=
 by

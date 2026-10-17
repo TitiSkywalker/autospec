@@ -43,6 +43,7 @@ theorem mod_inverse_correct (a m d : Nat)
     `affine_encrypt`). -/
 theorem affine_decrypt_encrypt_roundtrip (x a b result : Nat)
     (h_coprime : Nat.gcd a 26 = 1)
+    (h_b : b < 26)
     (h_enc : affine_encrypt x a b = ok result) :
     affine_decrypt result a b = ok x := by
   sorry

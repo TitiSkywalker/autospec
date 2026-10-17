@@ -31,6 +31,7 @@ Conformance is checked by `#eval` in `Test_test.lean`.
 /-- Correctness of modular exponentiation: `mod_pow base exp modulus`
     computes `base^exp mod modulus`. -/
 theorem mod_pow_correct (base exp modulus result : Nat)
+    (h_mod : 1 < modulus)
     (h : mod_pow base exp modulus = ok result) :
     result = (base ^ exp) % modulus := by
   sorry

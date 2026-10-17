@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "bitvec_des"
+name = "crypto_des128"
 version = "0.1.0"

@@ -33,12 +33,32 @@ def occursAt (text pattern : List Nat) (i : Nat) : Prop :=
 def occurs (text pattern : List Nat) : Prop :=
   ∃ i, occursAt text pattern i
 
+/-- Every element is a byte value (`≤ 255`). -/
+def AllBytes (s : Slice Std.Usize) : Prop :=
+  ∀ x ∈ uszList (s : List Std.Usize), x ≤ 255
+
+/-- `offsets` is a monotone, in-bounds partition of `patterns`. -/
+def WellFormedOffsets (patterns offsets : Slice Std.Usize) : Prop :=
+  let pl := uszList (patterns : List Std.Usize)
+  let ol := uszList (offsets : List Std.Usize)
+  (∀ i, i < ol.length → ol.getD i 0 ≤ pl.length) ∧
+  (∀ i, i + 1 < ol.length → ol.getD i 0 ≤ ol.getD (i + 1) 0)
+
+/-- No two patterns are identical. -/
+def NoDuplicatePatterns (patterns offsets : Slice Std.Usize) : Prop :=
+  let pl := uszList (patterns : List Std.Usize)
+  let ol := uszList (offsets : List Std.Usize)
+  ∀ p q, p < q → q < ol.length - 1 → patternAt pl ol p ≠ patternAt pl ol q
+
 /-! ## Specification theorems -/
 
 /-- `aho_corasick` marks pattern `p` as matched exactly when pattern `p`
     occurs in `text`. -/
 theorem aho_corasick_correct (text patterns offsets : Slice Std.Usize)
     (result : alloc.vec.Vec Bool)
+    (h_bytes : AllBytes text ∧ AllBytes patterns)
+    (h_offsets : WellFormedOffsets patterns offsets)
+    (h_no_dup : NoDuplicatePatterns patterns offsets)
     (h : aho_corasick text patterns offsets = ok result) :
     (alloc.vec.Vec.deref result).length = (offsets : List Std.Usize).length - 1 ∧
     (∀ p, p < (offsets : List Std.Usize).length - 1 →

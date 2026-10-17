@@ -49,12 +49,13 @@ def TotalWeight (es : List (Std.Usize × Std.Usize × Rat)) : Rat :=
 
 /-- A list of edges is a **spanning tree** for the graph
     `(graph_edges, nodes)` if:
-    1. Every edge comes from the original graph.
+    1. Every edge is in the original graph, possibly reversed (the graph is
+       undirected).
     2. The edges connect all nodes.
     3. `|E| = |V| - 1` — together with (2) this implies acyclicity. -/
 def IsSpanningTree (mst_edges : List (Std.Usize × Std.Usize × Rat))
     (graph_edges : Set (Std.Usize × Std.Usize × Rat)) (nodes : Finset Std.Usize) : Prop :=
-  (∀ e, e ∈ mst_edges → e ∈ graph_edges) ∧
+  (∀ u v w, (u, v, w) ∈ mst_edges → (u, v, w) ∈ graph_edges ∨ (v, u, w) ∈ graph_edges) ∧
   Connects ({ e | e ∈ mst_edges }) (nodes : Set Std.Usize) ∧
   mst_edges.length + 1 = nodes.card
 
