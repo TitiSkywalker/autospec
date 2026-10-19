@@ -13,6 +13,7 @@ logging; ``sessions`` returns the trace candidates a run may have produced.
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,8 +37,9 @@ class Agent:
 
     kind = "base"
     streaming_output = ""  # the ``cfg.output`` value that selects live streaming
-    # True when the CLI has no native turn cap: the pipeline then enforces
-    # ``max_turns`` itself by killing the process once ``steps`` exceeds it.
+    # True when the pipeline enforces ``max_turns`` itself as a tool-call cap
+    # (killing the process once ``steps`` exceeds it) instead of passing a
+    # native turn limit to the CLI.
     external_max_turns = False
 
     def __init__(self, cfg: AgentConfig):
@@ -193,6 +195,9 @@ class ClaudeAgent(Agent):
 
     kind = "claude"
     streaming_output = "stream-json"
+    # ``CLAUDE_CODE_MAX_TURNS`` is not set; the pipeline enforces ``max_turns``
+    # as a tool-call cap (each ``tool_use`` block counts as one call).
+    external_max_turns = True
 
     def __init__(self, cfg: AgentConfig, mcp: McpConfig, port: int):
         super().__init__(cfg)
@@ -234,8 +239,6 @@ class ClaudeAgent(Agent):
             extra["ANTHROPIC_BASE_URL"] = self.cfg.base_url
         if self.cfg.api_key:
             extra["ANTHROPIC_AUTH_TOKEN"] = self.cfg.api_key
-        if self.cfg.max_turns is not None:
-            extra["CLAUDE_CODE_MAX_TURNS"] = str(self.cfg.max_turns)
         return extra
 
     def parse_stream_line(self, line: str) -> StreamEvent | None:
@@ -305,8 +308,9 @@ class ClaudeAgent(Agent):
 
     def is_limit_stop(self, stop: str) -> bool:
         # Claude Code's stream-json ends with a ``result`` event whose ``subtype``
-        # reports the stop reason; ``error_max_turns`` is its own turn budget
-        # (CLAUDE_CODE_MAX_TURNS), not a backend failure.
+        # reports the stop reason; ``error_max_turns`` is a controlled turn-budget
+        # stop (only fires when the ambient CLAUDE_CODE_MAX_TURNS is set), not a
+        # backend failure.
         return stop == "error_max_turns"
 
 
@@ -448,10 +452,187 @@ class CodexAgent(Agent):
             return None
 
 
+def _yaml_str(value: str) -> str:
+    """A YAML double-quoted scalar; JSON strings are valid YAML scalars."""
+    return json.dumps(value)
+
+
+def _dsh_home() -> Path:
+    """dsh's data root: ``$DSH_HOME`` (if set) else ``~/.dsh``."""
+    env = os.environ.get("DSH_HOME", "").strip()
+    if env:
+        return Path(os.path.expanduser(env))
+    return Path.home() / ".dsh"
+
+
+def _project_key(cwd: str) -> str:
+    """dsh's ``projectKey``: the per-cwd directory under ``$DSH_HOME/sessions``.
+
+    Separators (``/\\:``) collapse to ``-``; unsafe code units become ``~XXXX``
+    (uppercase hex); the result is wrapped as ``--<key>--`` (lossy, bounded).
+    """
+    readable = ""
+    separator_run = False
+    for ch in cwd:
+        if ch in "/\\:":
+            if not separator_run:
+                readable += "-"
+            separator_run = True
+        elif ch != "~" and re.fullmatch(r"[A-Za-z0-9._-]", ch):
+            readable += ch
+            separator_run = False
+        else:
+            readable += "~" + f"{ord(ch):04X}"
+            separator_run = False
+    return "--" + (readable.lstrip("-") or "root")[:251] + "--"
+
+
+class DshAgent(Agent):
+    """DeepSeek Harness (``dsh --profile headless``)."""
+
+    kind = "dsh"
+    streaming_output = "json"  # ``--json`` emits newline-delimited run events
+    # dsh has no native turn cap, so the pipeline kills the process once the
+    # number of completed tool calls exceeds ``max_turns`` (mirrors codex).
+    external_max_turns = True
+    _PROFILE = "headless"
+    _PROVIDER = "deepseek-official"  # the dsh-llm-deepseek provider route
+    _MCP_SERVER = "lean-lsp"
+
+    def __init__(self, cfg: AgentConfig, mcp: McpConfig, port: int):
+        super().__init__(cfg)
+        self.mcp = mcp
+        self.port = port
+        self._patch_path: Path | None = None
+
+    def prepare(self, ws: Path) -> None:
+        """Write the per-worker ``--patch`` overlay (model + lean-lsp MCP).
+
+        dsh composes its config from a plugin tree; ``--patch`` is the per-run
+        overlay. The file lives in the worker dir — outside the workspace git
+        tree, which ``git reset`` would otherwise wipe between cases — mirroring
+        ClaudeAgent's inline ``--mcp-config``.
+        """
+        self._patch_path = ws.parent / f"dsh-{self.port}.patch.yml"
+        self._patch_path.parent.mkdir(parents=True, exist_ok=True)
+        self._patch_path.write_text(self._patch_yaml())
+
+    def _patch_yaml(self) -> str:
+        entries = []
+        if self.cfg.model:
+            entries.append(
+                "- id: agent-default-model\n"
+                "  config:\n"
+                f"    provider: {self._PROVIDER}\n"
+                f"    model: {_yaml_str(self.cfg.model)}\n"
+            )
+        # Attach this workspace's lean-lsp-mcp HTTP server as an MCP client
+        # entry (mirrors CodexAgent's ``-c mcp_servers.lean-lsp.url=...``).
+        entries.append(
+            "- insert:\n"
+            "    - name: '@deepseek-ai/dsh-mcp-client'\n"
+            "      config:\n"
+            f"        serverName: {self._MCP_SERVER}\n"
+            "        transport: streamable-http\n"
+            f"        url: {_yaml_str(f'http://{self.mcp.host}:{self.port}/mcp')}\n"
+        )
+        return "".join(entries)
+
+    def _patch_argv(self) -> list[str]:
+        if self._patch_path is None:
+            return []
+        return ["--patch", str(self._patch_path)]
+
+    def argv(self) -> list[str]:
+        argv = [self.cfg.command, "--profile", self._PROFILE] + self._patch_argv()
+        argv += self.cfg.args
+        if self.is_streaming():
+            argv += ["--json"]
+        argv += [self.cfg.prompt]
+        return argv
+
+    def env(self) -> dict[str, str]:
+        extra = {}
+        # dsh's llm-deepseek adapter reads the Messages-protocol endpoint from
+        # DEEPSEEK_BASE_URL (default https://api.deepseek.com/anthropic) and the
+        # bearer token from DEEPSEEK_API_KEY (the launch env wins over stored
+        # credentials). Empty fields fall back to the ambient shell env.
+        if self.cfg.base_url:
+            extra["DEEPSEEK_BASE_URL"] = self.cfg.base_url
+        if self.cfg.api_key:
+            extra["DEEPSEEK_API_KEY"] = self.cfg.api_key
+        # Headless runs have no approval UI; the proving agent needs unfettered
+        # workspace access (mirrors codex's --dangerously-bypass-approvals-and-sandbox).
+        extra["DSH_PERMISSION_MODE"] = "danger-full-access"
+        return extra
+
+    def parse_stream_line(self, line: str) -> StreamEvent | None:
+        if not line:
+            return None
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            return StreamEvent(pass_through=line)
+
+        kind = entry.get("type")
+        if kind == "tool_call":
+            return StreamEvent(step=True, tool=f"{entry.get('tool', 'tool')} ✓")
+        if kind == "text":
+            text = (entry.get("text") or "").strip()
+            return StreamEvent(answer=text) if text else None
+        if kind == "status":
+            # ``turn_end`` carries the run's stop reason; ``step_*``/``turn_start``
+            # bookkeeping is not user-visible work.
+            if entry.get("phase") == "turn_end":
+                reason = entry.get("reason") or {}
+                rkind = reason.get("kind") if isinstance(reason, dict) else str(reason)
+                return StreamEvent(stop=rkind)
+            return None
+        if kind == "final":
+            # Terminal event carrying the lossless answer (empty on a failed turn;
+            # the ``turn_end`` reason already signalled the failure).
+            text = (entry.get("text") or "").strip()
+            return StreamEvent(answer=text) if text else None
+        # ``session``/``thinking``/``error`` are not work units; ``dsh:``
+        # diagnostics reach stderr and are logged as pass-through already.
+        return None
+
+    def sessions(self, ws: Path) -> list[Path]:
+        # Sessions persist under ``$DSH_HOME/sessions/<project-key>/<session-id>/``
+        # (JSONL), keyed by the recorded cwd. Filter to this workspace's project
+        # dir so concurrent workers don't cross-pick.
+        root = _dsh_home() / "sessions" / _project_key(str(ws))
+        if not root.is_dir():
+            return []
+        return [p for p in root.iterdir() if p.is_dir()]
+
+    def resume_argv(self, session_id: str) -> list[str]:
+        # ``--session-id <id>`` adopts the persisted Session and sends ``prompt``
+        # as the follow-up message (the run must keep the same cwd).
+        argv = [self.cfg.command, "--profile", self._PROFILE] + self._patch_argv()
+        argv += self.cfg.args
+        if self.is_streaming():
+            argv += ["--json", "--session-id", session_id]
+        argv += [self.cfg.prompt]
+        return argv
+
+    def session_id(self, trace: Path) -> str | None:
+        # A dsh trace is the session dir; the resume id is its name
+        # (``session-<uuid>``).
+        return trace.name or None
+
+    def is_limit_stop(self, stop: str) -> bool:
+        # ``max-tokens`` is dsh's controlled budget stop (the model hit its
+        # output-token cap), not a backend failure — skip resume-retries.
+        return stop == "max-tokens"
+
+
 def make_agent(cfg: AgentConfig, mcp: McpConfig, port: int) -> Agent:
     """Factory returning the backend matching ``cfg.kind`` (mirrors algoveri)."""
     if cfg.kind == "claude":
         return ClaudeAgent(cfg, mcp, port)
     if cfg.kind == "codex":
         return CodexAgent(cfg, mcp, port)
+    if cfg.kind == "dsh":
+        return DshAgent(cfg, mcp, port)
     return VibeAgent(cfg)

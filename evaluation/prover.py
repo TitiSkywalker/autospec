@@ -3,8 +3,9 @@ Proving agent execution.
 
 ``Prover`` owns one workspace: it copies the base mirror into
 ``worker_dir/ws-<i>/``, starts a lean-lsp-mcp server, proves test cases by
-spawning the configured agent (vibe or claude code, streaming tool activity and
-turn progress), then tears down the server and its temporary copy.
+spawning the configured agent (vibe, claude code, codex, or dsh — streaming
+tool activity and turn progress), then tears down the server and its temporary
+copy.
 """
 
 import os
@@ -263,8 +264,8 @@ class Prover:
                     and cap is not None
                     and steps > cap
                 ):
-                    # Codex has no native turn cap: enforce ``max_turns`` here by
-                    # killing the process once it exceeds the allowed tool calls.
+                    # The pipeline enforces ``max_turns`` as a tool-call cap:
+                    # kill the process once it exceeds the allowed tool calls.
                     capped = True
                     proc.kill()
                     self.logger.warning(

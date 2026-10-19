@@ -21,7 +21,7 @@ class AgentConfig:
     model: str = ""      # model name/alias (empty => backend default)
     base_url: str = ""   # API base URL (empty => backend default)
     api_key: str = ""    # API/auth token (empty => inherit from environment)
-    max_turns: int | None = None  # turn cap (None => unlimited)
+    max_turns: int | None = None  # cap: turns (vibe) / tool calls (others); None => unlimited
     retries: int = 0            # resume-retries after an abnormal agent exit
     retry_backoff: float = 0.0  # base backoff seconds (exponential + jitter)
 
@@ -89,7 +89,12 @@ class Config:
         if isinstance(selected, dict):
             agent = selected
         kind = backend
-        default_output = "stream-json" if kind in ("claude", "codex") else "streaming"
+        if kind in ("claude", "codex"):
+            default_output = "stream-json"
+        elif kind == "dsh":
+            default_output = "json"
+        else:
+            default_output = "streaming"
         max_turns = agent.get("max_turns")
         max_turns = int(max_turns) if max_turns is not None else None
         retries = int(agent.get("retries", 0))
