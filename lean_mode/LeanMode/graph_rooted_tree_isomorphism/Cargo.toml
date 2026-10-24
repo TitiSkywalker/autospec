@@ -1,0 +1,6 @@
+[package]
+name = "graph_rooted_tree_isomorphism"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
