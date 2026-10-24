@@ -1,0 +1,9 @@
+[package]
+name = "ds_avl"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[package.metadata.autospec]
+int-model = "nat"
