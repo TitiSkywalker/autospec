@@ -1,0 +1,6 @@
+[package]
+name = "graph_chu_liu_edmonds"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
