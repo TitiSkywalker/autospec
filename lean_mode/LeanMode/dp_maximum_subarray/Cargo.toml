@@ -1,9 +1,0 @@
-[package]
-name = "dp_maximum_subarray"
-version = "0.1.0"
-edition = "2024"
-
-[package.metadata.autospec]
-int-model = "int"
-
-[dependencies]
