@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TREANT = "/home/disk2/liguchan/Lean/Treant"
-OPUS_RESULTS = "evaluation/local/claude_opus_full_results"  # Claude-Opus-5.5 run
+OPUS_RESULTS = "evaluation/local/runs/main/opus-5.5"  # Claude-Opus-5.5 full run (116 proved)
 
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, TREANT)

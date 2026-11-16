@@ -29,8 +29,10 @@ from pathlib import Path
 from typing import Optional
 
 from analysis.proof_tree import minif2f
+from analysis.proof_tree.dependency import METRICS as DEP_METRICS, dependency_by_category
 from analysis.proof_tree.config import DEFAULT_VERDICTS, RESULTS_DIR, ROOT, cache_dir_for
 from analysis.proof_tree.report import report
+from analysis.proof_tree.size_table import format_table, size_table
 from analysis.proof_tree.stats import _case_summary, _pct
 from analysis.proof_tree.taxonomy import ALL_TACTIC_BUCKETS, PREMISE_BUCKETS
 from analysis.proof_tree.workspace import discover_cases, ensure_workspace, process_case
@@ -179,6 +181,15 @@ class ProofTreeExperiments:
         summary_path = self.local_dir / "vericoding_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2))
 
+        size = size_table(proved_results)
+        (self.local_dir / "vericoding_size_table.json").write_text(json.dumps(size, indent=2))
+        print("\n=== Proof size per category ===\n")
+        print(format_table(size))
+
+        dependency = dependency_by_category(proved_results)
+        (self.local_dir / "vericoding_dependency.json").write_text(json.dumps(dependency, indent=2))
+        self._print_dependency(dependency)
+
         print(
             f"\nvericoding aggregate: {summary['n_cases']} cases, "
             f"{summary['n_theorems']} theorems, "
@@ -187,6 +198,15 @@ class ProofTreeExperiments:
             f"{summary['premises']} distinct premises"
         )
         return summary
+
+    @staticmethod
+    def _print_dependency(dependency: dict[str, dict]) -> None:
+        """Print per-category theorem-dependency metrics (how a testcase's proof is organized)."""
+        print("\n=== Theorem dependency graph per testcase (mean) ===\n")
+        print(f"{'category':<10} {'n':>3}" + "".join(f"{m:>10}" for m in DEP_METRICS))
+        print("-" * (14 + 10 * len(DEP_METRICS)))
+        for cat, row in dependency.items():
+            print(f"{cat:<10} {row['n']:>3}" + "".join(f"{row[m]:>10.2f}" for m in DEP_METRICS))
 
     # ── navier_stokes ──────────────────────────────────────────────────────────
 

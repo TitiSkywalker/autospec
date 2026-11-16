@@ -182,3 +182,60 @@ def test_case_summary_empty_theorems():
     assert s is not None
     assert s["n_theorems"] == 0
     assert s["tactics"] == 0
+
+
+# ---------------------------------------------------------------------------
+# dependency graph
+# ---------------------------------------------------------------------------
+
+def _thm(name, tactics, premises=()):
+    return {"theorem": name, "tactics": tactics, "premise_names": list(premises)}
+
+
+def test_dependency_stats_chain_and_width():
+    from analysis.proof_tree.dependency import dependency_stats
+
+    # a, b are independent leaves; c cites a and b; d cites c (main).
+    thms = [
+        _thm("a", 2), _thm("b", 3),
+        _thm("c", 4, ["a", "b", "Nat.add_comm"]),   # external premise is ignored
+        _thm("d", 1, ["c", "d"]),                    # self-citation is ignored
+    ]
+    s = dependency_stats(thms)
+    assert s["theorems"] == 4
+    assert s["edges"] == 3
+    assert s["chain"] == 3            # a -> c -> d
+    assert s["width"] == 2            # layer 1 holds a and b
+    assert s["roots"] == 1            # only d is not cited
+    assert s["critical"] == pytest.approx((3 + 4 + 1) / 10)  # b -> c -> d
+
+
+def test_dependency_stats_independent_and_empty():
+    from analysis.proof_tree.dependency import dependency_stats
+
+    assert dependency_stats([]) is None
+    s = dependency_stats([_thm("x", 5), _thm("y", 5)])
+    assert (s["chain"], s["width"], s["roots"]) == (1, 2, 2)
+    assert s["critical"] == pytest.approx(0.5)
+
+
+def test_dependency_stats_tolerates_cycle():
+    from analysis.proof_tree.dependency import dependency_stats
+
+    s = dependency_stats([_thm("p", 1, ["q"]), _thm("q", 1, ["p"])])
+    assert s["theorems"] == 2          # terminates instead of recursing forever
+
+
+def test_dependency_by_category_groups_on_name_prefix():
+    from analysis.proof_tree.dependency import dependency_by_category
+
+    results = {
+        "graph_x": {"theorems": [_thm("a", 1), _thm("b", 1, ["a"])]},
+        "graph_y": {"theorems": [_thm("a", 1)]},
+        "integer_z": {"theorems": [_thm("a", 1)]},
+        "integer_err": {"error": "build_fail"},
+    }
+    table = dependency_by_category(results)
+    assert set(table) == {"graph", "integer", "Total"}
+    assert table["graph"]["n"] == 2 and table["Total"]["n"] == 3
+    assert table["graph"]["chain"] == pytest.approx(1.5)

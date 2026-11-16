@@ -20,6 +20,7 @@ Modules, in dependency order:
 * :mod:`.config`       — paths and knobs (``ROOT``, ``RESULTS_DIR``, ``CACHE_DIR``, ...).
 * :mod:`.taxonomy`     — tactic / premise bucket definitions.
 * :mod:`.stats`        — pure aggregation over cached per-theorem statistics.
+* :mod:`.dependency`   — per-testcase theorem-dependency graph (proof organization).
 * :mod:`.workspace`    — the reusable Lean workspace, build and extraction.
 * :mod:`.plots`        — the three summary charts drawn at the end of a run.
 * :mod:`.report`       — the terminal tables, then the charts.

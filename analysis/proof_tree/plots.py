@@ -170,6 +170,8 @@ def plot_comparison(
     import numpy as np
 
     def _grouped_bar(keys, series, ylabel, title, out_path):
+        # Hide buckets that would print as 0.0 for every corpus (e.g. the empty "other" residual).
+        keys = [k for k in keys if any(pct[k] >= 0.05 for pct in series.values())]
         x = np.arange(len(keys))
         width = 0.8 / max(len(series), 1)
         fig, ax = plt.subplots(figsize=(max(8, len(keys) * 1.3), 5))

@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # ======================= Configuration (edit here) =======================
 
-RESULTS_DIR = "evaluation/local/claude_opus_full_results"
+RESULTS_DIR = "evaluation/local/runs/main/opus-5.5"  # Opus 5.5 full run (same as analysis/accuracy/runs.py)
 BASE_DIR = "evaluation/local/base"              # prebuilt aeneas+Mathlib workspace
 WORKSPACE_DIR = "analysis/local/proof_tree_ws"  # reusable scratch workspace (gitignored)
 CACHE_DIR = "analysis/local/proof_tree_data"    # per-case cached stats (gitignored)

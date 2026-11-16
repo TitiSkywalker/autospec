@@ -29,6 +29,7 @@ _AENEAS_TACTICS: frozenset[str] = frozenset({
     "stepStar",
     "tacticBstep__",
     "«tacticBstep_,_»",
+    "«tacticBstep_As_,_»",
 })
 # Automated math decision procedures that close a goal purely by computation.
 _MATH_AUTOMATION_TACTICS: frozenset[str] = frozenset({
@@ -37,7 +38,7 @@ _MATH_AUTOMATION_TACTICS: frozenset[str] = frozenset({
     # Treant's internal / alternate spellings of the same decision procedures.
     "ringNF", "ring1", "abel", "abelNF", "noncomm_ring", "nativeDecide",
     "finiteness", "funPropTacStx", "measurability", "tacticModule",
-    "tacticMatch_scalars",
+    "tacticMatch_scalars", "agrindTactic",
 })
 # ---- Structural sub-buckets ----
 # simp_family: rewriting-by-simplification (automated, but domain-agnostic).
@@ -47,7 +48,9 @@ _SIMP_FAMILY: frozenset[str] = frozenset({
     "simp_arith", "simpa", "gcongr", "dsimp",
     # internal names: simp_all, simpa!, aesop, norm_cast, push_cast, beta_reduce, push_neg
     "simpAll", "simpaUsingBang", "aesopTactic", "tacticNorm_cast__",
-    "pushStx", "betaReduceStx", "push_neg",
+    "pushStx", "betaReduceStx", "push_neg", "zify",
+    # agent-defined simp macros (ds_lct: lct_simp at; graph_bigraph_weight_match: ksimp at)
+    "tacticLct_simpAt_", "tacticKsimpAt_",
 })
 # rewrite: explicit, directed rewriting steps.
 _REWRITE_TACTICS: frozenset[str] = frozenset({
@@ -67,7 +70,9 @@ _DECOMPOSE_TACTICS: frozenset[str] = frozenset({
     # match, next, rcases', injection, by_contra!, contrapose!, induction', wlog
     "renameI", "splitIfs", "left", "right", "intervalCases", "useSyntax", "choose",
     "match", "«tacticNext_=>_»", "tacticRcs_", "injection", "byContra!",
-    "contrapose!", "induction'", "wlog",
+    "contrapose!", "induction'", "wlog", "casesM",
+    # agent-defined macro: split_ifs, case-split, then close each branch (matrix_smith_normal_form)
+    "tacticFin_ifs",
 })
 # intro_bind: hypothesis introduction and local definition.
 # Includes internal AST names: tacticHave__ (have), tacticLet__ (let).
@@ -76,7 +81,7 @@ _INTRO_BIND_TACTICS: frozenset[str] = frozenset({
     "subst", "clear", "generalize", "revert", "suffices", "unfold",
     "show", "change",
     # internal names: set, suffices, haveI, subst_vars, replace
-    "setTactic", "tacticSuffices_", "tacticHaveI__", "substVars", "replace",
+    "setTactic", "tacticSuffices_", "tacticHaveI__", "substVars", "replace", "delta", "clearExceptTactic",
 })
 # close: goal-closing tactics (produce a complete proof term).
 # Includes internal AST names: tacticRfl (rfl), tacticExact_mod_cast_ (exact_mod_cast).
@@ -88,7 +93,9 @@ _CLOSE_TACTICS: frozenset[str] = frozenset({
     "tacticExact_mod_cast_", "convert!", "filterUpwards",
     # internal names: exfalso, trivial; calc proofs; convert; infer_instance; ac_rfl
     "tacticExfalso", "tacticTrivial", "calcTactic", "convert", "tacticInfer_instance",
-    "acRfl",
+    "acRfl", "exacts",
+    # agent-defined admissibility macros: apply the admissibility lemmas to close a fixpoint-induction goal
+    "tacticPadm", "tacticPc_adm", "tacticOkimp_adm", "tacticProve_adm",
 })
 # combinator: tactics that only sequence / scope / repeat other tactics. The
 # wrapped tactics are counted in their own buckets; this isolates the glue.
