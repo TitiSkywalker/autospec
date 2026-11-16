@@ -1,0 +1,9 @@
+# Pinned translation toolchain. `python3 utils/setup_toolchain.py` checks the local checkout against these commits; `--install` checks them out and builds.
+
+[aeneas]
+# Must equal the `aeneas` submodule commit recorded in this repository.
+commit = "a033718497e1ddd3e3a0e448723f1bc29ac3382a"
+
+[charon]
+# Deliberately differs from upstream `aeneas/charon-pin` at this aeneas commit (c8f15d7d); setup writes this hash into `aeneas/charon-pin` so that aeneas's own `make` accepts the checkout.
+commit = "5d6b812e5f77dbf3d7f66c21b9b57091f0e084cb"

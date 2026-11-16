@@ -13,6 +13,9 @@ set -euo pipefail
 # Locate the repository root (parent of this script's directory).
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Refuse to translate with a toolchain other than the one pinned in toolchain.toml.
+python3 "$ROOT/utils/setup_toolchain.py"
+
 CRATE_DIR="$ROOT/translation/translator"
 BIN="$CRATE_DIR/target/release/translate_all"
 
