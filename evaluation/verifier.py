@@ -44,8 +44,17 @@ _SORRY_RE = re.compile(r"\b(sorry|admit)\b")
 # ``import LeanMode.foo.Bar``); in the workspace that translation lives at
 # ``RustVerif.Function``.
 _IMPORT_RE = re.compile(r"import LeanMode\.[^\n]+")
-# Top-level ``theorem <name>`` declarations the solution must match.
-_THEOREM_RE = re.compile(r"^theorem\s+(\S+)", re.MULTILINE)
+# ``theorem <name>`` declarations, any indentation (so ones nested in
+# ``namespace``/``section``/``mutual`` are found too). Comments are stripped
+# before this runs, so prose never matches. ``lemma``s are deliberately not
+# targets: they are the challenge's own helper facts, not proof obligations.
+_THEOREM_RE = re.compile(r"^[ \t]*theorem[ \t]+(\S+)", re.MULTILINE)
+_OPENER_RE = re.compile(
+    r"^[ \t]*(?:noncomputable[ \t]+)?(?:namespace|section|mutual)\b(?:[ \t]+(\S+))?"
+)
+_END_RE = re.compile(r"^[ \t]*end\b(?:[ \t]+(\S+))?")
+_BLOCK_COMMENT = re.compile(r"/-.*?-/", re.DOTALL)
+_LINE_COMMENT = re.compile(r"--[^\n]*")
 _PERMITTED_AXIOMS = ["propext", "Quot.sound", "Classical.choice"]
 
 _VERDICTS = ("PROVED", "UNPROVED", "BUILD_FAIL", "CHEAT", "KERNEL_FAIL")
@@ -87,6 +96,46 @@ def _classify_comparator(returncode: int, output: str) -> str:
     return "BUILD_FAIL"
 
 
+def _strip_comments(src: str) -> str:
+    """Blank out comments, keeping newlines so line structure survives."""
+    def blank(text: str) -> str:
+        return re.sub(r"[^\n]", " ", text)
+
+    src = _BLOCK_COMMENT.sub(lambda m: blank(m.group(0)), src)
+    return _LINE_COMMENT.sub(lambda m: blank(m.group(0)), src)
+
+
+def _declarations(src: str) -> list[str]:
+    """Fully-qualified names of the challenge's ``theorem`` declarations.
+
+    Comparator is handed these names verbatim, so they must be what Lean calls
+    the constant: a theorem inside ``namespace Foo`` is ``Foo.bar``, not
+    ``bar`` (a bare name makes ``lean4export`` panic with "Constant not found
+    in environment"). Comments are stripped first so prose such as
+    "theorem for general graphs" is not mistaken for a declaration.
+    """
+    src = _strip_comments(src)
+    prefix = ""  # namespace prefix currently in effect
+    scopes: list[str] = []  # prefix to restore at each `end`
+    names: list[str] = []
+    for line in src.splitlines():
+        opener = _OPENER_RE.match(line)
+        if opener:
+            scopes.append(prefix)
+            # `section` / `mutual` scope `end` but are not part of a name.
+            if "namespace" in line.split()[0:2] and opener.group(1):
+                prefix = f"{prefix}.{opener.group(1)}" if prefix else opener.group(1)
+            continue
+        if _END_RE.match(line):
+            if scopes:
+                prefix = scopes.pop()
+            continue
+        decl = _THEOREM_RE.match(line)
+        if decl:
+            names.append(f"{prefix}.{decl.group(1)}" if prefix else decl.group(1))
+    return names
+
+
 def _verify_lake(ws: Path, lib: Path, func: str, spec: str) -> tuple[str, str]:
     """Legacy mode: compile the spec and grep for ``sorry``."""
     (lib / "Function.lean").write_text(func)
@@ -106,7 +155,7 @@ def _verify_comparator(
     (lib / "Function.lean").write_text(func)
     (ws / "Challenge.lean").write_text(challenge)
     (ws / "Solution.lean").write_text(spec)
-    theorem_names = _THEOREM_RE.findall(challenge)
+    theorem_names = _declarations(challenge)
     config = {
         "challenge_module": "Challenge",
         "solution_module": "Solution",
