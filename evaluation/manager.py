@@ -18,6 +18,7 @@ from pathlib import Path
 
 from evaluation.config import AgentConfig, Config, DEFAULT_CONFIG, McpConfig
 from evaluation.logger import configure, get_logger
+from evaluation.isolation import SandboxConfig
 from evaluation.progress import StatusBoard
 from evaluation.prover import Prover
 from evaluation.testcase import TestCase
@@ -35,6 +36,8 @@ def _worker(
     agent: AgentConfig,
     mcp: McpConfig,
     output_dir: Path,
+    input_dir: Path,
+    sandbox: SandboxConfig,
 ) -> None:
     """One worker process: prove queued test cases in its own workspace copy.
 
@@ -46,20 +49,25 @@ def _worker(
         lambda m: output_queue.put(("log", m.rstrip("\n"))),
         colorize=True,
     )
-    with Prover(
-        base_dir,
-        worker_dir,
-        index,
-        agent,
-        mcp,
-        output_dir,
-        progress=lambda text: output_queue.put(("progress", index, text)),
-    ) as prover:
-        while True:
-            case = input_queue.get()
-            if case is None:
-                return
-            output_queue.put(("result", index, *prover.prove(case)))
+    try:
+        with Prover(
+            base_dir,
+            worker_dir,
+            index,
+            agent,
+            mcp,
+            output_dir,
+            input_dir=input_dir,
+            sandbox=sandbox,
+            progress=lambda text: output_queue.put(("progress", index, text)),
+        ) as prover:
+            while True:
+                case = input_queue.get()
+                if case is None:
+                    return
+                output_queue.put(("result", index, *prover.prove(case)))
+    except Exception as exc:
+        output_queue.put(("fatal", index, str(exc)))
 
 
 class Manager:
@@ -102,6 +110,8 @@ class Manager:
                     self.config.agent,
                     self.config.mcp,
                     self.config.output_dir,
+                    self.config.input_dir,
+                    self.config.sandbox or SandboxConfig(),
                 ),
             )
             for i in range(self.config.num_workers)
@@ -125,6 +135,12 @@ class Manager:
                 board.log(msg[1])
             elif kind == "progress":
                 board.update(msg[1], msg[2])
+            elif kind == "fatal":
+                for w in workers:
+                    if w.is_alive():
+                        w.terminate()
+                    w.join()
+                raise RuntimeError(f"worker {msg[1]} failed: {msg[2]}")
             else:  # ("result", index, name, spec, status)
                 _, index, name, spec, status = msg
                 results.append((name, spec, status))

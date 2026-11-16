@@ -21,6 +21,7 @@ from threading import Thread
 
 from evaluation.agents import make_agent
 from evaluation.config import AgentConfig, McpConfig
+from evaluation.isolation import SandboxConfig, sandbox_command
 from evaluation.logger import get_logger
 from evaluation.workspace import create_workspace
 
@@ -43,6 +44,8 @@ class Prover:
         mcp: McpConfig,
         output_dir: Path,
         progress=None,
+        input_dir: Path | None = None,
+        sandbox: SandboxConfig | None = None,
     ):
         self.base_dir = base_dir
         self.ws = worker_dir / f"ws-{index}"
@@ -50,31 +53,65 @@ class Prover:
         self.agent = agent
         self.mcp = mcp
         self.output_dir = output_dir
+        self.input_dir = input_dir
+        self.sandbox = sandbox or SandboxConfig()
         self.progress = progress  # callable(text) -> reports turn progress
         self.mcp_proc: subprocess.Popen | None = None
+        self._cases_started = 0
         self.logger = get_logger(self)
 
     def __enter__(self) -> "Prover":
         self._agent = make_agent(self.agent, self.mcp, self.port)
-        self._progress("copying base mirror...")
-        create_workspace(str(self.ws), base_dir=self.base_dir, mcp_port=self.port)
-        self._progress("starting mcp server...")
-        self.mcp_proc = self._start_mcp()
-        self._progress("ready")
+        try:
+            self._progress("copying base mirror...")
+            create_workspace(str(self.ws), base_dir=self.base_dir, mcp_port=self.port)
+            if self.sandbox.enabled:
+                # Trace discovery runs in the parent, so point it at the same
+                # private home that the subprocess will use.
+                self._agent.session_home = self.ws.resolve() / ".agent-home"
+            self._progress("starting mcp server...")
+            self.mcp_proc = self._start_mcp()
+            self._progress("ready")
+        except Exception:
+            self._stop_mcp()
+            shutil.rmtree(self.ws, ignore_errors=True)
+            raise
         return self
 
     def __exit__(self, *exc_info) -> bool:
-        self.mcp_proc.terminate()
+        self._stop_mcp()
+        shutil.rmtree(self.ws, ignore_errors=True)
+        return False
+
+    def _stop_mcp(self) -> None:
+        if self.mcp_proc is None:
+            return
+        if self.mcp_proc.poll() is None:
+            self.mcp_proc.terminate()
         try:
             self.mcp_proc.wait(timeout=10)
         except subprocess.TimeoutExpired:
             self.mcp_proc.kill()
-        shutil.rmtree(self.ws, ignore_errors=True)
-        return False
+            self.mcp_proc.wait()
+        self.mcp_proc = None
 
     def prove(self, case) -> tuple[str, str | None, str]:
         """Install, build, and prove ``case``; return ``(name, spec, status)``."""
         try:
+            if self._cases_started and self.sandbox.enabled and self.sandbox.fresh_workspace:
+                self._stop_mcp()
+                shutil.rmtree(self.ws)
+                create_workspace(str(self.ws), base_dir=self.base_dir, mcp_port=self.port)
+                self.mcp_proc = self._start_mcp()
+            self._cases_started += 1
+            # Agents can create nested Git repositories or ignored files which
+            # `git clean -fd` does not remove. A private home is discarded even
+            # when the faster, reusable-workspace mode is selected.
+            home = self.ws / ".agent-home"
+            if home.is_symlink():
+                home.unlink()
+            elif home.exists():
+                shutil.rmtree(home)
             case.install(self.ws)
             if self._build(case.name):
                 spec = case.extract(
@@ -83,9 +120,15 @@ class Prover:
                 return case.name, spec, "ok"
             return case.name, None, "build_failed"
         except Exception as exc:  # a worker must never die silently
+            session, self._failed_session = getattr(self, "_failed_session", None), None
+            try:
+                case.archive_trace(self.ws, self.output_dir, session)
+            except Exception as archive_exc:
+                self.logger.warning(f"[{case.name}] could not archive trace: {archive_exc}")
             return case.name, None, f"error: {exc}"
         finally:
-            case.reset(self.ws)
+            if not (self.sandbox.enabled and self.sandbox.fresh_workspace):
+                case.reset(self.ws)
 
     def _build(self, name: str) -> bool:
         """Run ``lake build`` to confirm the installed case compiles."""
@@ -111,9 +154,7 @@ class Prover:
     def _start_mcp(self) -> subprocess.Popen:
         """Launch a lean-lsp-mcp HTTP server and wait until it binds ``self.port``."""
         cfg = self.mcp
-        proc = subprocess.Popen(
-            cfg.command
-            + [
+        cmd = cfg.command + [
                 "--transport",
                 cfg.transport,
                 "--host",
@@ -122,7 +163,16 @@ class Prover:
                 str(self.port),
                 "--lean-project-path",
                 str(self.ws),
-            ],
+            ]
+        cmd, sandbox_env = sandbox_command(
+            cmd, self.ws, self.sandbox,
+            [p for p in (self.input_dir, self.output_dir, self.base_dir) if p is not None],
+            home_name=".mcp-home",
+        )
+        proc = subprocess.Popen(
+            cmd,
+            cwd=self.ws,
+            env={**os.environ, **sandbox_env},
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -133,8 +183,14 @@ class Prover:
                     return proc
             except OSError:
                 time.sleep(1.0)
-        self.logger.warning(f"lean-lsp-mcp on port {self.port} not ready")
-        return proc
+        code = proc.poll()
+        if code is None:
+            proc.terminate()
+            proc.wait(timeout=10)
+        raise RuntimeError(
+            f"lean-lsp-mcp on port {self.port} did not become ready "
+            f"(exit code {code}); check [prover.sandbox].ro_paths and MCP dependencies"
+        )
 
     def _run_agent(self, name: str) -> Path | None:
         """Spawn the proving agent, resume it on abnormal exit, and return the newest session trace (or None)."""
@@ -150,13 +206,15 @@ class Prover:
 
         session_id = None
         attempt = 0
+        failed = False
         while True:
             cmd = (
                 self._agent.argv()
                 if attempt == 0
                 else self._agent.resume_argv(session_id)
             )
-            if not self._run_once(name, cmd) or attempt >= self.agent.retries:
+            failed = self._run_once(name, cmd)
+            if not failed or attempt >= self.agent.retries:
                 break
             attempt += 1
             newest = self._newest(self._agent.sessions(self.ws), before)
@@ -173,18 +231,29 @@ class Prover:
             )
             time.sleep(delay)
 
+        if failed:
+            # Keep the session of a failed run so the caller can still archive it.
+            self._failed_session = self._newest(self._agent.sessions(self.ws), before)
+            raise RuntimeError(f"{self._agent.kind} agent failed after {attempt + 1} attempt(s)")
         return self._newest(self._agent.sessions(self.ws), before)
 
     def _run_once(self, name: str, cmd: list[str]) -> bool:
         """Run one agent invocation; return True when it exited abnormally
         (a backend failure worth resuming), False otherwise."""
+        cmd, sandbox_env = sandbox_command(
+            cmd,
+            self.ws,
+            self.sandbox,
+            [p for p in (self.input_dir, self.output_dir, self.base_dir) if p is not None],
+        )
+        launch_env = {**os.environ, **self._agent.env(), **sandbox_env}
         if not self._agent.is_streaming():
             try:
                 result = subprocess.run(
                     cmd,
                     cwd=self.ws,
                     timeout=self.agent.timeout,
-                    env={**os.environ, **self._agent.env()},
+                    env=launch_env,
                     stdin=subprocess.DEVNULL,
                 )
             except subprocess.TimeoutExpired:
@@ -212,7 +281,7 @@ class Prover:
             text=True,
             encoding="utf-8",
             errors="replace",
-            env={**os.environ, "PYTHONUNBUFFERED": "1", **self._agent.env()},
+            env={**launch_env, "PYTHONUNBUFFERED": "1"},
         )
 
         last_answer = ""

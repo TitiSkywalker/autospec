@@ -44,6 +44,10 @@ class Agent:
 
     def __init__(self, cfg: AgentConfig):
         self.cfg = cfg
+        self.session_home: Path | None = None
+
+    def home(self) -> Path:
+        return self.session_home or Path.home()
 
     def is_streaming(self) -> bool:
         """Whether the configured output format supports live line parsing."""
@@ -279,7 +283,7 @@ class ClaudeAgent(Agent):
         # ~/.claude/projects/<sanitized abs path>/ where every non-alphanumeric
         # character ("/" and "_" included) becomes "-".
         project = (
-            Path.home()
+            self.home()
             / ".claude"
             / "projects"
             / re.sub(r"[^A-Za-z0-9]", "-", str(ws.resolve()))
@@ -389,6 +393,17 @@ class CodexAgent(Agent):
         except json.JSONDecodeError:
             return StreamEvent(pass_through=line)
 
+        if entry.get("type") == "turn.completed":
+            # A clean turn boundary — the agent finished its turn normally.
+            # Map this to a stop reason so _run_once treats it as a controlled
+            # stop rather than an abnormal exit when codex returns code 1.
+            return StreamEvent(stop="turn_completed")
+
+        if entry.get("type") == "turn.failed":
+            # The agent's turn ended in failure (e.g. didn't complete the task).
+            # Still a controlled exit, not a backend crash; don't retry.
+            return StreamEvent(stop="turn_failed")
+
         if entry.get("type") != "item.completed":
             return None
         item = entry.get("item") or {}
@@ -408,7 +423,7 @@ class CodexAgent(Agent):
         # Codex stores one rollout JSONL per session under ~/.codex/sessions/
         # YYYY/MM/DD/ (shared across all workspaces), keyed by the session's
         # ``cwd``. Filter to this workspace so concurrent workers don't cross-pick.
-        root = Path.home() / ".codex" / "sessions"
+        root = self.home() / ".codex" / "sessions"
         if not root.is_dir():
             return []
         targets = {str(ws), str(ws.resolve())}
@@ -450,6 +465,13 @@ class CodexAgent(Agent):
             return json.loads(head).get("payload", {}).get("session_id")
         except (json.JSONDecodeError, OSError, AttributeError):
             return None
+
+    def is_limit_stop(self, stop: str) -> bool:
+        # ``turn_completed`` / ``turn_failed`` are emitted from the codex JSON
+        # stream's ``turn.completed`` / ``turn.failed`` events — the agent
+        # finished a turn cleanly (with or without completing the proof); not a
+        # backend crash, so don't resume-retry.
+        return stop in ("turn_completed", "turn_failed")
 
 
 def _yaml_str(value: str) -> str:
@@ -509,11 +531,10 @@ class DshAgent(Agent):
         """Write the per-worker ``--patch`` overlay (model + lean-lsp MCP).
 
         dsh composes its config from a plugin tree; ``--patch`` is the per-run
-        overlay. The file lives in the worker dir — outside the workspace git
-        tree, which ``git reset`` would otherwise wipe between cases — mirroring
-        ClaudeAgent's inline ``--mcp-config``.
+        overlay. Keep the file in the disposable workspace so it is visible
+        inside the filesystem sandbox and discarded with that workspace.
         """
-        self._patch_path = ws.parent / f"dsh-{self.port}.patch.yml"
+        self._patch_path = ws / ".agent-patch.yml"
         self._patch_path.parent.mkdir(parents=True, exist_ok=True)
         self._patch_path.write_text(self._patch_yaml())
 
@@ -601,7 +622,8 @@ class DshAgent(Agent):
         # Sessions persist under ``$DSH_HOME/sessions/<project-key>/<session-id>/``
         # (JSONL), keyed by the recorded cwd. Filter to this workspace's project
         # dir so concurrent workers don't cross-pick.
-        root = _dsh_home() / "sessions" / _project_key(str(ws))
+        dsh_home = self.home() / ".dsh" if self.session_home else _dsh_home()
+        root = dsh_home / "sessions" / _project_key(str(ws))
         if not root.is_dir():
             return []
         return [p for p in root.iterdir() if p.is_dir()]

@@ -6,6 +6,12 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from evaluation.isolation import (
+    DEFAULT_MCP_CACHE_DIRS,
+    DEFAULT_MCP_HOME_FILES,
+    SandboxConfig,
+)
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "evaluation" / "local" / "config.toml"
 
@@ -55,6 +61,7 @@ class Config:
     mcp: McpConfig
     verifier: VerifierConfig
     vibe_dir: Path | None
+    sandbox: SandboxConfig | None = None
 
     @classmethod
     def load(cls, path: Path = DEFAULT_CONFIG) -> "Config":
@@ -80,6 +87,7 @@ class Config:
         verifier_mode = verifier.get("mode", "comparator")
         verifier_sandbox = bool(verifier.get("sandbox", False))
         verifier_resume = bool(verifier.get("resume", False))
+        sandbox = prover.get("sandbox", {})
 
         # ``backend`` selects one of the ``[prover.agent.<backend>]`` tables.
         # Fall back to a flat ``[prover.agent]`` table for backwards compat.
@@ -134,4 +142,16 @@ class Config:
                 resume=verifier_resume,
             ),
             vibe_dir=resolve(vibe_dir) if vibe_dir else None,
+            sandbox=SandboxConfig(
+                enabled=bool(sandbox.get("enabled", True)),
+                fresh_workspace=bool(sandbox.get("fresh_workspace", True)),
+                ro_paths=[resolve(p) for p in sandbox.get("ro_paths", [])],
+                home_files=list(sandbox.get("home_files", [])),
+                mcp_cache_dirs=list(
+                    sandbox.get("mcp_cache_dirs", list(DEFAULT_MCP_CACHE_DIRS))
+                ),
+                mcp_home_files=list(
+                    sandbox.get("mcp_home_files", list(DEFAULT_MCP_HOME_FILES))
+                ),
+            ),
         )

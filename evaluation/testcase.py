@@ -57,14 +57,34 @@ class TestCase:
         ``session`` is a directory for vibe (``.vibe/sessions/...``) or a single
         transcript file for claude code (``*.jsonl``).
         """
-        if session is not None:
-            trace = output_dir / self.name / "trace"
-            trace.parent.mkdir(parents=True, exist_ok=True)
-            if trace.exists():
-                shutil.rmtree(trace)
-            if session.is_dir():
-                shutil.copytree(session, trace)
-            else:
-                trace.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(session, trace / session.name)
-        return (ws / LIB / "Spec.lean").read_text()
+        spec = ws / LIB / "Spec.lean"
+        root = ws.resolve()
+        if spec.is_symlink() or not spec.resolve().is_relative_to(root) or not spec.is_file():
+            raise ValueError("agent spec must be a regular file inside its workspace")
+        self.archive_trace(ws, output_dir, session)
+        return spec.read_text()
+
+    def archive_trace(self, ws: Path, output_dir: Path, session: Path | None) -> None:
+        """Copy the agent ``session`` into ``output_dir/<case>/trace``.
+
+        Also used for runs that end abnormally (turn cap, backend error), whose
+        trace is the only record of what the agent did.
+        """
+        if session is None:
+            return
+        root = ws.resolve()
+        if (
+            session.is_symlink()
+            or not session.resolve().is_relative_to(root)
+            or (session.is_dir() and any(p.is_symlink() for p in session.rglob("*")))
+        ):
+            raise ValueError("agent trace contains an unsafe symlink")
+        trace = output_dir / self.name / "trace"
+        trace.parent.mkdir(parents=True, exist_ok=True)
+        if trace.exists():
+            shutil.rmtree(trace)
+        if session.is_dir():
+            shutil.copytree(session, trace)
+        else:
+            trace.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(session, trace / session.name)
