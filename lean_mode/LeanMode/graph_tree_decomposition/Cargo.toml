@@ -1,0 +1,13 @@
+[package]
+name = "graph_tree_decomposition"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[package.metadata.autospec]
+# Every integer in this testcase is a `usize` (vertex ids, indices), and
+# `usize` is never rewritten by the int-model (it stays `Std.Usize`, the
+# indexing type), so `int` and `nat` produce identical output here; `nat` is
+# declared for documentation value: nothing in the algorithm is ever negative.
+int-model = "nat"
