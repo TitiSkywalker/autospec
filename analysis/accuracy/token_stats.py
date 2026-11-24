@@ -1,79 +1,20 @@
 """Token usage statistics and cost-accuracy curves.
 
-``python3 analysis/run_accuracy.py tokens`` prints the numbers to the terminal
-and saves the curve plots to ``OUT_DIR``. The runs to compare and the model
-prices are configured in the section below.
+``python3 -m analysis tokens`` prints token usage per run and, given a price
+table (``--prices``, see ``analysis/prices.example.toml``), the dollar cost.
+It saves the cumulative-solved-vs-cost curves into ``--out``.
+
+Token counts are parsed from each case's ``trace/`` (Claude Code, Codex, vibe
+and dsh session formats are recognised); cases without a trace are skipped.
 """
 
-import argparse
 import json
 import subprocess
 from pathlib import Path
 
-from analysis.accuracy.runs import RUNS
+from analysis.accuracy.runs import Context
 from analysis.accuracy.verdicts import read_verdict
 
-ROOT = Path(__file__).resolve().parents[2]
-
-# ======================= Configuration (edit here) =======================
-
-# Official price table (USD per million tokens), keyed by the RUNS label.
-# cache_read / cache_write fall back to the input price when omitted.
-# Leave empty ({}) to only plot the token curve.
-PRICES = {
-    "GPT-6-sol": {
-        "input": 2.0,
-        "output": 10.0,
-        "cache_read": 0.2,
-        "cache_write": 5.0,
-    },
-    "GPT-5.6-sol": {
-        "input": 4.0,
-        "output": 20.0,
-        "cache_read": 0.4,
-        "cache_write": 10.0,
-    },
-    "Opus-5.5": {
-        "input": 4.0,
-        "output": 20.0,
-        "cache_read": 0.2,
-        "cache_write": 8.0,
-    },
-    "Opus-4.5": {
-        "input": 5.0,
-        "output": 25.0,
-        "cache_read": 0.5,
-        "cache_write": 10.0,
-    },
-    "DeepSeek-V4.1-Flash": {
-        "input": 0.27,
-        "output": 1.10,
-        "cache_read": 0.027,
-        "cache_write": 0.27,
-    },
-    "GLM-5.3": {
-        "input": 1.4,
-        "output": 4.4,
-        "cache_read": 0.26,
-        "cache_write": 0.0,
-    },
-    "Leanstral-1.5": {  # locally deployed: no API cost
-        "input": 0.0,
-        "output": 0.0,
-        "cache_read": 0.0,
-        "cache_write": 0.0,
-    },
-    "Kimi-K3": {  # USD (converted from RMB at 7.2)
-        "input": 2.78,
-        "output": 13.89,
-        "cache_read": 0.28,
-        "cache_write": 2.78,
-    },
-}
-
-OUT_DIR = "analysis/accuracy/local"  # plot output dir
-
-# ========================= (no need to edit below) =========================
 
 _TOKEN_KEYS = ("input", "output", "cache_read", "cache_write")
 
@@ -272,11 +213,12 @@ def _plot(runs, xlabel, path, title):
     plt.close(fig)
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Token usage and cost-accuracy curves")
-    ap.parse_args(argv)
-
-    runs = [(label, _collect(ROOT / p)) for label, p in RUNS.items()]
+def main(ctx: Context) -> None:
+    runs = [(label, _collect(p)) for label, p in ctx.runs.items()]
+    runs = [(label, cases) for label, cases in runs if cases]
+    if not runs:
+        print("no run has agent traces; nothing to report")
+        return
 
     print("\n=== Token usage ===")
     print(
@@ -295,11 +237,17 @@ def main(argv: list[str] | None = None) -> None:
             f"{agg['cache_read']:>10,} {agg['cache_write']:>10,} {total:>12,} {per:>12,.0f}"
         )
 
-    if PRICES:
+    ctx.out_dir.mkdir(parents=True, exist_ok=True)
+    path = ctx.out_dir / "tokens_vs_solved.png"
+    _plot([(l, c, _total) for l, c in runs], "average tokens per case", path,
+          "Cumulative solved vs. token usage")
+    print(f"\n-> {path}")
+
+    if ctx.prices:
         print("\n=== Dollar cost ===")
         priced = []
         for label, cases in runs:
-            p = PRICES.get(label)
+            p = ctx.prices.get(label)
             if p is None:
                 print(f"{label:<22} (no price, skipped)")
                 continue
@@ -310,7 +258,8 @@ def main(argv: list[str] | None = None) -> None:
                 f"   per solved testcase (solved only) $ {sum(solved) / len(solved) if solved else 0:,.2f}"
             )
             priced.append((label, cases, lambda t, p=p: _dollars(t, p)))
+        if priced:
+            path = ctx.out_dir / "cost_vs_solved.png"
+            _plot(priced, "average cost per case (USD)", path, "Cumulative solved vs. cost")
+            print(f"\n-> {path}")
 
-
-if __name__ == "__main__":
-    main()

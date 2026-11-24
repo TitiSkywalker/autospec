@@ -1,7 +1,5 @@
-"""Library reports; each prints its tables and writes its figures.
+"""Accuracy reports over verified evaluation runs.
 
-``python3 analysis/run_accuracy.py`` runs all of them. Every module is also
-importable, so partial runs are one function call.
+Run them through ``python3 -m analysis`` (see :mod:`analysis.run_accuracy`);
+each module exposes ``main(ctx)`` taking an :class:`analysis.accuracy.runs.Context`.
 """
-
-from analysis.accuracy import tier_radar, tiers, token_stats  # noqa: F401

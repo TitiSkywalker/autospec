@@ -12,22 +12,17 @@ accuracy (PROVED / total cases of that category in the tier). A case counts as
 PROVED only from ``verdict.txt`` written by the Comparator verifier; a case
 without one counts as not proved.
 
-``python3 analysis/run_accuracy.py tiers`` prints that split; this module
-(``python3 analysis/run_accuracy.py radar``) prints the per-tier table and writes
-``analysis/accuracy/local/radar_tier{1,2}.png``
+``python3 -m analysis tiers`` prints that split; this module
+(``python3 -m analysis radar``) prints the per-tier table and writes
+``radar_tier{1,2}.png`` into ``--out``.
 """
 
-import argparse
 from collections import defaultdict
 from pathlib import Path
 
 from analysis.accuracy import tiers as tier_split
-from analysis.accuracy.runs import RUNS
+from analysis.accuracy.runs import Context
 from analysis.accuracy.verdicts import category, collect
-
-ROOT = Path(__file__).resolve().parents[2]
-
-OUT_DIR = "analysis/accuracy/local"  # plot output dir
 
 # Categorical slots in the palette's fixed order (light mode). The validator
 # passes this order on the adjacent pairlist; radar charts put every series on
@@ -206,12 +201,9 @@ def _radar_plot(tier, proved, total, categories, n, out_dir: Path) -> Path:
     return path
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Per-tier accuracy radar charts")
-    ap.parse_args(argv)
-
-    runs = {label: collect(ROOT / p) for label, p in RUNS.items()}
-    tiers = tier_split.assign()
+def main(ctx: Context) -> None:
+    runs = {label: collect(p) for label, p in ctx.runs.items()}
+    tiers = tier_split.assign(ctx.benchmark)
     categories = sorted({category(n) for n in tiers})
     _print_table(runs, tiers, categories)
 
@@ -219,8 +211,5 @@ def main(argv: list[str] | None = None) -> None:
         proved, total = _matrix(runs, tiers, tier)
         n = sum(total.values())
         cols = _columns(categories, total)
-        print(f"\n-> {_radar_plot(tier, proved, total, cols, n, (ROOT / OUT_DIR))}")
+        print(f"\n-> {_radar_plot(tier, proved, total, cols, n, ctx.out_dir)}")
 
-
-if __name__ == "__main__":
-    main()

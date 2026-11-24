@@ -1,0 +1,54 @@
+# Price table for `python3 -m analysis tokens --prices <this file>`.
+#
+# One table per run label: the LABEL of `--run LABEL=DIR`, or the directory
+# name when using `--runs-dir`. Prices are USD per million tokens;
+# `cache_read` / `cache_write` fall back to `input` when omitted. Runs without
+# an entry are reported in tokens only.
+
+["opus-5.5"]
+input = 4.0
+output = 20.0
+cache_read = 0.2
+cache_write = 8.0
+
+["opus-4.5"]
+input = 5.0
+output = 25.0
+cache_read = 0.5
+cache_write = 10.0
+
+["gpt-6-sol"]
+input = 2.0
+output = 10.0
+cache_read = 0.2
+cache_write = 5.0
+
+["gpt-5.6-sol"]
+input = 4.0
+output = 20.0
+cache_read = 0.4
+cache_write = 10.0
+
+["deepseek-v4.1-flash"]
+input = 0.27
+output = 1.10
+cache_read = 0.027
+cache_write = 0.27
+
+["glm-5.3"]
+input = 1.4
+output = 4.4
+cache_read = 0.26
+cache_write = 0.0
+
+["kimi-k3"]   # converted from RMB at 7.2
+input = 2.78
+output = 13.89
+cache_read = 0.28
+cache_write = 2.78
+
+["leanstral-1.5"]   # self-hosted: no API cost
+input = 0.0
+output = 0.0
+cache_read = 0.0
+cache_write = 0.0

@@ -1,0 +1,106 @@
+# Example evaluation config. Copy it, fill in the agent you want to evaluate,
+# and pass it with `--config`:
+#
+#   mkdir -p evaluation/local && cp evaluation/config.example.toml evaluation/local/config.toml
+#   python -m evaluation.manager  --config evaluation/local/config.toml   # prove
+#   python -m evaluation.verifier --config evaluation/local/config.toml   # verify
+#
+# `evaluation/local/` is gitignored, so API keys put there are never committed.
+# Relative paths resolve against the repository root.
+
+[workspace]
+base_dir = "evaluation/local/base"        # Aeneas + Mathlib + Comparator mirror, built once
+worker_dir = "evaluation/local/workers"   # one copy of the base per worker
+workers = 4                               # cases proved concurrently
+# vibe_dir = "evaluation/local/vibe_config"  # vibe only: copied to <workspace>/.vibe
+
+[prover]
+input_dir = "lean_mode/LeanMode"          # the benchmark
+output_dir = "results/my-agent"           # one sub-directory per case
+backend = "claude"                        # which [prover.agent.<backend>] table to use
+
+# ---------------------------------------------------------------- agents ---
+# Only the table selected by `backend` is read. `max_turns` is the native
+# turn cap for vibe and a tool-call cap enforced by the pipeline for the
+# others; `timeout` (seconds) is the per-case wall-clock limit. Empty
+# `model` / `base_url` / `api_key` fall back to the CLI's own defaults / env.
+
+[prover.agent.claude]
+command = "claude"
+prompt = "Prove the theorems inside `RustVerif/Spec.lean`. Do not stop until all theorems are proved."
+model = ""            # -> --model
+base_url = ""         # -> ANTHROPIC_BASE_URL
+api_key = ""          # -> ANTHROPIC_AUTH_TOKEN
+max_turns = 100
+retries = 3           # resume the session after a crashed / failed API call
+retry_backoff = 10.0
+args = ["--dangerously-skip-permissions", "--strict-mcp-config"]
+timeout = 7200
+
+[prover.agent.codex]
+command = "codex"
+prompt = "Prove the theorems inside `RustVerif/Spec.lean`. Do not stop until all theorems are proved."
+model = ""            # -> -m
+base_url = ""         # empty = use ~/.codex/config.toml
+api_key = ""          # -> CODEX_API_KEY
+max_turns = 100
+retries = 3
+retry_backoff = 10.0
+args = ["--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check"]
+timeout = 7200
+
+[prover.agent.vibe]
+command = "vibe"
+prompt = "Prove the theorems inside `RustVerif/Spec.lean`. Do not stop until all theorems are proved."
+model = "leanstral"
+base_url = "http://localhost:9000/v1"   # e.g. a local vLLM server
+max_turns = 100
+retries = 3
+retry_backoff = 10.0
+args = ["--agent", "lean", "--auto-approve", "--trust"]
+timeout = 7200
+
+[prover.agent.dsh]
+command = "dsh"
+prompt = "Prove the theorems inside `RustVerif/Spec.lean`. Do not stop until all theorems are proved."
+model = ""            # empty = dsh default
+base_url = ""         # -> DEEPSEEK_BASE_URL
+api_key = ""          # -> DEEPSEEK_API_KEY
+max_turns = 100
+retries = 3
+retry_backoff = 10.0
+args = []
+timeout = 7200
+
+# ------------------------------------------------------------------- MCP ---
+# Every worker gets its own lean-lsp-mcp server on start_port + worker index.
+[prover.mcp]
+command = ["uvx", "lean-lsp-mcp"]
+transport = "streamable-http"
+host = "127.0.0.1"
+start_port = 4172
+ready_timeout = 120.0
+
+# --------------------------------------------------------------- sandbox ---
+# The agent runs under bubblewrap and only sees its own workspace plus the
+# read-only paths below. List the real absolute paths your agent CLI and Lean
+# toolchain need (see evaluation/README.md, "Agent filesystem isolation").
+[prover.sandbox]
+enabled = true
+fresh_workspace = true
+ro_paths = [
+  # "/home/YOU/.elan",
+  # "/home/YOU/.local/bin",
+  # "/home/YOU/.local/share/uv",
+  # "/home/YOU/.nvm/versions/node/vXX",   # Node runtime for claude / dsh
+]
+home_files = []   # e.g. [".claude.json"] to reuse an existing CLI login
+
+# -------------------------------------------------------------- verifier ---
+# Re-checks every saved Spec.lean with the Comparator judge: same theorem
+# statements, only standard axioms, accepted by the Lean kernel.
+[verifier]
+worker_dir = "evaluation/local/verify_workers"
+workers = 4
+mode = "comparator"   # or "lake" (legacy sorry-grep, not cheat-proof)
+sandbox = false       # true requires a real `landrun` binary on PATH

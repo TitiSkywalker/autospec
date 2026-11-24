@@ -1,4 +1,4 @@
-"""``python3 -m analysis.run_accuracy`` entry point."""
+"""``python3 -m analysis`` — accuracy reports over verified evaluation runs."""
 
 import sys
 from pathlib import Path

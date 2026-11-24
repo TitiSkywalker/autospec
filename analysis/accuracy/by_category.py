@@ -1,22 +1,15 @@
 """Per-category accuracy (PROVED rate) for each model.
 
-``python3 analysis/run_accuracy.py by_category`` prints, per category, each
+``python3 -m analysis category`` prints, per category, each
 model's PROVED count / total / accuracy. The category is inferred from the
 ``<category>_<name>`` prefix of the testcase name
 (array / crypto / dp / ds / graph / integer / matrix / string / tensor).
 """
 
-import argparse
 from pathlib import Path
 
-from analysis.accuracy.runs import RUNS
+from analysis.accuracy.runs import Context
 from analysis.accuracy.verdicts import category, collect
-
-ROOT = Path(__file__).resolve().parents[2]
-
-OUT_DIR = "analysis/accuracy/local"  # plot output dir
-
-# ========================= (no need to edit below) =========================
 
 _COL_W = 20  # column width per model
 
@@ -64,11 +57,8 @@ def _plot(categories: list, runs, out_dir: Path) -> Path:
     return path
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Per-category accuracy for each model")
-    ap.parse_args(argv)
-
-    runs = [(label, collect(ROOT / p)) for label, p in RUNS.items()]
+def main(ctx: Context) -> None:
+    runs = [(label, collect(p)) for label, p in ctx.runs.items()]
     categories = sorted({category(n) for _, cases in runs for n in cases})
 
     header = f"{'category':<10}" + "".join(f"{label:>{_COL_W}}" for label, _ in runs)
@@ -91,6 +81,5 @@ def main(argv: list[str] | None = None) -> None:
         row += f"{_cell(proved, len(cases)):>{_COL_W}}"
     print(row)
 
+    print(f"\n-> {_plot(categories, runs, ctx.out_dir)}")
 
-if __name__ == "__main__":
-    main()

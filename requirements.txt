@@ -1,0 +1,5 @@
+# Python >= 3.11 (uses tomllib)
+loguru          # evaluation pipeline logging
+matplotlib      # analysis figures
+numpy           # analysis figures
+zstandard       # analysis: read dsh traces (optional, falls back to the `zstd` CLI)

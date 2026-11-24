@@ -1,13 +1,12 @@
 """Two-tier difficulty split of the benchmark (by code complexity).
 
-``python3 analysis/run_accuracy.py tiers`` splits the benchmark into a
+``python3 -m analysis tiers`` splits the benchmark into a
 *beginner* tier and an *advanced* tier on the ``rust + lean`` line count of each
 testcase (the program plus its Aeneas translation), then reports the PROVED
 accuracy and the Rust / Lean / Proof line lengths of each tier. The line
 lengths are the evidence that the two tiers differ in complexity: the advanced
 tier should be longer in all three of Rust (the algorithm), Lean (its formal
-translation) and Proof (the agent's ``Spec.lean`` output). Every agent in
-:data:`analysis.accuracy.runs.RUNS` gets an accuracy column, over the same tier
+translation) and Proof (the agent's ``Spec.lean`` output). Every run gets an accuracy column, over the same tier
 assignment.
 
 The split is **hand-tuned and hard-coded** in :data:`TIER1` (93 cases) and
@@ -17,22 +16,12 @@ sorted ``rust + lean`` sizes (see :data:`CUT_RUST_LEAN`). :func:`assign` is reus
 loses a case, so the split has to be extended deliberately.
 """
 
-import argparse
 import statistics
 from collections import defaultdict
 from pathlib import Path
 
-from analysis.accuracy.runs import RUNS
+from analysis.accuracy.runs import Context
 from analysis.accuracy.verdicts import category, collect
-
-ROOT = Path(__file__).resolve().parents[2]
-
-# ======================= Configuration (edit here) =======================
-
-LEAN_MODE = "lean_mode/LeanMode"
-REFERENCE_AGENT = "Opus-5.5"  # whose Spec.lean supplies the "proof lines" column
-
-# ========================= (no need to edit below) =========================
 
 _BENCHMARK_FILES_IGNORED = ("Spec", "Test_test")
 
@@ -44,10 +33,10 @@ def _lines(path: Path) -> int:
         return 0
 
 
-def sizes() -> dict[str, int]:
+def sizes(benchmark: Path) -> dict[str, int]:
     """``{case: complexity line count}`` — the ``rust + lean`` size of each case."""
     out = {}
-    for d in sorted((ROOT / LEAN_MODE).iterdir()):
+    for d in sorted(Path(benchmark).iterdir()):
         if not d.is_dir() or d.name == "failure" or not (d / "Cargo.toml").is_file():
             continue
         rust = sum(_lines(f) for f in (d / "src").glob("*.rs"))
@@ -125,14 +114,14 @@ TIER2 = frozenset({
 assert not TIER1 & TIER2 and len(TIER1) == 93 and len(TIER2) == 66
 
 
-def assign() -> dict[str, int]:
+def assign(benchmark: Path) -> dict[str, int]:
     """``{case: 1 | 2}`` from the hard-coded TIER1/TIER2 sets.
 
     A new benchmark case that is in neither set is an error rather than being
     silently bucketed: the split is a curated artefact and has to be extended
     by hand when the benchmark grows.
     """
-    cases = sizes()
+    cases = sizes(benchmark)
     missing = set(cases) - TIER1 - TIER2
     stale = (TIER1 | TIER2) - set(cases)
     if missing or stale:
@@ -143,13 +132,17 @@ def assign() -> dict[str, int]:
     return {name: 1 if name in TIER1 else 2 for name in cases}
 
 
-def _case_rows() -> list[dict]:
+def _reference(verdicts: dict[str, dict[str, str]]) -> str:
+    """The run whose ``Spec.lean`` supplies the proof-length column: the one
+    with the most PROVED cases, so proof lengths cover as many cases as possible."""
+    return max(verdicts, key=lambda l: sum(v == "PROVED" for v in verdicts[l].values()))
+
+
+def _case_rows(ctx: Context) -> list[dict]:
     """One row per testcase: {name, rust, lean, spec, proof, code, verdicts}."""
-    lean_mode = ROOT / LEAN_MODE
-    verdicts = {label: collect(ROOT / path) for label, path in RUNS.items()}
-    # The proof-length column is data about the benchmark's difficulty, so it
-    # uses one fixed agent rather than any agent's own output.
-    ref = ROOT / RUNS[REFERENCE_AGENT]
+    lean_mode = ctx.benchmark
+    verdicts = {label: collect(path) for label, path in ctx.runs.items()}
+    ref = ctx.runs[_reference(verdicts)]
     rows = []
     for d in sorted(lean_mode.iterdir()):
         if not d.is_dir() or d.name == "failure" or not (d / "Cargo.toml").exists():
@@ -172,20 +165,20 @@ def _case_rows() -> list[dict]:
     return rows
 
 
-def _accuracy(beginner: list[dict], advanced: list[dict]) -> None:
+def _accuracy(labels, beginner: list[dict], advanced: list[dict]) -> None:
     """PROVED / total per agent, once per tier and overall."""
-    print(f"{'agent':<22} {'beginner':>14} {'advanced':>14} {'overall':>14}")
-    print("-" * 68)
-    for label in RUNS:
+    print(f"{'agent':<22} {'beginner':>16} {'advanced':>16} {'overall':>16}")
+    print("-" * 70)
+    for label in labels:
         out = f"{label:<22}"
         for rows in (beginner, advanced, beginner + advanced):
             proved = sum(1 for r in rows if r["verdicts"][label] == "PROVED")
             pct = proved / len(rows) if rows else 0.0
-            out += f"{f'{proved}/{len(rows)} ({pct:5.1%})':>14}"
+            out += f"{f'{proved}/{len(rows)} ({pct:5.1%})':>16}"
         print(out)
 
 
-def _category_table(beginner: list[dict], advanced: list[dict]) -> None:
+def _category_table(labels, beginner: list[dict], advanced: list[dict]) -> None:
     """Per category and tier, the solved/total of every agent."""
     cats = defaultdict(lambda: ([], []))  # category -> (beginner rows, advanced rows)
     for rows, tier in ((beginner, 0), (advanced, 1)):
@@ -194,13 +187,13 @@ def _category_table(beginner: list[dict], advanced: list[dict]) -> None:
 
     for c in sorted(cats):
         print(f"\n{c}")
-        print(f"  {'agent':<22} {'beginner':>14} {'advanced':>14}")
-        for label in RUNS:
+        print(f"  {'agent':<22} {'beginner':>16} {'advanced':>16}")
+        for label in labels:
             out = f"  {label:<22}"
             for rows in cats[c]:
                 proved = sum(1 for r in rows if r["verdicts"][label] == "PROVED")
                 pct = proved / len(rows) if rows else 0.0
-                out += f"{f'{proved}/{len(rows)} ({pct:5.1%})':>14}"
+                out += f"{f'{proved}/{len(rows)} ({pct:5.1%})':>16}"
             print(out)
 
 
@@ -219,12 +212,9 @@ def _tier_stats(rows: list[dict]) -> dict:
     }
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Two-tier benchmark split by code complexity")
-    ap.parse_args(argv)
-
-    tiers = assign()
-    rows = _case_rows()
+def main(ctx: Context) -> None:
+    tiers = assign(ctx.benchmark)
+    rows = _case_rows(ctx)
     beginner = [r for r in rows if tiers[r["name"]] == 1]
     advanced = [r for r in rows if tiers[r["name"]] == 2]
 
@@ -248,21 +238,18 @@ def main(argv: list[str] | None = None) -> None:
         print(f"{label:<18} {bm:>10.0f}/{bd:<6.0f}  {am:>10.0f}/{ad:<6.0f}")
 
     print(
-        f"ref = beginner/advanced (an agent-independent split); proof lines and the "
-        f"agent table use {REFERENCE_AGENT}'s proof output"
+        "tiers are an agent-independent split; proof lines use the Spec.lean of "
+        f"{_reference({l: collect(p) for l, p in ctx.runs.items()})} (the run with most PROVED)"
     )
 
     print()
-    _accuracy(beginner, advanced)
+    _accuracy(list(ctx.runs), beginner, advanced)
 
     print()
-    _category_table(beginner, advanced)
+    _category_table(list(ctx.runs), beginner, advanced)
 
     print()
     print("tiers:")
     print("  beginner:", ", ".join(r['name'] for r in sorted(beginner, key=lambda r: r['code'])))
     print("  advanced:", ", ".join(r['name'] for r in sorted(advanced, key=lambda r: r['code'])))
 
-
-if __name__ == "__main__":
-    main()
