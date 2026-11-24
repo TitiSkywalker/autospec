@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "rooted_tree_isomorphism"
+name = "graph_rooted_tree_isomorphism"
 version = "0.1.0"

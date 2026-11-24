@@ -1,18 +1,18 @@
 # lean_mode
 
-This project implements a benchmark for Rust verification using `Aeneas` translation pipeline. Each testcase is a Rust `cargo` project with the follwing structure:
+This project implements a benchmark for Rust verification using the `Aeneas` translation pipeline. Each testcase is a Rust `cargo` project with the following structure:
 
 ```
 .
-├── MatrixMul.lean
-├── Spec.lean
-├── Test_test.lean
+├── MatrixMul.lean      # generated: Aeneas translation of src/lib.rs
+├── Spec.lean           # hand-written specification (theorems stated with `sorry`)
+├── Test_test.lean      # generated: translation of tests/test.rs as `#eval`s
 ├── Cargo.lock
-├── Cargo.toml
+├── Cargo.toml          # [package.metadata.autospec] selects int-model / float-model
 ├── src
 │   └── lib.rs
 └── tests
     └── test.rs
 ```
 
-> How to add a testcase (Rust style constraints, Rat/Real handling, Spec writing, gotchas): see [TESTCASE_GUIDE.md](TESTCASE_GUIDE.md).
+Re-translate every case with `scripts/translate_all.sh`, and build-check all of them with `python3 scripts/check_all.py`.

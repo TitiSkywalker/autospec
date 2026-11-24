@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "minimum_cycle"
+name = "graph_minimum_cycle"
 version = "0.1.0"

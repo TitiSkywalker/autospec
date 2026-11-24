@@ -214,7 +214,8 @@ def graph_rooted_tree_isomorphism_loop2
   := do
   if pass < n
   then
-    let depth1 ← graph_rooted_tree_isomorphism_loop2_loop0 n par depth 0#usize
+    let depth1 ←
+      graph_rooted_tree_isomorphism_loop2_loop0 n par depth 0#usize
     let pass1 ← pass + 1#usize
     graph_rooted_tree_isomorphism_loop2 n par depth1 pass1
   else ok depth
@@ -408,7 +409,8 @@ def graph_rooted_tree_isomorphism_loop8_loop1_loop0
         label ch
     let tmp1 ← alloc.vec.Vec.push tmp lb
     let c1 ← c + 1#usize
-    graph_rooted_tree_isomorphism_loop8_loop1_loop0 start child label uu du tmp1 c1
+    graph_rooted_tree_isomorphism_loop8_loop1_loop0 start child label uu du
+      tmp1 c1
   else ok tmp
 partial_fixpoint
 
@@ -466,7 +468,8 @@ def graph_rooted_tree_isomorphism_loop8_loop1
       graph_rooted_tree_isomorphism_loop8_loop1_loop0 start child label uu du
         (alloc.vec.Vec.new Std.Usize) 0#usize
     let tmp2 ← sort_vec tmp
-    let sig1 ← graph_rooted_tree_isomorphism_loop8_loop1_loop1 sig du tmp2 0#usize
+    let sig1 ←
+      graph_rooted_tree_isomorphism_loop8_loop1_loop1 sig du tmp2 0#usize
     let idx21 ← idx2 + 1#usize
     graph_rooted_tree_isomorphism_loop8_loop1 deg start child label lev lv sig1
       sig_off1 sig_len1 idx21
@@ -501,8 +504,8 @@ def graph_rooted_tree_isomorphism_loop8_loop2_loop0
           alloc.vec.Vec.index_mut (core.slice.index.SliceIndexUsizeSlice
             Std.Usize) lev b
         let lev1 := index_mut_back prev_node
-        graph_rooted_tree_isomorphism_loop8_loop2_loop0 lev1 sig sig_off sig_len
-          key_node i moved
+        graph_rooted_tree_isomorphism_loop8_loop2_loop0 lev1 sig sig_off
+          sig_len key_node i moved
       else
         graph_rooted_tree_isomorphism_loop8_loop2_loop0 lev sig sig_off sig_len
           key_node b false
@@ -574,8 +577,8 @@ def graph_rooted_tree_isomorphism_loop8_loop3
         label uu
     let a21 ← a2 + 1#usize
     let label1 := index_mut_back rank1
-    graph_rooted_tree_isomorphism_loop8_loop3 label1 lev lv sig sig_off sig_len rank1
-      a21
+    graph_rooted_tree_isomorphism_loop8_loop3 label1 lev lv sig sig_off sig_len
+      rank1 a21
   else ok label
 partial_fixpoint
 
@@ -602,10 +605,11 @@ def graph_rooted_tree_isomorphism_loop8
       graph_rooted_tree_isomorphism_loop8_loop1 deg start child label lev lv
         (alloc.vec.Vec.new Std.Usize) sig_off sig_off 0#usize
     let lev1 ←
-      graph_rooted_tree_isomorphism_loop8_loop2 lev lv sig sig_off1 sig_len 1#usize
+      graph_rooted_tree_isomorphism_loop8_loop2 lev lv sig sig_off1 sig_len
+        1#usize
     let label1 ←
-      graph_rooted_tree_isomorphism_loop8_loop3 label lev1 lv sig sig_off1 sig_len
-        0#usize 0#usize
+      graph_rooted_tree_isomorphism_loop8_loop3 label lev1 lv sig sig_off1
+        sig_len 0#usize 0#usize
     let cur1 ← cur - 1#usize
     graph_rooted_tree_isomorphism_loop8 n depth deg start child label1 cur1
   else ok label

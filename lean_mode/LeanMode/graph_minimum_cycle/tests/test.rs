@@ -6,7 +6,7 @@ fn test_triangle() {
         1, 0, 1,
         1, 1, 0,
     ];
-    let r = minimum_cycle::minimum_cycle(3, &w);
+    let r = graph_minimum_cycle::graph_minimum_cycle(3, &w);
     let ok = match r { Ok(v) => v, Err(()) => -1 };
     assert_eq!(ok, 3);
 }
@@ -19,7 +19,7 @@ fn test_weighted_triangle() {
         2, 0, 3,
         4, 3, 0,
     ];
-    let r = minimum_cycle::minimum_cycle(3, &w);
+    let r = graph_minimum_cycle::graph_minimum_cycle(3, &w);
     let ok = match r { Ok(v) => v, Err(()) => -1 };
     assert_eq!(ok, 9);
 }
@@ -33,7 +33,7 @@ fn test_cycle4() {
         1_000_000_000_000_000_000i64, 1, 0, 1,
         1, 1_000_000_000_000_000_000i64, 1, 0,
     ];
-    let r = minimum_cycle::minimum_cycle(4, &w);
+    let r = graph_minimum_cycle::graph_minimum_cycle(4, &w);
     let ok = match r { Ok(v) => v, Err(()) => -1 };
     assert_eq!(ok, 4);
 }
@@ -45,7 +45,7 @@ fn test_no_cycle() {
         0, 1,
         1, 0,
     ];
-    let r = minimum_cycle::minimum_cycle(2, &w);
+    let r = graph_minimum_cycle::graph_minimum_cycle(2, &w);
     let is_err = match r { Ok(_) => false, Err(()) => true };
     assert!(is_err);
 }
@@ -59,7 +59,7 @@ fn test_cycle_with_diagonal() {
         1, 1, 0, 1,
         1, 1_000_000_000_000_000_000i64, 1, 0,
     ];
-    let r = minimum_cycle::minimum_cycle(4, &w);
+    let r = graph_minimum_cycle::graph_minimum_cycle(4, &w);
     let ok = match r { Ok(v) => v, Err(()) => -1 };
     assert_eq!(ok, 3);
 }

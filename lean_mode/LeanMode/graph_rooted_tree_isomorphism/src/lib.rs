@@ -83,7 +83,7 @@ fn sig_cmp(sig: &[usize], off: &[usize], len: &[usize], u: usize, w: usize) -> u
 /// tree isomorphism, so the roots are isomorphic iff they end up with the same
 /// label.  The subtle part of the proof is the induction that re-ranking
 /// preserves equality of the canonical forms.
-pub fn rooted_tree_isomorphism(
+pub fn graph_rooted_tree_isomorphism(
     n1: usize, parent1: &[usize], root1: usize,
     n2: usize, parent2: &[usize], root2: usize,
 ) -> bool {

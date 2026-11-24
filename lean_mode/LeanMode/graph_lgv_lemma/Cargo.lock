@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "lgv_lemma"
+name = "graph_lgv_lemma"
 version = "0.1.0"

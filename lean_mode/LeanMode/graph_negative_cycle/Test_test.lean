@@ -21,10 +21,10 @@ namespace graph_negative_cycle
 
 /- Integer types replaced with Int by autospec -/
 
-/-- [graph_negative_cycle::test_no_graph_negative_cycle]:
+/-- [graph_negative_cycle::test_no_negative_cycle]:
     Source: 'src/lib.rs', lines 82:0-96:1
     Visibility: public -/
-def test_no_graph_negative_cycle : Result Unit := do
+def test_no_negative_cycle : Result Unit := do
   let y ←
     lift (Std.Array.to_slice
       (Array.make 9#usize [
@@ -42,10 +42,10 @@ def test_no_graph_negative_cycle : Result Unit := do
   let (has_neg, _) ← graph_negative_cycle 3#usize s s1
   massert (¬ has_neg)
 
-/-- [graph_negative_cycle::test_graph_negative_cycle]:
+/-- [graph_negative_cycle::test_negative_cycle]:
     Source: 'src/lib.rs', lines 98:0-110:1
     Visibility: public -/
-def test_graph_negative_cycle : Result Unit := do
+def test_negative_cycle : Result Unit := do
   let y ←
     lift (Std.Array.to_slice (Array.make 4#usize [ 0, 1, 1, 0 ]
       : Array Int 4#usize))
@@ -113,11 +113,11 @@ def test_no_edges : Result Unit := do
   let (has_neg, _) ← graph_negative_cycle 2#usize s s1
   massert (¬ has_neg)
 
-#eval test_graph_negative_cycle
+#eval test_negative_cycle
 
 #eval test_no_edges
 
-#eval test_no_graph_negative_cycle
+#eval test_no_negative_cycle
 
 #eval test_self_loop_negative
 

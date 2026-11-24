@@ -24,7 +24,7 @@ fn idx(row: usize, n: usize, col: usize) -> usize {
 ///
 /// The equivalence "no negative cycle iff a feasible potential exists" is the
 /// LP-duality / potential argument (Johnson's technique in reverse).
-pub fn negative_cycle(n: usize, cap: &[i64], cost: &[i64]) -> (bool, Vec<i64>) {
+pub fn graph_negative_cycle(n: usize, cap: &[i64], cost: &[i64]) -> (bool, Vec<i64>) {
     let mut h: Vec<i64> = vec![0i64; n];
 
     // Bellman–Ford from a virtual super-source (every vertex has potential 0).

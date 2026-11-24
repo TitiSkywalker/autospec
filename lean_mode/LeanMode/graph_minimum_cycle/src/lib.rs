@@ -25,7 +25,7 @@ fn idx(row: usize, n: usize, col: usize) -> usize {
 /// cycle.  Every simple cycle `u₁ → … → uₘ → u₁` is "split" at its
 /// largest-indexed vertex `k` into the two edges `(i, k)`, `(k, j)` and a path
 /// `j ⇝ i` using only vertices `< k`; enumerating that split is the subtle part.
-pub fn minimum_cycle(n: usize, weight: &[i64]) -> Result<i64, ()> {
+pub fn graph_minimum_cycle(n: usize, weight: &[i64]) -> Result<i64, ()> {
     let mut dis: Vec<i64> = weight.to_vec();
     let mut best: i64 = 0;
     let mut found: bool = false;

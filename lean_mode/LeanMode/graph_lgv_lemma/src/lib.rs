@@ -90,7 +90,7 @@ fn det_int(n: usize, a: &[i64]) -> i64 {
 /// `M[i,j] = e(src[i], snk[j])` = number of (unweighted) paths from source `i`
 /// to sink `j`.  By the LGV lemma this determinant equals the signed sum over
 /// vertex-disjoint path families.
-pub fn lgv_lemma(n: usize, adj: &[i64], k: usize, src: &[usize], snk: &[usize]) -> i64 {
+pub fn graph_lgv_lemma(n: usize, adj: &[i64], k: usize, src: &[usize], snk: &[usize]) -> i64 {
     let mut e: Vec<i64> = vec![0i64; k * k];
 
     let mut s: usize = 0;

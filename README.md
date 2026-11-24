@@ -1,52 +1,48 @@
 # AutoSpec
 
-AutoSpec is a benchmark and toolchain for evaluating AI agents on **verifying
-Rust programs**. Each task is a Rust crate that has been translated to Lean 4
-with [Aeneas](https://github.com/AeneasVerif/aeneas), plus a hand-written
-specification (`Spec.lean`) whose theorems are stated with `sorry`. The agent
-has to replace every `sorry` with a proof. A separate verifier then checks the
-result with the [Comparator](comparator/) judge. A case counts as proved only
-if all three hold:
-
-1. the theorem statements are unchanged,
-2. only the standard axioms are used (no `sorry`, no new `axiom`), and
-3. the Lean kernel accepts the proof.
+AutoSpec is a benchmark and toolchain for evaluating AI agents on verifying Rust programs. Each task is a Rust crate that has been translated to Lean 4 with [Aeneas](https://github.com/AeneasVerif/aeneas), plus a hand-written
+specification. The project layout is:
 
 ```
 .
-├── lean_mode/        # the benchmark: 159 Rust → Lean cases (array, crypto, dp, ds, graph, ...)
-├── evaluation/       # run an agent on the benchmark (prover) and check its proofs (verifier)
-├── analysis/         # accuracy / tier / token-cost reports over verified runs
-├── translation/      # the Charon + Aeneas based Rust → Lean translator
-├── comparator/       # vendored Comparator proof judge
-├── aeneas/           # Aeneas submodule (pinned in toolchain.toml)
-├── scripts/          # benchmark maintenance (re-translate, build-check everything)
+├── lean_mode/        # benchmark: 159 Rust → Lean cases
+├── evaluation/       # run an agent on the benchmark
+├── analysis/         # accuracy / cost
+├── translation/      # extended Charon + Aeneas toolchain
+├── comparator/       # Comparator proof judge
+├── aeneas/           # Aeneas submodule
+├── scripts/          # benchmark maintenance
 └── utils/            # toolchain setup helpers
 ```
 
-## 1. Set up the environment
+## 1. Getting Started
 
-**Prerequisites:** Linux, Python ≥ 3.11, Git,
-[elan](https://github.com/leanprover/elan) (Lean 4), a Rust toolchain
-(`rustup`), OCaml/opam (to build Aeneas and Charon),
-[uv](https://docs.astral.sh/uv/) (for `uvx lean-lsp-mcp`), and
-[bubblewrap](https://github.com/containers/bubblewrap) (`bwrap`), which
-sandboxes the agent.
+Prerequisites: 
+- Linux, Python ≥ 3.11, Git
+- Lean 4 ([elan](https://github.com/leanprover/elan))
+- Rust ([rustup](https://rustup.rs/))
+- OCaml ([opam](https://opam.ocaml.org/))
+- [uv](https://docs.astral.sh/uv/) for Lean LSP MCP, and [bwrap](https://github.com/containers/bubblewrap) for agent sandbox
 
 ```bash
-git clone --recursive <this repo> autospec && cd autospec
+# Clone and enter project
+git clone --recursive https://github.com/TitiSkywalker/autospec.git && cd autospec 
+
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Check out and build the pinned Aeneas + Charon commits, then build the Lean
-# project (Mathlib + Aeneas backend). The first build takes a while.
-python3 utils/setup_toolchain.py --install
-python3 utils/setup_toolchain.py            # verify: should report everything OK
+# Install OCaml 5 and Aeneas dependencies
+opam switch create aeneas 5.3.0 && eval $(opam env --switch=aeneas)
+opam install calendar core_unix domainslib easy_logging menhir ocamlformat.0.27.0 ocamlgraph odoc ppx_deriving ppx_deriving_yojson progress unionFind visitors yojson zarith
+
+# Check out and build the pinned toolchain
+python3 utils/setup_toolchain.py --install  # this might take a while
+python3 utils/setup_toolchain.py            # verify: should report OK
 ```
 
-You only need the translator (`translation/`) to add or re-translate cases.
+You only need the translator inside to add or re-translate cases.
 The benchmark already ships with the generated Lean files. See
-[`lean_mode/README.md`](lean_mode/README.md) and
-[`lean_mode/TESTCASE_GUIDE.md`](lean_mode/TESTCASE_GUIDE.md) to write new cases.
+[`lean_mode/README.md`](lean_mode/README.md).
 
 Next, install the agent you want to evaluate. Four CLIs are supported:
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`),

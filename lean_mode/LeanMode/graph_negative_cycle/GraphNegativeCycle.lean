@@ -171,7 +171,8 @@ def graph_negative_cycle_loop1
   := do
   if u2 < n
   then
-    let has_neg1 ← graph_negative_cycle_loop1_loop0 n cap cost h has_neg u2 0#usize
+    let has_neg1 ←
+      graph_negative_cycle_loop1_loop0 n cap cost h has_neg u2 0#usize
     let u21 ← u2 + 1#usize
     graph_negative_cycle_loop1 n cap cost h has_neg1 u21
   else ok has_neg

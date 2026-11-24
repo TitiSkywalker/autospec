@@ -200,7 +200,8 @@ def graph_minimum_cycle
   Result (core.result.Result Int Unit)
   := do
   let dis ← alloc.slice.Slice.to_vec IntClone weight
-  let (best, found) ← graph_minimum_cycle_loop0 n weight dis 0 false 0#usize
+  let (best, found) ←
+    graph_minimum_cycle_loop0 n weight dis 0 false 0#usize
   if found
   then ok (core.result.Result.Ok best)
   else ok (core.result.Result.Err ())

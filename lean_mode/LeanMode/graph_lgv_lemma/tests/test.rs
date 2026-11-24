@@ -10,7 +10,7 @@ fn test_single_path_diamond() {
     ];
     let src = vec![0usize];
     let snk = vec![3usize];
-    let result = lgv_lemma::lgv_lemma(4, &adj, 1, &src, &snk);
+    let result = graph_lgv_lemma::graph_lgv_lemma(4, &adj, 1, &src, &snk);
     assert_eq!(result, 2);
 }
 
@@ -30,7 +30,7 @@ fn test_two_sources_cancel() {
     ];
     let src = vec![0usize, 1usize];
     let snk = vec![4usize, 5usize];
-    let result = lgv_lemma::lgv_lemma(6, &adj, 2, &src, &snk);
+    let result = graph_lgv_lemma::graph_lgv_lemma(6, &adj, 2, &src, &snk);
     assert_eq!(result, 0);
 }
 
@@ -48,6 +48,6 @@ fn test_two_sources_disjoint() {
     ];
     let src = vec![0usize, 1usize];
     let snk = vec![4usize, 5usize];
-    let result = lgv_lemma::lgv_lemma(6, &adj, 2, &src, &snk);
+    let result = graph_lgv_lemma::graph_lgv_lemma(6, &adj, 2, &src, &snk);
     assert_eq!(result, 1);
 }
