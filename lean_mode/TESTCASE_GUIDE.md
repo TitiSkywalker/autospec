@@ -271,18 +271,16 @@ cd ../../.. && ./translation/translator/target/release/translator lean_mode/Lean
 cd lean_mode && lake build LeanMode.<name>.<Crate>    # impl translation compiles
 lake build LeanMode.<name>.Spec                       # spec compiles
 python3 ../scripts/check_all.py                       # (optional) full regression
-python3 review/review.py --agent claude --only <name>  # audit the spec's *truth*
 ```
 
 All of the above prove only that things *compile* — `sorry` compiles whatever it is
-attached to.  The last step is not optional for a new testcase: `review/review.py`
-launches an agent that hunts for counterexamples to the theorems, and on the eight
-research-level graph cases it found four defective specs (two missing 0/1 hypotheses,
-one `∧`-for-`∨` in `IsAntichain`, one missing edge-endpoint range hypothesis) plus one
-genuinely broken algorithm (a matroid-intersection BFS whose source/sink tests were
-paired with the opposite matroid from its exchange arcs, so it selected self-loops).
-Re-run it after every spec fix; it writes `review/reports/<name>.md` with a
-`Verdict: PASS|FAIL|CONCERNS` line.
+attached to.  A new spec must also be audited for *truth*: look for counterexamples to
+every theorem (missing preconditions, `∧` vs `∨`, unbounded indices) before adding it.
+On the eight research-level graph cases such an audit found four defective specs (two
+missing 0/1 hypotheses, one `∧`-for-`∨` in `IsAntichain`, one missing edge-endpoint
+range hypothesis) plus one genuinely broken algorithm (a matroid-intersection BFS whose
+source/sink tests were paired with the opposite matroid from its exchange arcs, so it
+selected self-loops).
 
 ---
 
@@ -597,7 +595,7 @@ Re-run it after every spec fix; it writes `review/reports/<name>.md` with a
   scatters `rankpos[sa[j]] = j`, so a repeated/out-of-range index silently overwrites
   entries: on `s = [97, 98]`, `sa = [0, 0]` is trivially "sorted" and `lcp[0]` comes back
   `0` where the theorem claims `2`.  Add the missing `IsPerm (toNatList sa) s.length`.
-  (Found by the `review/` agent, not by compilation — `sorry` hides it.)
+  (Found by a spec audit, not by compilation — `sorry` hides it.)
 - **A validity predicate used as the hypothesis of an optimality theorem must encode
   *every* restriction of the algorithm's variant.**  `string_lz77`'s
   `IsValidFactorization` required only `offset ≤ history length`, silently allowing
