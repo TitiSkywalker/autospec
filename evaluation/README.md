@@ -172,9 +172,7 @@ runner's network. Do not expose benchmark answers over those services; use
 a separate network namespace/proxy for a stronger untrusted-host threat model.
 If running the separate verifier on adversarial agent-written Lean, set
 `[verifier] sandbox = true` with real `landrun`; the default verifier shim is
-not an isolation boundary, and legacy `lake` verification is not sandboxed.
-Check the boundary locally with
-`python -m unittest evaluation.test_isolation`.
+not an isolation boundary.
 
 **Resilience.** A non-zero agent exit that the pipeline didn't cause itself
 (timeout / `max_turns` cap) is treated as a backend failure. When `retries >
@@ -189,11 +187,11 @@ losing it. `retries = 0` (the default) disables this.
 
 ## Evaluation
 
-Each testcase is a Rust-Lean project. It contains Rust source and translated Lean source. For example, the testcase `array_binary_search` has the following structure (omitting irrelevant files):
+Each testcase is a Rust-Lean project. It contains Rust source and translated Lean source. For example, the testcase `array_merge_sort` has the following structure (omitting irrelevant files):
 
 ```
 .
-├── ArrayBinarySearch.lean
+├── ArrayMergeSort.lean
 ├── Spec.lean
 ├── Test_test.lean
 ├── src
@@ -202,7 +200,7 @@ Each testcase is a Rust-Lean project. It contains Rust source and translated Lea
     └── test.rs
 ```
 
-During evaluation, `ArrayBinarySearch.lean` and `Spec.lean` should be extracted and copied into workspace directory. This also includes fixing the imports of Lean files.
+During evaluation, `ArrayMergeSort.lean` and `Spec.lean` should be extracted and copied into workspace directory. This also includes fixing the imports of Lean files.
 
 After the agent stops, we need to check the `Spec.lean` independently to prevent agent from cheating. We collect and save the modified `Spec.lean` to another independent directory for verification.
 
