@@ -102,5 +102,4 @@ home_files = []   # e.g. [".claude.json"] to reuse an existing CLI login
 [verifier]
 worker_dir = "evaluation/local/verify_workers"
 workers = 4
-mode = "comparator"   # or "lake" (legacy sorry-grep, not cheat-proof)
 sandbox = false       # true requires a real `landrun` binary on PATH

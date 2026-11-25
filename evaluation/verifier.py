@@ -1,11 +1,9 @@
 """
 Independent proof verification.
 
-Two verification modes are selected by ``[verifier] mode``:
-
-``comparator`` (default) — set up a ``Challenge.lean`` (the original benchmark
-spec, ``sorry`` intact) and a ``Solution.lean`` (the agent's output) in each
-workspace and run the Comparator trustworthy judge. Comparator proves that the
+Each workspace gets a ``Challenge.lean`` (the original benchmark spec,
+``sorry`` intact) and a ``Solution.lean`` (the agent's output), and the
+Comparator trustworthy judge is run on them. Comparator proves that the
 solution (1) states the exact same theorems, (2) uses only the permitted axioms
 (no leftover ``sorry``, no injected ``axiom``), and (3) is accepted by the Lean
 kernel. Verdicts:
@@ -15,9 +13,6 @@ kernel. Verdicts:
 * ``BUILD_FAIL``  — ``lake build Solution`` (or export) fails.
 * ``CHEAT``       — statement mismatch / injected axiom / missing theorem.
 * ``KERNEL_FAIL`` — the Lean kernel rejects the proof.
-
-``lake`` (legacy) — compile ``Spec.lean`` with ``lake build`` and grep for
-``sorry``/``admit``. Faster, but gamed by statement-weakening or axiom injection.
 
 Usage::
 
@@ -39,7 +34,6 @@ from evaluation.logger import configure, get_logger
 from evaluation.progress import StatusBoard
 from evaluation.workspace import LIB, create_workspace
 
-_SORRY_RE = re.compile(r"\b(sorry|admit)\b")
 # Original benchmark specs import their per-case aeneas module (e.g.
 # ``import LeanMode.foo.Bar``); in the workspace that translation lives at
 # ``RustVerif.Function``.
@@ -58,15 +52,6 @@ _LINE_COMMENT = re.compile(r"--[^\n]*")
 _PERMITTED_AXIOMS = ["propext", "Quot.sound", "Classical.choice"]
 
 _VERDICTS = ("PROVED", "UNPROVED", "BUILD_FAIL", "CHEAT", "KERNEL_FAIL")
-
-
-def _classify_lake(returncode: int, spec: str) -> str:
-    """Legacy verdict from ``lake build`` + a ``sorry``/``admit`` grep."""
-    if returncode != 0:
-        return "BUILD_FAIL"
-    if _SORRY_RE.search(spec):
-        return "UNPROVED"
-    return "PROVED"
 
 
 def _classify_comparator(returncode: int, output: str) -> str:
@@ -136,22 +121,10 @@ def _declarations(src: str) -> list[str]:
     return names
 
 
-def _verify_lake(ws: Path, lib: Path, func: str, spec: str) -> tuple[str, str]:
-    """Legacy mode: compile the spec and grep for ``sorry``."""
-    (lib / "Function.lean").write_text(func)
-    (lib / "Spec.lean").write_text(spec)
-    result = subprocess.run(
-        ["lake", "build"], cwd=ws, capture_output=True, text=True
-    )
-    output = (result.stdout or "") + (result.stderr or "")
-    tail = "\n".join(output.splitlines()[-100:])
-    return _classify_lake(result.returncode, spec), tail
-
-
 def _verify_comparator(
     ws: Path, lib: Path, func: str, spec: str, challenge: str, sandbox: bool
 ) -> tuple[str, str]:
-    """Comparator mode: prove the agent's ``Solution`` matches the ``Challenge``."""
+    """Run Comparator to check the agent's ``Solution`` against the ``Challenge``."""
     (lib / "Function.lean").write_text(func)
     (ws / "Challenge.lean").write_text(challenge)
     (ws / "Solution.lean").write_text(spec)
@@ -194,7 +167,6 @@ def _worker(
     base_dir: Path,
     worker_dir: Path,
     index: int,
-    mode: str,
     sandbox: bool,
     in_q: Queue,
     out_q: Queue,
@@ -217,10 +189,7 @@ def _worker(
             break
         name, func, spec, challenge = case
         out_q.put(("progress", index, f"{name} · verifying..."))
-        if mode == "comparator" and challenge is not None:
-            verdict, tail = _verify_comparator(ws, lib, func, spec, challenge, sandbox)
-        else:
-            verdict, tail = _verify_lake(ws, lib, func, spec)
+        verdict, tail = _verify_comparator(ws, lib, func, spec, challenge, sandbox)
         out_q.put(("result", index, name, verdict, tail))
     shutil.rmtree(ws, ignore_errors=True)
 
@@ -250,7 +219,6 @@ class Verifier:
                     self.config.base_dir,
                     self.config.verifier.worker_dir,
                     i,
-                    self.config.verifier.mode,
                     self.config.verifier.sandbox,
                     self.in_q,
                     self.out_q,
@@ -295,11 +263,12 @@ class Verifier:
             shutil.rmtree(c.worker_dir)
         c.worker_dir.mkdir(parents=True, exist_ok=True)
 
-    def _scan(self) -> list[tuple[str, str, str, str | None]]:
+    def _scan(self) -> list[tuple[str, str, str, str]]:
         """Every ``<case>/`` with both a Function.lean and a Spec.lean.
 
         Returns ``(name, func, spec, challenge)`` where ``challenge`` is the
-        original benchmark spec (``None`` if ``input_dir`` has no such case).
+        original benchmark spec. Cases missing from ``input_dir`` are skipped,
+        since there is nothing to check them against.
         """
         out = self.config.output_dir
         if not out.is_dir():
@@ -311,8 +280,13 @@ class Verifier:
             if self.config.verifier.resume and (d / "verdict.txt").is_file():
                 continue
             func, spec = d / "Function.lean", d / "Spec.lean"
-            if func.is_file() and spec.is_file():
-                cases.append((d.name, func.read_text(), spec.read_text(), self._challenge(d.name)))
+            if not (func.is_file() and spec.is_file()):
+                continue
+            challenge = self._challenge(d.name)
+            if challenge is None:
+                self.logger.warning(f"{d.name}: not in {self.config.input_dir}, skipped")
+                continue
+            cases.append((d.name, func.read_text(), spec.read_text(), challenge))
         return cases
 
     def _challenge(self, name: str) -> str | None:
@@ -344,7 +318,6 @@ class Verifier:
             cases.append({"name": name, "verdict": verdict})
         meta = {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
-            "mode": c.mode,
             "sandbox": c.sandbox,
             "permitted_axioms": _PERMITTED_AXIOMS,
             "input_dir": str(self.config.input_dir),
