@@ -4,9 +4,8 @@ A *run* is one verified results directory (``[prover] output_dir`` after
 ``python -m evaluation.verifier``): one sub-directory per testcase holding the
 agent's ``Spec.lean``, ``verdict.txt`` and, optionally, its ``trace/``.
 
-Runs are given on the command line, either one by one (``--run LABEL=DIR``)
-or as a parent directory whose sub-directories are runs (``--runs-dir DIR``,
-labelled by directory name).
+On the command line each run is given as a run directory, as ``LABEL=DIR`` to
+choose its label, or as a parent directory whose sub-directories are runs.
 """
 
 from __future__ import annotations
@@ -31,24 +30,30 @@ def _looks_like_run(d: Path) -> bool:
                for c in d.iterdir() if c.is_dir())
 
 
-def parse_runs(specs: list[str], runs_dir: str | None) -> dict[str, Path]:
-    """``--run LABEL=DIR`` specs (``DIR`` alone uses its basename as label)
-    plus every run under ``runs_dir``, in that order."""
+def parse_runs(specs: list[str]) -> dict[str, Path]:
+    """Map labels to run directories, in the order given.
+
+    Each spec is ``DIR`` (labelled by its name), ``LABEL=DIR``, or a parent
+    directory of runs (each sub-directory labelled by its name). Raises
+    ``ValueError`` with a readable message for a bad spec.
+    """
     runs: dict[str, Path] = {}
     for spec in specs:
-        label, sep, path = spec.partition("=")
-        if not sep:
-            label, path = Path(spec).name, spec
-        runs[label] = Path(path).resolve()
-    if runs_dir:
-        for d in sorted(Path(runs_dir).iterdir()):
-            if d.is_dir() and _looks_like_run(d):
-                runs.setdefault(d.name, d.resolve())
-    for label, path in runs.items():
+        label, sep, path_str = spec.partition("=")
+        path = Path(path_str if sep else spec)
         if not path.is_dir():
-            raise SystemExit(f"run {label!r}: {path} is not a directory")
-    if not runs:
-        raise SystemExit("no runs given: pass --run LABEL=DIR and/or --runs-dir DIR")
+            raise ValueError(f"{path} is not a directory")
+        if sep:
+            runs[label] = path.resolve()
+        elif _looks_like_run(path):
+            runs[path.resolve().name] = path.resolve()
+        else:
+            found = [d for d in sorted(path.iterdir()) if d.is_dir() and _looks_like_run(d)]
+            if not found:
+                raise ValueError(f"{path} is neither a run nor a directory of runs "
+                                 "(no case folder with a verdict.txt or Spec.lean)")
+            for d in found:
+                runs.setdefault(d.name, d.resolve())
     return runs
 
 

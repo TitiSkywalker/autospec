@@ -2,6 +2,8 @@
 
 AutoSpec is a benchmark and toolchain for verifying Rust programs with AI agents. It translates Rust code into Lean 4 using [Charon](https://github.com/AeneasVerif/charon) and [Aeneas](https://github.com/AeneasVerif/aeneas), and pairs each translation with a hand-written specification. 
 
+The project is organized as follows:
+
 ```
 .
 ├── translation/      # Rust → Lean translator
@@ -15,6 +17,7 @@ AutoSpec is a benchmark and toolchain for verifying Rust programs with AI agents
 
 ## Leaderboard
 
+Every agent had 100 tool calls per case (Leanstral-1.5 up to 400).
 
 | Model | Agent | Beginner | Advanced | Overall |
 |---|---|---:|---:|---:|
@@ -26,8 +29,6 @@ AutoSpec is a benchmark and toolchain for verifying Rust programs with AI agents
 | Kimi-K3 | Claude Code | 10.8% | 0.0% | 6.3% |
 | Claude Opus 4.5 | Claude Code | 6.5% | 0.0% | 3.8% |
 | Leanstral-1.5 | Mistral Vibe | 4.3% | 0.0% | 2.5% |
-
-Every agent had 100 tool calls per case (Leanstral-1.5 up to 400 turns).
 
 ## Setup
 Prerequisites: 
@@ -61,13 +62,11 @@ Our translation toolchain can be applied to any Cargo crate:
 translation/translator/target/release/translator path/to/my_crate
 ```
 
-This writes MyCrate.lean next to the crate's Cargo.toml, and translates tests/test.rs into Test_test.lean if it exists.
-
-Feel free to translate your own Rust functions! See [translation/README.md](translation/README.md) for how numbers are represented and which Rust features are supported.
+This writes MyCrate.lean next to the crate's Cargo.toml, and translates tests/test.rs into Test_test.lean if it exists. Feel free to translate your own Rust functions! See [translation/README.md](translation/README.md) for how numbers are represented and which Rust features are supported.
 
 ## The benchmark
 
-Inside `lean_mode/LeanMode/` we provide 159 cases across nine categories: arrays, cryptography, dynamic programming, data structures, graphs, integers, matrices, strings, and tensors. Each case is a Rust crate plus its translation and a Spec.lean whose theorems are left as `sorry`:
+We provide 159 cases across nine categories: arrays, cryptography, dynamic programming, data structures, graphs, integers, matrices, strings, and tensors. Each case is a Rust crate plus its translation and a Spec.lean whose theorems are left as sorry:
 
 ```
 array_merge_sort/
@@ -88,25 +87,27 @@ python3 scripts/check_all.py
 
 The pipeline supports Claude Code, Codex, Mistral Vibe and the DeepSeek Harness. Each agent works in its own sandboxed Lean workspace with a [lean-lsp-mcp](https://github.com/oOo0oOo/lean-lsp-mcp) server for feedback. 
 
-Start from the example config:
+We should start from setting up a config file:
 
 ```bash
 mkdir -p evaluation/local
 cp evaluation/config.example.toml evaluation/local/config.toml
 ```
 
-Pick a backend, set the model and credentials, and list the paths your agent CLI and Lean toolchain need inside the sandbox:
+Inside the configuration, you could pick a harness backend, set the model and credentials, and list the paths your Lean toolchain need inside the sandbox:
 
 ```toml
 [prover]
-input_dir = "lean_mode/LeanMode"       # cases to prove
+input_dir = "lean_mode/LeanMode" 
 output_dir = "results/my-agent"
 backend = "claude"                     # claude | codex | vibe | dsh
 
 [prover.agent.claude]
 model = "claude-opus-5-5"
+base_url = "" 
+api_key = ""
 max_turns = 100
-timeout = 7200                         # seconds per case
+timeout = 7200
 
 [prover.sandbox]
 ro_paths = ["/home/YOU/.elan", "/home/YOU/.local/bin"]
@@ -119,15 +120,14 @@ python -m evaluation.manager  --config evaluation/local/config.toml
 python -m evaluation.verifier --config evaluation/local/config.toml
 ```
 
-The verifier uses the Comparator judge, which checks that the theorem statements are unchanged, that no `sorry` or extra axioms remain, and that the Lean kernel accepts the proof.  See [`evaluation/README.md`](evaluation/README.md) for backend options, retries, and sandbox details.
+The verifier uses the Comparator judge, which checks that the theorem statements are unchanged, that no sorry or extra axioms remain, and that the Lean kernel accepts the proof. See [`evaluation/README.md`](evaluation/README.md) for backend options, retries, and sandbox details.
 
 ## Analyzing the results
 
-Summarize one or more verified runs with:
+Summarize the verified runs with:
 
 ```bash
-python3 -m analysis --run my-agent=results/my-agent      # one run
-python3 -m analysis --runs-dir results/                  # compare every run in results/
+python3 -m analysis results/my-agent
 ```
 
 See [analysis/README.md](analysis/README.md) for the available reports and options.
